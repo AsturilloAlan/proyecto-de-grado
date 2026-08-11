@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block title %}Inicio{% endblock %}
+{% block content %}
+    <h1>Bienvenido, {{ user.username }}</h1>
+    <p>
+        Este es el punto de partida del sistema. Desde aquí se habilitarán,
+        en las siguientes iteraciones, la carga de registros contables,
+        el análisis de transacciones atípicas y la generación de reportes.
+    </p>
+{% endblock %}
