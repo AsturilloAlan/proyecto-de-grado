@@ -83,6 +83,10 @@ USE_TZ = True
 STATIC_URL = "static/"
 STATICFILES_DIRS = [BASE_DIR / "static"]
 
+# Archivos cargados por los usuarios (ej. archivos de registros contables, RF-01)
+MEDIA_URL = "media/"
+MEDIA_ROOT = BASE_DIR / "media"
+
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 # Autenticación (RF-07: gestión de usuarios)

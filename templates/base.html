@@ -6,14 +6,23 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Sistema de Auditoría{% endblock %}</title>
     <style>
-        body { font-family: Arial, sans-serif; margin: 0; background: #f4f5f7; color: #1f2933; }
-        header { background: #10233e; color: white; padding: 1rem 2rem; display: flex; justify-content: space-between; align-items: center; }
+        :root {
+            --guindo: #6E1B3F;
+            --guindo-oscuro: #4A1129;
+            --lavanda-claro: #F3EAF1;
+        }
+        body { font-family: Arial, sans-serif; margin: 0; background: var(--lavanda-claro); color: #1f2933; }
+        header { background: var(--guindo); color: white; padding: 1rem 2rem; display: flex; justify-content: space-between; align-items: center; }
         header a { color: white; text-decoration: none; }
-        main { max-width: 900px; margin: 2rem auto; background: white; padding: 2rem; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
-        .btn { background: #10233e; color: white; padding: 0.5rem 1.2rem; border: none; border-radius: 4px; cursor: pointer; text-decoration: none; display: inline-block; }
+        header a:hover { text-decoration: underline; }
+        main { max-width: 900px; margin: 2rem auto; background: white; padding: 2rem; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); border-top: 4px solid var(--guindo); }
+        h1 { color: var(--guindo-oscuro); }
+        .btn { background: var(--guindo); color: white; padding: 0.5rem 1.2rem; border: none; border-radius: 4px; cursor: pointer; text-decoration: none; display: inline-block; }
+        .btn:hover { background: var(--guindo-oscuro); }
         .errorlist { color: #b00020; }
         label { display: block; margin-top: 1rem; }
-        input[type=text], input[type=password] { padding: 0.5rem; width: 100%; box-sizing: border-box; }
+        input[type=text], input[type=password] { padding: 0.5rem; width: 100%; box-sizing: border-box; border: 1px solid #cfc3ca; border-radius: 4px; }
+        input[type=text]:focus, input[type=password]:focus { outline: none; border-color: var(--guindo); }
     </style>
 </head>
 <body>
