@@ -6,7 +6,7 @@ Proyecto de grado — sistema web que aplica Machine Learning (Isolation Forest)
 
 - Backend: Python + Django
 - Análisis de datos / ML: pandas, scikit-learn (Isolation Forest)
-- Base de datos: SQLite en desarrollo (se evaluará PostgreSQL para volúmenes reales)
+- Base de datos: MySQL (vía XAMPP en desarrollo local)
 
 ## Estructura
 
@@ -25,18 +25,28 @@ venv\Scripts\activate        # Windows
 
 # 2. Instalar dependencias
 pip install -r requirements.txt
+```
 
-# 3. Aplicar migraciones
+**3. Crear la base de datos en MySQL (XAMPP):**
+
+1. Abre el Panel de Control de XAMPP y arranca el módulo **MySQL** (no necesitas Apache).
+2. Entra a phpMyAdmin: `http://localhost/phpmyadmin`.
+3. Pestaña **Bases de datos** → nombre `auditoria_db` → cotejamiento `utf8mb4_general_ci` → Crear.
+
+Por defecto el proyecto usa usuario `root` sin contraseña (lo que trae XAMPP de fábrica). Si tu MySQL tiene otra configuración, define estas variables de entorno antes de correr los comandos: `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `DB_HOST`, `DB_PORT`.
+
+```bash
+# 4. Aplicar migraciones (con MySQL de XAMPP ya corriendo)
 python manage.py migrate
 
-# 4. Crear un usuario administrador (para poder iniciar sesión)
+# 5. Crear un usuario administrador (para poder iniciar sesión)
 python manage.py createsuperuser
 
-# 5. Correr el servidor
+# 6. Correr el servidor
 python manage.py runserver
 ```
 
-Luego abre `http://127.0.0.1:8000/` e inicia sesión con el usuario creado en el paso 4.
+Luego abre `http://127.0.0.1:8000/` e inicia sesión con el usuario creado en el paso 5.
 
 ## Estado actual
 

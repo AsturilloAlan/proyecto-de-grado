@@ -2,6 +2,7 @@
 Configuración del proyecto: Sistema de apoyo a la auditoría externa
 (detección de transacciones atípicas con Machine Learning).
 """
+import os
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -58,13 +59,21 @@ TEMPLATES = [
 
 WSGI_APPLICATION = "config.wsgi.application"
 
-# Base de datos: SQLite para desarrollo local.
-# Se migrará a PostgreSQL cuando se trabaje con volúmenes reales de datos
-# (ver Requerimiento No Funcional RNF-02).
+# Base de datos: MySQL (servida localmente vía XAMPP durante el desarrollo).
+# Crea la base "auditoria_db" en phpMyAdmin antes de correr las migraciones
+# (ver instrucciones en el README). Los valores por defecto (usuario root,
+# sin contraseña) son los que trae XAMPP de fábrica.
 DATABASES = {
     "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
+        "ENGINE": "django.db.backends.mysql",
+        "NAME": os.environ.get("DB_NAME", "auditoria_db"),
+        "USER": os.environ.get("DB_USER", "root"),
+        "PASSWORD": os.environ.get("DB_PASSWORD", ""),
+        "HOST": os.environ.get("DB_HOST", "127.0.0.1"),
+        "PORT": os.environ.get("DB_PORT", "3306"),
+        "OPTIONS": {
+            "charset": "utf8mb4",
+        },
     }
 }
 
