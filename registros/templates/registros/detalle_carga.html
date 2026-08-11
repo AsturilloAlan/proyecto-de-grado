@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}Detalle de carga #{{ carga.id }}{% endblock %}
+{% block content %}
+    <h1>Carga #{{ carga.id }}</h1>
+    <p>
+        <strong>Empresa:</strong> {{ carga.empresa }}<br>
+        <strong>Gestión:</strong> {{ carga.gestion }}<br>
+        <strong>Estado:</strong> {{ carga.get_estado_display }}<br>
+        <strong>Total de filas procesadas:</strong> {{ carga.total_registros }}<br>
+        <strong>Registros válidos:</strong> {{ carga.registros_validos }}<br>
+        <strong>Registros con error:</strong> {{ carga.registros_con_error }}
+    </p>
+
+    {% if errores %}
+        <h2>Errores de validación</h2>
+        <table style="width:100%; border-collapse: collapse;">
+            <thead>
+                <tr style="text-align:left; border-bottom: 2px solid #eee;">
+                    <th>Fila</th>
+                    <th>Campo</th>
+                    <th>Descripción</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for error in errores %}
+                <tr style="border-bottom: 1px solid #eee;">
+                    <td>{{ error.fila }}</td>
+                    <td>{{ error.campo }}</td>
+                    <td>{{ error.descripcion }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% else %}
+        <p>No se registraron errores de validación en esta carga.</p>
+    {% endif %}
+
+    <p style="margin-top:1.5rem;"><a href="{% url 'registros:cargar' %}">&larr; Cargar otro archivo</a></p>
+{% endblock %}

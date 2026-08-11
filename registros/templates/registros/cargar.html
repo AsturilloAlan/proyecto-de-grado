@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block title %}Cargar registros contables{% endblock %}
+{% block content %}
+    <h1>Cargar registros contables</h1>
+    <p>Sube el archivo del libro mayor o libro diario (formato .xlsx, .xls o .csv).</p>
+
+    <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        {{ form.non_field_errors }}
+
+        <label for="{{ form.empresa.id_for_label }}">{{ form.empresa.label }}</label>
+        {{ form.empresa }}
+        {{ form.empresa.errors }}
+
+        <label for="{{ form.gestion.id_for_label }}">{{ form.gestion.label }}</label>
+        {{ form.gestion }}
+        {{ form.gestion.errors }}
+
+        <label for="{{ form.archivo.id_for_label }}">{{ form.archivo.label }}</label>
+        {{ form.archivo }}
+        {{ form.archivo.errors }}
+
+        <p><button class="btn" type="submit">Cargar y validar</button></p>
+    </form>
+
+    {% if not form.fields.empresa.queryset.exists or not form.fields.gestion.queryset.exists %}
+        <p style="color:#b00020;">
+            Aún no hay empresas o gestiones registradas. Crea al menos una desde
+            <a href="/admin/registros/empresaauditada/add/">el panel de administración</a>
+            antes de cargar un archivo.
+        </p>
+    {% endif %}
+
+    <h2 style="margin-top:2rem;">Cargas anteriores</h2>
+    {% if cargas_anteriores %}
+        <table style="width:100%; border-collapse: collapse;">
+            <thead>
+                <tr style="text-align:left; border-bottom: 2px solid #eee;">
+                    <th>Fecha</th>
+                    <th>Empresa</th>
+                    <th>Gestión</th>
+                    <th>Estado</th>
+                    <th>Total / Válidos / Con error</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for carga in cargas_anteriores %}
+                <tr style="border-bottom: 1px solid #eee;">
+                    <td>{{ carga.fecha_carga|date:"d/m/Y H:i" }}</td>
+                    <td>{{ carga.empresa }}</td>
+                    <td>{{ carga.gestion }}</td>
+                    <td>{{ carga.get_estado_display }}</td>
+                    <td>
+                        <a href="{% url 'registros:detalle_carga' carga.id %}">
+                            {{ carga.total_registros }} / {{ carga.registros_validos }} / {{ carga.registros_con_error }}
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% else %}
+        <p>Todavía no se ha cargado ningún archivo.</p>
+    {% endif %}
+{% endblock %}
