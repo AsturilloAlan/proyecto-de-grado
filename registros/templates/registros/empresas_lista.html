@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block title %}Empresas clientes{% endblock %}
+{% block content %}
+    <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+        <h1 class="text-guindo mb-0">Empresas clientes de ST&amp;S</h1>
+        <a class="btn btn-guindo" href="{% url 'registros:empresa_crear' %}">
+            <i class="bi bi-plus-lg"></i> Registrar nueva empresa
+        </a>
+    </div>
+
+    <form method="get" class="row g-2 mb-3">
+        <div class="col-sm-8 col-md-5">
+            <div class="input-group">
+                <span class="input-group-text bg-transparent"><i class="bi bi-search"></i></span>
+                <input type="text" name="q" value="{{ busqueda }}" class="form-control"
+                       placeholder="Buscar por nombre o NIT...">
+                {% if busqueda %}
+                    <a href="{% url 'registros:empresas_lista' %}" class="btn btn-outline-secondary">
+                        <i class="bi bi-x-lg"></i>
+                    </a>
+                {% endif %}
+                <button class="btn btn-outline-guindo" type="submit">Buscar</button>
+            </div>
+        </div>
+    </form>
+
+    {% if empresas %}
+        <div class="table-responsive">
+            <table class="table table-hover align-middle">
+                <thead>
+                    <tr>
+                        <th>Nombre</th>
+                        <th>NIT</th>
+                        <th>Rubro</th>
+                        <th>Contacto</th>
+                        <th>Registrada</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for empresa in empresas %}
+                    <tr>
+                        <td>{{ empresa.nombre }}</td>
+                        <td>{{ empresa.nit|default:"—" }}</td>
+                        <td>{{ empresa.rubro|default:"—" }}</td>
+                        <td>
+                            {% if empresa.contacto_nombre %}
+                                {{ empresa.contacto_nombre }}<br>
+                                <small class="text-secondary">{{ empresa.contacto_email }} {{ empresa.contacto_telefono }}</small>
+                            {% else %}—{% endif %}
+                        </td>
+                        <td>{{ empresa.fecha_registro|date:"d/m/Y" }}</td>
+                        <td>
+                            <a class="btn btn-sm btn-outline-guindo" href="{% url 'registros:empresa_editar' empresa.id %}">
+                                <i class="bi bi-pencil"></i> Editar
+                            </a>
+                            <a class="btn btn-sm btn-outline-secondary" href="{% url 'registros:empresa_historial' empresa.id %}">
+                                <i class="bi bi-clock-history"></i> Historial
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% include "_paginacion.html" with pagina_obj=empresas %}
+    {% elif busqueda %}
+        <p class="text-secondary">No se encontraron empresas para "{{ busqueda }}".</p>
+    {% else %}
+        <p class="text-secondary">Todavía no hay empresas registradas.</p>
+    {% endif %}
+{% endblock %}

@@ -1,13 +1,110 @@
 {% extends "base.html" %}
 {% block title %}Inicio{% endblock %}
 {% block content %}
-    <h1>Bienvenido, {{ user.username }}</h1>
-    <p>
-        Este es el punto de partida del sistema. Desde aquí se habilitarán,
-        en las siguientes iteraciones, la carga de registros contables,
-        el análisis de transacciones atípicas y la generación de reportes.
-    </p>
-    <p>
-        <a class="btn" href="{% url 'registros:cargar' %}">Cargar registros contables</a>
-    </p>
+    <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3">
+        <div>
+            <h1 class="text-guindo mb-1">Bienvenido, {{ user.username }}</h1>
+            <p class="text-secondary mb-0">
+                Panel de <strong>ST&amp;S Auditores y Consultores S.R.L.</strong>
+                — apoyo a la auditoría externa.
+            </p>
+        </div>
+        <span class="badge {% if es_administrador %}text-bg-dark{% else %}text-bg-secondary{% endif %} align-self-center">
+            {% if es_administrador %}Administrador{% else %}Auditor{% endif %}
+        </span>
+    </div>
+
+    <div class="row g-3 mb-4">
+        <div class="col-sm-6 col-lg-4">
+            <div class="p-3 rounded border h-100">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="rounded-circle d-flex align-items-center justify-content-center"
+                         style="width:48px;height:48px;background:var(--guindo);color:#fff;">
+                        <i class="bi bi-building fs-5"></i>
+                    </div>
+                    <div>
+                        <div class="fs-4 fw-bold">{{ total_empresas }}</div>
+                        <div class="text-secondary small">Empresas registradas</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-sm-6 col-lg-4">
+            <div class="p-3 rounded border h-100">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="rounded-circle d-flex align-items-center justify-content-center"
+                         style="width:48px;height:48px;background:var(--guindo);color:#fff;">
+                        <i class="bi bi-cloud-upload fs-5"></i>
+                    </div>
+                    <div>
+                        <div class="fs-4 fw-bold">{{ total_cargas }}</div>
+                        <div class="text-secondary small">Cargas realizadas</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-sm-6 col-lg-4">
+            <div class="p-3 rounded border h-100">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="rounded-circle d-flex align-items-center justify-content-center"
+                         style="width:48px;height:48px;background:{% if cargas_con_errores %}#b00020{% else %}var(--guindo){% endif %};color:#fff;">
+                        <i class="bi bi-exclamation-triangle fs-5"></i>
+                    </div>
+                    <div>
+                        <div class="fs-4 fw-bold">{{ cargas_con_errores }}</div>
+                        <div class="text-secondary small">Cargas con errores</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="d-flex flex-wrap gap-2 mb-4">
+        <a class="btn btn-guindo" href="{% url 'registros:cargar' %}">
+            <i class="bi bi-upload"></i> Cargar registros contables
+        </a>
+        {% if es_administrador %}
+            <a class="btn btn-outline-guindo" href="{% url 'registros:empresas_lista' %}">
+                <i class="bi bi-building"></i> Gestionar empresas clientes
+            </a>
+        {% endif %}
+    </div>
+
+    <h2 class="h5 text-guindo">Últimas cargas</h2>
+    {% if ultimas_cargas %}
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th>Fecha</th>
+                        <th>Empresa</th>
+                        <th>Gestión</th>
+                        <th>Subido por</th>
+                        <th>Estado</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for carga in ultimas_cargas %}
+                    <tr>
+                        <td>{{ carga.fecha_carga|date:"d/m/Y H:i" }}</td>
+                        <td>{{ carga.empresa }}</td>
+                        <td>{{ carga.gestion }}</td>
+                        <td>{{ carga.usuario.username }}</td>
+                        <td>
+                            <span class="badge {% if carga.estado == 'validado' %}text-bg-success{% elif carga.estado == 'con_errores' %}text-bg-danger{% else %}text-bg-secondary{% endif %}">
+                                {{ carga.get_estado_display }}
+                            </span>
+                        </td>
+                        <td>
+                            <a href="{% url 'registros:detalle_carga' carga.id %}">Ver detalle</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% else %}
+        <p class="text-secondary">Todavía no se ha cargado ningún archivo.</p>
+    {% endif %}
 {% endblock %}

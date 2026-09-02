@@ -18,10 +18,22 @@ class EmpresaAuditada(models.Model):
 
     nombre = models.CharField(max_length=200)
     nit = models.CharField("NIT", max_length=30, blank=True)
+    rubro = models.CharField(
+        "Rubro / sector económico",
+        max_length=150,
+        blank=True,
+        help_text="Ayuda a interpretar mejor los resultados del análisis, "
+        "ya que el comportamiento contable normal varía según el rubro.",
+    )
+    contacto_nombre = models.CharField("Nombre del contacto", max_length=150, blank=True)
+    contacto_email = models.EmailField("Correo del contacto", blank=True)
+    contacto_telefono = models.CharField("Teléfono del contacto", max_length=30, blank=True)
+    fecha_registro = models.DateTimeField("Fecha de registro", auto_now_add=True)
 
     class Meta:
         verbose_name = "Empresa Auditada"
         verbose_name_plural = "Empresas Auditadas"
+        ordering = ["nombre"]
 
     def __str__(self):
         return self.nombre
@@ -146,12 +158,65 @@ class RegistroContable(models.Model):
         return f"{self.fecha} - {self.cuenta} - D:{self.debe} H:{self.haber}"
 
 
+class HistorialCambio(models.Model):
+    """Pista de auditoría: deja constancia de cada creación o edición sobre
+    información sensible del sistema (por ahora, empresas auditadas).
+
+    No se sobrescribe nunca — cada cambio agrega una fila nueva, campo por
+    campo, para poder reconstruir después quién modificó qué, cuándo y con
+    qué valor anterior. Es un control interno básico esperable en un
+    sistema de apoyo a auditoría.
+    """
+
+    ACCION_CHOICES = [
+        ("creacion", "Creación"),
+        ("edicion", "Edición"),
+    ]
+
+    modelo = models.CharField(
+        max_length=100, help_text="Nombre del modelo afectado, ej. EmpresaAuditada."
+    )
+    objeto_id = models.PositiveIntegerField()
+    objeto_descripcion = models.CharField(
+        max_length=200,
+        blank=True,
+        help_text="Representación legible del objeto al momento del cambio.",
+    )
+    accion = models.CharField(max_length=20, choices=ACCION_CHOICES)
+    campo = models.CharField(max_length=100, blank=True)
+    valor_anterior = models.TextField(blank=True)
+    valor_nuevo = models.TextField(blank=True)
+    usuario = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="cambios_realizados",
+    )
+    fecha = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Historial de Cambio"
+        verbose_name_plural = "Historial de Cambios"
+        ordering = ["-fecha"]
+
+    def __str__(self):
+        return f"{self.modelo} #{self.objeto_id} - {self.get_accion_display()} ({self.fecha:%d/%m/%Y %H:%M})"
+
+
 class ErrorValidacion(models.Model):
-    """Inconsistencia detectada durante la validación de una carga (RF-02).
+    """Inconsistencia o aviso detectado durante la validación de una carga
+    (RF-02).
 
     Permite dejar constancia de qué filas del archivo original fallaron
-    y por qué, en vez de descartarlas sin rastro.
+    y por qué, en vez de descartarlas sin rastro. También se usa para
+    avisos informativos que no rechazan la fila (ej. una cuenta contable
+    que no existía y se creó automáticamente) — el campo `tipo` distingue
+    ambos casos para no mostrarlos igual en la interfaz.
     """
+
+    TIPO_CHOICES = [
+        ("error", "Error"),
+        ("aviso", "Aviso"),
+    ]
 
     carga = models.ForeignKey(
         CargaArchivo, on_delete=models.CASCADE, related_name="errores"
@@ -159,6 +224,7 @@ class ErrorValidacion(models.Model):
     fila = models.PositiveIntegerField()
     campo = models.CharField(max_length=100, blank=True)
     descripcion = models.CharField(max_length=300)
+    tipo = models.CharField(max_length=10, choices=TIPO_CHOICES, default="error")
 
     class Meta:
         verbose_name = "Error de Validación"

@@ -1,0 +1,41 @@
+{% comment %}
+Control de paginación reutilizable. Requiere en el contexto una
+variable `page_obj`-compatible (lo que devuelve `Paginator.get_page`)
+bajo el nombre que se le pase, y usa el parámetro GET `pagina`.
+Uso: {% include "_paginacion.html" with pagina_obj=empresas %}
+
+Importante: `previous_page_number` / `next_page_number` de Django
+*lanzan* `EmptyPage` cuando no existen (no devuelven `None`), así que
+NO se pueden llamar sin antes comprobar `has_previous`/`has_next` — de
+lo contrario se rompe el render completo de la página en el primer o
+último resultado.
+{% endcomment %}
+{% if pagina_obj.paginator.num_pages > 1 %}
+<nav aria-label="Paginación" class="mt-3">
+    <ul class="pagination pagination-sm mb-0">
+        <li class="page-item {% if not pagina_obj.has_previous %}disabled{% endif %}">
+            {% if pagina_obj.has_previous %}
+                <a class="page-link" href="?{% if busqueda %}q={{ busqueda }}&{% endif %}pagina={{ pagina_obj.previous_page_number }}">
+                    <i class="bi bi-chevron-left"></i>
+                </a>
+            {% else %}
+                <span class="page-link"><i class="bi bi-chevron-left"></i></span>
+            {% endif %}
+        </li>
+        {% for numero in pagina_obj.paginator.page_range %}
+            <li class="page-item {% if numero == pagina_obj.number %}active{% endif %}">
+                <a class="page-link" href="?{% if busqueda %}q={{ busqueda }}&{% endif %}pagina={{ numero }}">{{ numero }}</a>
+            </li>
+        {% endfor %}
+        <li class="page-item {% if not pagina_obj.has_next %}disabled{% endif %}">
+            {% if pagina_obj.has_next %}
+                <a class="page-link" href="?{% if busqueda %}q={{ busqueda }}&{% endif %}pagina={{ pagina_obj.next_page_number }}">
+                    <i class="bi bi-chevron-right"></i>
+                </a>
+            {% else %}
+                <span class="page-link"><i class="bi bi-chevron-right"></i></span>
+            {% endif %}
+        </li>
+    </ul>
+</nav>
+{% endif %}

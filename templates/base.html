@@ -1,39 +1,251 @@
 <!DOCTYPE html>
 {% load static %}
-<html lang="es">
+<html lang="es" data-bs-theme="light">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}Sistema de Auditoría{% endblock %}</title>
+    <title>{% block title %}Sistema de Auditoría{% endblock %} · ST&amp;S</title>
+    <link rel="icon" type="image/png" href="{% static 'img/logo-sts.png' %}">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+    <script>
+        /* Aplica el tema guardado ANTES de pintar la página, para evitar
+           el parpadeo de claro→oscuro (o viceversa) al cargar. */
+        (function () {
+            var guardado = localStorage.getItem("tema");
+            var prefiereOscuro = window.matchMedia("(prefers-color-scheme: dark)").matches;
+            var tema = guardado || (prefiereOscuro ? "dark" : "light");
+            document.documentElement.setAttribute("data-bs-theme", tema);
+        })();
+    </script>
     <style>
         :root {
             --guindo: #6E1B3F;
             --guindo-oscuro: #4A1129;
             --lavanda-claro: #F3EAF1;
+            --bs-primary: var(--guindo);
         }
-        body { font-family: Arial, sans-serif; margin: 0; background: var(--lavanda-claro); color: #1f2933; }
-        header { background: var(--guindo); color: white; padding: 1rem 2rem; display: flex; justify-content: space-between; align-items: center; }
-        header a { color: white; text-decoration: none; }
-        header a:hover { text-decoration: underline; }
-        main { max-width: 900px; margin: 2rem auto; background: white; padding: 2rem; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); border-top: 4px solid var(--guindo); }
-        h1 { color: var(--guindo-oscuro); }
-        .btn { background: var(--guindo); color: white; padding: 0.5rem 1.2rem; border: none; border-radius: 4px; cursor: pointer; text-decoration: none; display: inline-block; }
-        .btn:hover { background: var(--guindo-oscuro); }
-        .errorlist { color: #b00020; }
-        label { display: block; margin-top: 1rem; }
-        input[type=text], input[type=password] { padding: 0.5rem; width: 100%; box-sizing: border-box; border: 1px solid #cfc3ca; border-radius: 4px; }
-        input[type=text]:focus, input[type=password]:focus { outline: none; border-color: var(--guindo); }
+        html { min-height: 100%; background: var(--lavanda-claro); }
+        [data-bs-theme="dark"] html { background: #17111a; }
+        body {
+            min-height: 100vh;
+            background:
+                radial-gradient(circle at 15% 0%, rgba(110,27,63,.06), transparent 45%),
+                radial-gradient(circle at 85% 100%, rgba(110,27,63,.05), transparent 40%),
+                var(--lavanda-claro);
+            transition: background-color .2s ease;
+        }
+        [data-bs-theme="dark"] body {
+            background:
+                radial-gradient(circle at 15% 0%, rgba(231,184,205,.05), transparent 45%),
+                radial-gradient(circle at 85% 100%, rgba(231,184,205,.04), transparent 40%),
+                #17111a;
+        }
+        [data-bs-theme="dark"] .card-principal { background: rgba(36,26,46,.75); }
+        [data-bs-theme="dark"] .text-secondary { color: #b9adc0 !important; }
+
+        .navbar-guindo {
+            background: linear-gradient(100deg, var(--guindo) 0%, var(--guindo-oscuro) 100%);
+            box-shadow: 0 4px 24px rgba(74,17,41,.25);
+        }
+        .navbar-guindo .navbar-brand, .navbar-guindo .nav-link { color: #fff !important; }
+        .navbar-guindo .nav-link {
+            position: relative;
+            border-radius: .5rem;
+            padding-left: .7rem; padding-right: .7rem;
+            transition: background-color .2s ease, transform .15s ease;
+        }
+        .navbar-guindo .nav-link:hover { background: rgba(255,255,255,.12); text-decoration: none; transform: translateY(-1px); }
+        .navbar-guindo .nav-link.active { background: rgba(255,255,255,.18); }
+        .logo-navbar { height: 40px; width: auto; transition: transform .2s ease; }
+        .logo-navbar:hover { transform: scale(1.03); }
+
+        /* Tarjeta principal: efecto "glass" sutil, sin perder legibilidad */
+        .card-principal {
+            border: none;
+            border-top: 4px solid var(--guindo);
+            border-radius: 1rem;
+            background: rgba(255,255,255,.72);
+            backdrop-filter: blur(10px) saturate(140%);
+            -webkit-backdrop-filter: blur(10px) saturate(140%);
+            box-shadow: 0 8px 30px rgba(74,17,41,.10), 0 1px 3px rgba(74,17,41,.06);
+            transition: box-shadow .25s ease, transform .25s ease;
+        }
+        [data-bs-theme="dark"] .card-principal { box-shadow: 0 8px 30px rgba(0,0,0,.45); }
+
+        .btn-guindo {
+            background: linear-gradient(135deg, var(--guindo), var(--guindo-oscuro));
+            border-color: var(--guindo); color: #fff;
+            transition: transform .15s ease, box-shadow .2s ease, filter .2s ease;
+        }
+        .btn-guindo:hover {
+            filter: brightness(1.08);
+            box-shadow: 0 6px 18px rgba(110,27,63,.35);
+            transform: translateY(-1px);
+            color: #fff;
+        }
+        .btn-guindo:active { transform: translateY(0); }
+        .btn-outline-guindo {
+            color: var(--guindo); border-color: var(--guindo);
+            transition: background-color .2s ease, color .2s ease, transform .15s ease;
+        }
+        [data-bs-theme="dark"] .btn-outline-guindo { color: #e7b8cd; border-color: #e7b8cd; }
+        .btn-outline-guindo:hover { background: var(--guindo); color: #fff; transform: translateY(-1px); }
+        .text-guindo { color: var(--guindo-oscuro); }
+        [data-bs-theme="dark"] .text-guindo { color: #e7b8cd; }
+        .form-control, .form-select { transition: border-color .15s ease, box-shadow .2s ease; }
+        .form-control:focus, .form-select:focus { border-color: var(--guindo); box-shadow: 0 0 0 .25rem rgba(110,27,63,.15); }
+        a { color: var(--guindo); }
+        [data-bs-theme="dark"] a { color: #e7b8cd; }
+        #boton-tema { border-color: rgba(255,255,255,.6); color: #fff; transition: transform .2s ease, background-color .2s ease; }
+        #boton-tema:hover { background: rgba(255,255,255,.15); color: #fff; transform: rotate(15deg); }
+        .avatar-navbar { width: 32px; height: 32px; object-fit: cover; transition: transform .2s ease; }
+        .avatar-inicial { width: 32px; height: 32px; background: rgba(255,255,255,.2); color: #fff; font-weight: 600; font-size: .85rem; transition: transform .2s ease; }
+        #menuUsuario { color: #fff !important; }
+        #menuUsuario:hover { background: rgba(255,255,255,.12); }
+        #menuUsuario:hover .avatar-navbar, #menuUsuario:hover .avatar-inicial { transform: scale(1.08); }
+        .dropdown-menu {
+            border: none; box-shadow: 0 12px 32px rgba(74,17,41,.18); border-radius: .75rem;
+        }
+        .dropdown-item { transition: background-color .15s ease, padding-left .15s ease; border-radius: .4rem; }
+        .dropdown-item:hover { padding-left: 1.1rem; }
+
+        /* Tablas y botones pequeños: hover más vivo */
+        .table-hover > tbody > tr { transition: background-color .15s ease; }
+        .btn { transition: transform .15s ease, box-shadow .2s ease, filter .2s ease, background-color .15s ease, color .15s ease; }
+        .btn:active { transform: translateY(0) scale(.98); }
+        .badge { transition: transform .15s ease; }
+        .alert { animation: aparecer-alerta .2s ease; }
+        @keyframes aparecer-alerta { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
     </style>
+    {% block extra_head %}{% endblock %}
 </head>
 <body>
-    <header>
-        <strong>Sistema de Apoyo a la Auditoría Externa</strong>
-        {% if user.is_authenticated %}
-            <span>{{ user.username }} · <a href="{% url 'logout' %}">Cerrar sesión</a></span>
+    <nav class="navbar navbar-expand-md navbar-guindo mb-4">
+        <div class="container">
+            <a class="navbar-brand d-flex align-items-center" href="{% if user.is_authenticated %}{% url 'home' %}{% else %}#{% endif %}">
+                <img src="{% static 'img/logo-sts.png' %}" alt="ST&amp;S Auditores y Consultores" class="logo-navbar">
+            </a>
+            {% if user.is_authenticated %}
+                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#menuPrincipal">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+                <div class="collapse navbar-collapse" id="menuPrincipal">
+                    <ul class="navbar-nav me-auto">
+                        <li class="nav-item">
+                            <a class="nav-link {% if url_actual == 'home' %}active fw-bold{% endif %}" href="{% url 'home' %}">
+                                <i class="bi bi-house"></i> Inicio
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link {% if url_actual == 'registros:cargar' or url_actual == 'registros:detalle_carga' %}active fw-bold{% endif %}" href="{% url 'registros:cargar' %}">
+                                <i class="bi bi-cloud-upload"></i> Cargar registros
+                            </a>
+                        </li>
+                        {% if es_administrador %}
+                            <li class="nav-item">
+                                <a class="nav-link {% if 'registros:empresa' in url_actual %}active fw-bold{% endif %}" href="{% url 'registros:empresas_lista' %}">
+                                    <i class="bi bi-building"></i> Empresas
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link {% if 'usuario' in url_actual %}active fw-bold{% endif %}" href="{% url 'usuarios_lista' %}">
+                                    <i class="bi bi-people"></i> Usuarios
+                                </a>
+                            </li>
+                        {% endif %}
+                    </ul>
+                </div>
+            {% endif %}
+            <div class="d-flex align-items-center gap-2">
+                <button type="button" id="boton-tema" class="btn btn-sm btn-outline-light" title="Cambiar tema claro/oscuro">
+                    <i class="bi bi-moon-stars" id="icono-tema"></i>
+                </button>
+                {% if user.is_authenticated %}
+                    <div class="dropdown">
+                        <button class="btn btn-sm d-flex align-items-center gap-2 dropdown-toggle" type="button"
+                                id="menuUsuario" data-bs-toggle="dropdown" aria-expanded="false">
+                            {% if user.perfil.avatar %}
+                                <img src="{{ user.perfil.avatar.url }}" alt="" class="avatar-navbar rounded-circle">
+                            {% elif user.perfil.avatar_preset %}
+                                <span class="avatar-navbar rounded-circle d-inline-flex align-items-center justify-content-center"
+                                      style="background:{{ user.perfil.avatar_preset_color }};">
+                                    <i class="bi {{ user.perfil.avatar_preset_icono }}" style="font-size:.9rem;"></i>
+                                </span>
+                            {% else %}
+                                <span class="avatar-inicial rounded-circle d-inline-flex align-items-center justify-content-center">
+                                    {{ user.username|slice:":1"|upper }}
+                                </span>
+                            {% endif %}
+                            <span class="d-none d-sm-inline">{{ user.username }}</span>
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="menuUsuario">
+                            <li>
+                                <a class="dropdown-item" href="{% url 'perfil' %}">
+                                    <i class="bi bi-person-circle"></i> Mi perfil
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item" href="{% url 'cambiar_clave' %}">
+                                    <i class="bi bi-key"></i> Cambiar contraseña
+                                </a>
+                            </li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li>
+                                <a class="dropdown-item text-danger" href="{% url 'logout' %}">
+                                    <i class="bi bi-box-arrow-right"></i> Cerrar sesión
+                                </a>
+                            </li>
+                        </ul>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </nav>
+
+    <main class="container mb-5">
+        {% if messages %}
+            {% for message in messages %}
+                <div class="alert {% if message.tags == 'error' %}alert-danger{% elif message.tags == 'success' %}alert-success{% elif message.tags == 'warning' %}alert-warning{% else %}alert-info{% endif %} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Cerrar"></button>
+                </div>
+            {% endfor %}
         {% endif %}
-    </header>
-    <main>
-        {% block content %}{% endblock %}
+
+        {% if volver_url %}
+            <a href="{{ volver_url }}" class="btn btn-sm btn-outline-guindo mb-3">
+                <i class="bi bi-arrow-left"></i> {{ volver_texto }}
+            </a>
+        {% endif %}
+
+        <div class="card card-principal shadow-sm">
+            <div class="card-body p-4">
+                {% block content %}{% endblock %}
+            </div>
+        </div>
     </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        (function () {
+            var boton = document.getElementById("boton-tema");
+            var icono = document.getElementById("icono-tema");
+
+            function actualizarIcono(tema) {
+                icono.className = tema === "dark" ? "bi bi-sun" : "bi bi-moon-stars";
+            }
+            actualizarIcono(document.documentElement.getAttribute("data-bs-theme"));
+
+            boton.addEventListener("click", function () {
+                var actual = document.documentElement.getAttribute("data-bs-theme");
+                var nuevo = actual === "dark" ? "light" : "dark";
+                document.documentElement.setAttribute("data-bs-theme", nuevo);
+                localStorage.setItem("tema", nuevo);
+                actualizarIcono(nuevo);
+            });
+        })();
+    </script>
+    {% block extra_js %}{% endblock %}
 </body>
 </html>

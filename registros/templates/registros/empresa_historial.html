@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}Historial de {{ empresa.nombre }}{% endblock %}
+{% block content %}
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+        <h1 class="text-guindo mb-0">Historial de cambios: {{ empresa.nombre }}</h1>
+        <a class="btn btn-sm btn-outline-guindo" href="{% url 'registros:empresa_editar' empresa.id %}">
+            <i class="bi bi-pencil"></i> Editar empresa
+        </a>
+    </div>
+
+    {% if cambios %}
+        <div class="table-responsive">
+            <table class="table table-hover align-middle">
+                <thead>
+                    <tr>
+                        <th>Fecha</th>
+                        <th>Usuario</th>
+                        <th>Acción</th>
+                        <th>Campo</th>
+                        <th>Valor anterior</th>
+                        <th>Valor nuevo</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for cambio in cambios %}
+                    <tr>
+                        <td>{{ cambio.fecha|date:"d/m/Y H:i" }}</td>
+                        <td>{{ cambio.usuario.username }}</td>
+                        <td>
+                            {% if cambio.accion == "creacion" %}
+                                <span class="badge text-bg-success">Creación</span>
+                            {% else %}
+                                <span class="badge text-bg-warning">Edición</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ cambio.campo|default:"—" }}</td>
+                        <td class="text-secondary">{{ cambio.valor_anterior|default:"—" }}</td>
+                        <td>{{ cambio.valor_nuevo|default:"—" }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% else %}
+        <p class="text-secondary">Todavía no hay cambios registrados para esta empresa.</p>
+    {% endif %}
+{% endblock %}

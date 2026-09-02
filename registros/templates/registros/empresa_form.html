@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% block title %}{{ titulo }}{% endblock %}
+{% block content %}
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <h1 class="text-guindo">{{ titulo }}</h1>
+        {% if empresa %}
+            <a class="btn btn-sm btn-outline-secondary" href="{% url 'registros:empresa_historial' empresa.id %}">
+                <i class="bi bi-clock-history"></i> Ver historial de cambios
+            </a>
+        {% endif %}
+    </div>
+    <form method="post" style="max-width: 680px;">
+        {% csrf_token %}
+        {{ form.non_field_errors }}
+
+        <div class="p-3 rounded border mb-3">
+            <h2 class="h6 text-guindo text-uppercase mb-3">
+                <i class="bi bi-building"></i> Datos generales
+            </h2>
+            <div class="row g-3">
+                <div class="col-md-8">
+                    <label for="{{ form.nombre.id_for_label }}" class="form-label">{{ form.nombre.label }}</label>
+                    {{ form.nombre }}
+                    {% for error in form.nombre.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+                </div>
+                <div class="col-md-4">
+                    <label for="{{ form.nit.id_for_label }}" class="form-label">{{ form.nit.label }}</label>
+                    {{ form.nit }}
+                    {% for error in form.nit.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+                </div>
+                <div class="col-12">
+                    <label for="{{ form.rubro.id_for_label }}" class="form-label">{{ form.rubro.label }}</label>
+                    {{ form.rubro }}
+                    {% if form.rubro.help_text %}<div class="form-text">{{ form.rubro.help_text }}</div>{% endif %}
+                    {% for error in form.rubro.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <div class="p-3 rounded border mb-3">
+            <h2 class="h6 text-guindo text-uppercase mb-3">
+                <i class="bi bi-person-lines-fill"></i> Contacto
+            </h2>
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label for="{{ form.contacto_nombre.id_for_label }}" class="form-label">{{ form.contacto_nombre.label }}</label>
+                    {{ form.contacto_nombre }}
+                    {% for error in form.contacto_nombre.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+                </div>
+                <div class="col-md-3">
+                    <label for="{{ form.contacto_email.id_for_label }}" class="form-label">{{ form.contacto_email.label }}</label>
+                    {{ form.contacto_email }}
+                    {% for error in form.contacto_email.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+                </div>
+                <div class="col-md-3">
+                    <label for="{{ form.contacto_telefono.id_for_label }}" class="form-label">{{ form.contacto_telefono.label }}</label>
+                    {{ form.contacto_telefono }}
+                    {% for error in form.contacto_telefono.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <div>
+            <button class="btn btn-guindo" type="submit">
+                <i class="bi bi-check-lg"></i> Guardar
+            </button>
+            <a class="btn btn-outline-guindo" href="{% url 'registros:empresas_lista' %}">Cancelar</a>
+        </div>
+    </form>
+{% endblock %}

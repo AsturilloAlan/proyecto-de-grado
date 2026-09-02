@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}Verificación en dos pasos{% endblock %}
+{% block content %}
+    <div class="mx-auto text-center" style="max-width: 420px;">
+        <div class="d-inline-flex align-items-center justify-content-center rounded-circle mb-3"
+             style="width: 64px; height: 64px; background: var(--guindo); color: #fff;">
+            <i class="bi bi-shield-lock" style="font-size: 1.75rem;"></i>
+        </div>
+        <h1 class="text-guindo mb-1 h4">Verificación en dos pasos</h1>
+        <p class="text-secondary mb-4">
+            Te enviamos un código de 6 dígitos a <strong>{{ correo }}</strong>.
+            Ingrésalo para completar el inicio de sesión.
+        </p>
+
+        <form method="post" autocomplete="off" novalidate>
+            {% csrf_token %}
+            {% if form.non_field_errors %}
+                <div class="alert alert-danger py-2">{{ form.non_field_errors }}</div>
+            {% endif %}
+            <div class="mb-3">
+                {{ form.codigo }}
+                {% for error in form.codigo.errors %}
+                    <div class="text-danger small mt-1">{{ error }}</div>
+                {% endfor %}
+            </div>
+            <button class="btn btn-guindo w-100 mb-2" type="submit">
+                <i class="bi bi-check-lg"></i> Verificar código
+            </button>
+        </form>
+
+        <form method="post" class="mt-2">
+            {% csrf_token %}
+            <button class="btn btn-link btn-sm" type="submit" name="reenviar" value="1">
+                ¿No te llegó? Reenviar código
+            </button>
+        </form>
+
+        <a class="d-block mt-3 small text-secondary" href="{% url 'login' %}">
+            <i class="bi bi-arrow-left"></i> Cancelar y volver al login
+        </a>
+    </div>
+{% endblock %}

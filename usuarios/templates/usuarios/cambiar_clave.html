@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}Cambiar contraseña{% endblock %}
+{% block content %}
+    <div class="mx-auto" style="max-width: 480px;">
+        <h1 class="text-guindo mb-1 h3">Cambiar contraseña</h1>
+        <p class="text-secondary mb-4">Ingresa tu contraseña actual y la nueva contraseña.</p>
+
+        <form method="post" autocomplete="off" novalidate>
+            {% csrf_token %}
+            {{ form.non_field_errors }}
+
+            <div class="mb-3">
+                <label for="{{ form.old_password.id_for_label }}" class="form-label">Contraseña actual</label>
+                {{ form.old_password }}
+                {% for error in form.old_password.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+            </div>
+
+            <div class="mb-3">
+                <label for="{{ form.new_password1.id_for_label }}" class="form-label">Nueva contraseña</label>
+                {{ form.new_password1 }}
+                {% if form.new_password1.help_text %}
+                    <div class="form-text">{{ form.new_password1.help_text|safe }}</div>
+                {% endif %}
+                {% for error in form.new_password1.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+            </div>
+
+            <div class="mb-3">
+                <label for="{{ form.new_password2.id_for_label }}" class="form-label">Confirmar nueva contraseña</label>
+                {{ form.new_password2 }}
+                {% for error in form.new_password2.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+            </div>
+
+            <button class="btn btn-guindo w-100" type="submit">
+                <i class="bi bi-check-lg"></i> Cambiar contraseña
+            </button>
+        </form>
+    </div>
+{% endblock %}

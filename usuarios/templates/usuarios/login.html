@@ -1,16 +1,43 @@
 {% extends "base.html" %}
+{% load static %}
 {% block title %}Iniciar sesión{% endblock %}
 {% block content %}
-    <h1>Iniciar sesión</h1>
-    <form method="post">
-        {% csrf_token %}
-        {{ form.non_field_errors }}
-        <label for="id_username">Usuario</label>
-        {{ form.username }}
-        {{ form.username.errors }}
-        <label for="id_password">Contraseña</label>
-        {{ form.password }}
-        {{ form.password.errors }}
-        <p><button class="btn" type="submit">Ingresar</button></p>
-    </form>
+    <div class="mx-auto" style="max-width: 400px;">
+        <div class="text-center mb-4">
+            <img src="{% static 'img/logo-sts.png' %}" alt="ST&amp;S Auditores y Consultores" class="mb-3" style="max-width: 260px; width: 100%; height: auto;">
+            <h1 class="text-guindo mb-1 h3">Iniciar sesión</h1>
+            <p class="text-secondary mb-0">
+                Sistema de Apoyo a la Auditoría Externa
+            </p>
+        </div>
+        <form method="post" autocomplete="off" novalidate>
+            {% csrf_token %}
+            {% if form.non_field_errors %}
+                <div class="alert alert-danger py-2">{{ form.non_field_errors }}</div>
+            {% endif %}
+
+            <div class="mb-3">
+                <label for="id_username" class="form-label">Usuario</label>
+                {{ form.username }}
+                {% for error in form.username.errors %}
+                    <div class="text-danger small mt-1">{{ error }}</div>
+                {% endfor %}
+            </div>
+
+            <div class="mb-3">
+                <label for="id_password" class="form-label">Contraseña</label>
+                {{ form.password }}
+                {% for error in form.password.errors %}
+                    <div class="text-danger small mt-1">{{ error }}</div>
+                {% endfor %}
+            </div>
+
+            <button class="btn btn-guindo w-100" type="submit">
+                <i class="bi bi-box-arrow-in-right"></i> Ingresar
+            </button>
+        </form>
+        <p class="text-secondary small text-center mt-3 mb-0">
+            ¿Olvidaste tu usuario o contraseña? Contacta con el administrador del sistema.
+        </p>
+    </div>
 {% endblock %}

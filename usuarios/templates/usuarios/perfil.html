@@ -1,0 +1,137 @@
+{% extends "base.html" %}
+{% block title %}Mi perfil{% endblock %}
+{% block content %}
+    <h1 class="text-guindo mb-4">Mi perfil</h1>
+
+    <div class="row g-4">
+        <div class="col-md-4 text-center">
+            {% if user.perfil.avatar %}
+                <img src="{{ user.perfil.avatar.url }}" alt="Foto de perfil"
+                     class="rounded-circle shadow-sm mb-3" style="width:140px;height:140px;object-fit:cover;">
+            {% elif user.perfil.avatar_preset %}
+                <div class="rounded-circle shadow-sm mb-3 mx-auto d-flex align-items-center justify-content-center"
+                     style="width:140px;height:140px;background:{{ user.perfil.avatar_preset_color }};color:#fff;font-size:3rem;">
+                    <i class="bi {{ user.perfil.avatar_preset_icono }}"></i>
+                </div>
+            {% else %}
+                <div class="rounded-circle shadow-sm mb-3 mx-auto d-flex align-items-center justify-content-center"
+                     style="width:140px;height:140px;background:var(--guindo);color:#fff;font-size:3rem;">
+                    {{ user.username|slice:":1"|upper }}
+                </div>
+            {% endif %}
+            <h2 class="h5 mb-0">{{ user.username }}</h2>
+            <p class="text-secondary small mb-2">{{ user.email|default:"Sin correo registrado" }}</p>
+            <span class="badge {% if es_administrador %}text-bg-dark{% else %}text-bg-secondary{% endif %}">
+                {% if es_administrador %}Administrador{% else %}Auditor{% endif %}
+            </span>
+        </div>
+
+        <div class="col-md-8">
+            <div class="p-3 rounded border mb-3">
+                <h2 class="h6 text-guindo text-uppercase mb-3">
+                    <i class="bi bi-envelope"></i> Datos de la cuenta
+                </h2>
+                <p class="text-secondary small mb-3">
+                    Es solo un dato de contacto (para que te ubiquen, no para entrar al sistema).
+                    Para iniciar sesión siempre se usa tu <strong>nombre de usuario</strong>; el correo no
+                    interviene en el inicio de sesión ni en recuperar la contraseña.
+                </p>
+                <form method="post">
+                    {% csrf_token %}
+                    <input type="hidden" name="accion" value="datos">
+                    <div class="mb-3">
+                        <label for="{{ form_datos.email.id_for_label }}" class="form-label">{{ form_datos.email.label }}</label>
+                        {{ form_datos.email }}
+                        {% for error in form_datos.email.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+                    </div>
+                    <button class="btn btn-guindo" type="submit">
+                        <i class="bi bi-check-lg"></i> Guardar correo
+                    </button>
+                </form>
+            </div>
+
+            <div class="p-3 rounded border mb-3">
+                <h2 class="h6 text-guindo text-uppercase mb-3">
+                    <i class="bi bi-image"></i> Avatar
+                </h2>
+                <form method="post" enctype="multipart/form-data" id="formAvatar">
+                    {% csrf_token %}
+                    <input type="hidden" name="accion" value="avatar">
+                    {{ form.avatar_preset }}
+
+                    <p class="text-secondary small mb-2">Elige uno de estos avatares...</p>
+                    <div class="d-flex flex-wrap gap-2 mb-3" id="galeriaAvatares">
+                        {% for clave, color, icono in presets_avatar %}
+                            <button type="button"
+                                    class="btn-avatar-preset rounded-circle d-flex align-items-center justify-content-center border-0 {% if user.perfil.avatar_preset == clave and not user.perfil.avatar %}seleccionado{% endif %}"
+                                    data-preset="{{ clave }}"
+                                    style="width:52px;height:52px;background:{{ color }};color:#fff;font-size:1.3rem;"
+                                    title="{{ clave }}">
+                                <i class="bi {{ icono }}"></i>
+                            </button>
+                        {% endfor %}
+                    </div>
+
+                    <p class="text-secondary small mb-2">...o sube tu propia foto:</p>
+                    <div class="mb-3">
+                        {{ form.avatar }}
+                        {% if form.avatar.help_text %}<div class="form-text">{{ form.avatar.help_text }}</div>{% endif %}
+                        {% for error in form.avatar.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+                    </div>
+                    <button class="btn btn-guindo" type="submit">
+                        <i class="bi bi-check-lg"></i> Guardar avatar
+                    </button>
+                </form>
+            </div>
+
+            <div class="p-3 rounded border">
+                <h2 class="h6 text-guindo text-uppercase mb-3">
+                    <i class="bi bi-shield-lock"></i> Seguridad
+                </h2>
+                <p class="text-secondary small mb-3">
+                    Cambia tu contraseña periódicamente, sobre todo al tratarse de un sistema con información contable sensible.
+                </p>
+                <a class="btn btn-outline-guindo" href="{% url 'cambiar_clave' %}">
+                    <i class="bi bi-key"></i> Cambiar contraseña
+                </a>
+            </div>
+        </div>
+    </div>
+{% endblock %}
+
+{% block extra_head %}
+    <style>
+        .btn-avatar-preset { opacity: .55; transition: opacity .15s ease, box-shadow .15s ease; cursor: pointer; }
+        .btn-avatar-preset:hover { opacity: .85; }
+        .btn-avatar-preset.seleccionado { opacity: 1; box-shadow: 0 0 0 3px var(--guindo); }
+    </style>
+{% endblock %}
+
+{% block extra_js %}
+    <script>
+        (function () {
+            var botones = document.querySelectorAll(".btn-avatar-preset");
+            var campoOculto = document.getElementById("{{ form.avatar_preset.id_for_label }}");
+            var campoArchivo = document.querySelector("#formAvatar input[type=file]");
+
+            botones.forEach(function (boton) {
+                boton.addEventListener("click", function () {
+                    botones.forEach(function (b) { b.classList.remove("seleccionado"); });
+                    boton.classList.add("seleccionado");
+                    campoOculto.value = boton.dataset.preset;
+                    if (campoArchivo) campoArchivo.value = "";
+                });
+            });
+
+            // Si el usuario sube una foto, se deselecciona el preset visualmente
+            // (la vista ya decide en el servidor cuál gana).
+            if (campoArchivo) {
+                campoArchivo.addEventListener("change", function () {
+                    if (campoArchivo.files.length) {
+                        botones.forEach(function (b) { b.classList.remove("seleccionado"); });
+                    }
+                });
+            }
+        })();
+    </script>
+{% endblock %}

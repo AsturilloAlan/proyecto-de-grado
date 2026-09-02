@@ -6,7 +6,7 @@ Proyecto de grado — sistema web que aplica Machine Learning (Isolation Forest)
 
 - Backend: Python + Django
 - Análisis de datos / ML: pandas, scikit-learn (Isolation Forest)
-- Base de datos: MySQL (vía XAMPP en desarrollo local)
+- Base de datos: MySQL Server (instalación estándar con MySQL Workbench)
 
 ## Estructura
 
@@ -27,16 +27,15 @@ venv\Scripts\activate        # Windows
 pip install -r requirements.txt
 ```
 
-**3. Crear la base de datos en MySQL (XAMPP):**
+**3. Crear la base de datos en MySQL Server (con MySQL Workbench):**
 
-1. Abre el Panel de Control de XAMPP y arranca el módulo **MySQL** (no necesitas Apache).
-2. Entra a phpMyAdmin: `http://localhost/phpmyadmin`.
-3. Pestaña **Bases de datos** → nombre `auditoria_db` → cotejamiento `utf8mb4_general_ci` → Crear.
+1. Abre MySQL Workbench y conéctate a tu servidor local (en este proyecto: `127.0.0.1`, puerto `3307`, usuario `root`).
+2. En el panel de "Schemas", clic derecho → **Create Schema** → nombre `auditoria_db` → cotejamiento `utf8mb4_general_ci` → Apply.
 
-Por defecto el proyecto usa usuario `root` sin contraseña (lo que trae XAMPP de fábrica). Si tu MySQL tiene otra configuración, define estas variables de entorno antes de correr los comandos: `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `DB_HOST`, `DB_PORT`.
+Por defecto el proyecto se conecta con usuario `root`, la contraseña configurada de esta instalación, host `127.0.0.1` y puerto `3307`. Si tu MySQL tiene otra configuración, define estas variables de entorno antes de correr los comandos: `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `DB_HOST`, `DB_PORT`.
 
 ```bash
-# 4. Aplicar migraciones (con MySQL de XAMPP ya corriendo)
+# 4. Aplicar migraciones (con MySQL Server ya corriendo)
 python manage.py migrate
 
 # 5. Crear un usuario administrador (para poder iniciar sesión)
