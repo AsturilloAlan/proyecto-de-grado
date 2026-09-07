@@ -40,17 +40,43 @@ class EmpresaAuditada(models.Model):
 
 
 class Gestion(models.Model):
-    """Periodo fiscal analizado (ej. 2022, 2023)."""
+    """Periodo fiscal analizado (ej. 2022, 2023).
 
-    anio = models.PositiveIntegerField("Año", unique=True)
+    En Bolivia el cierre de la gestión fiscal no siempre coincide con el
+    año calendario: varía según la actividad económica de la empresa,
+    conforme la Resolución Normativa de Directorio vigente del Servicio
+    de Impuestos Nacionales (SIN): 31 de marzo para industriales y
+    petroleras, 30 de junio para agropecuarias/agroindustriales, 30 de
+    septiembre para mineras, y 31 de diciembre para bancos, seguros,
+    comercio y servicios. Por eso se guardan las fechas reales de inicio
+    y fin de cada gestión (decididas por quien la registra, según el
+    rubro del cliente) en vez de asumir siempre el año calendario.
+
+    El año NO es único a propósito: como distintas empresas clientes
+    pueden tener distinto rubro (y por lo tanto distinto cierre), puede
+    existir más de una "gestión 2024" con rangos de fechas distintos
+    (ej. una para clientes industriales, otra para clientes de
+    servicios). Lo que sí no puede repetirse es la combinación exacta de
+    año + mismas fechas, para evitar duplicados sin sentido.
+    """
+
+    anio = models.PositiveIntegerField("Año")
+    fecha_inicio = models.DateField("Fecha de inicio de la gestión")
+    fecha_fin = models.DateField("Fecha de fin de la gestión")
 
     class Meta:
         verbose_name = "Gestión"
         verbose_name_plural = "Gestiones"
         ordering = ["-anio"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["anio", "fecha_inicio", "fecha_fin"],
+                name="gestion_periodo_unico",
+            )
+        ]
 
     def __str__(self):
-        return str(self.anio)
+        return f"{self.anio} ({self.fecha_inicio:%d/%m/%Y} - {self.fecha_fin:%d/%m/%Y})"
 
 
 class CuentaContable(models.Model):

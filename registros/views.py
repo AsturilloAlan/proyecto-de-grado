@@ -1,3 +1,5 @@
+from datetime import date
+
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
@@ -7,8 +9,8 @@ from django.shortcuts import get_object_or_404, redirect, render
 from usuarios.decorators import rol_requerido
 
 from .auditoria import registrar_creacion, registrar_edicion
-from .forms import CargaArchivoForm, EmpresaAuditadaForm
-from .models import CargaArchivo, EmpresaAuditada, HistorialCambio
+from .forms import CargaArchivoForm, EmpresaAuditadaForm, GestionForm
+from .models import CargaArchivo, EmpresaAuditada, Gestion, HistorialCambio
 from .services import procesar_carga
 
 CAMPOS_AUDITABLES_EMPRESA = [
@@ -61,6 +63,63 @@ def detalle_carga(request, carga_id):
 
 
 @rol_requerido("Administrador")
+def gestion_crear(request):
+    """Alta de una nueva gestión (año fiscal) para poder cargar archivos de
+    ese periodo. Solo Administrador, igual que empresas clientes."""
+    if request.method == "POST":
+        form = GestionForm(request.POST)
+        if form.is_valid():
+            gestion = form.save()
+            registrar_creacion(gestion, request.user)
+            messages.success(request, f"Gestión {gestion.anio} creada correctamente.")
+            return redirect("registros:cargar")
+    else:
+        form = GestionForm()
+    return render(
+        request,
+        "registros/gestion_form.html",
+        {"form": form, "gestiones": Gestion.objects.all()},
+    )
+
+
+CAMPOS_AUDITABLES_GESTION = ["anio", "fecha_inicio", "fecha_fin"]
+
+
+@rol_requerido("Administrador")
+def gestion_editar(request, gestion_id):
+    """Corrige un error humano al registrar una gestión (año o fechas mal
+    puestas). No se ofrece "eliminar": si la gestión ya se usó en alguna
+    carga, la base de datos lo protege automáticamente (on_delete=PROTECT
+    en CargaArchivo.gestion); si nunca se usó, dejarla sin usar no genera
+    ningún problema, así que no hace falta borrarla."""
+    gestion = get_object_or_404(Gestion, pk=gestion_id)
+    if request.method == "POST":
+        valores_anteriores = {
+            campo: getattr(gestion, campo) for campo in CAMPOS_AUDITABLES_GESTION
+        }
+        form = GestionForm(request.POST, instance=gestion)
+        if form.is_valid():
+            form.save()
+            registrar_edicion(
+                gestion, valores_anteriores, request.user, CAMPOS_AUDITABLES_GESTION
+            )
+            messages.success(request, f"Gestión {gestion.anio} actualizada correctamente.")
+            return redirect("registros:gestion_crear")
+    else:
+        form = GestionForm(instance=gestion)
+    return render(
+        request,
+        "registros/gestion_form.html",
+        {
+            "form": form,
+            "gestiones": Gestion.objects.all(),
+            "gestion": gestion,
+            "titulo": f"Editar gestión {gestion.anio}",
+        },
+    )
+
+
+@rol_requerido("Administrador")
 def empresas_lista(request):
     """Listado de empresas clientes de ST&S (RF-09, solo Administrador)."""
     busqueda = request.GET.get("q", "").strip()
@@ -86,7 +145,25 @@ def empresa_crear(request):
         if form.is_valid():
             empresa = form.save()
             registrar_creacion(empresa, request.user)
-            messages.success(request, "Empresa registrada correctamente.")
+
+            anio = form.cleaned_data.get("anio_gestion_inicial")
+            if anio:
+                # Se reutiliza si ya existe una con año calendario completo
+                # para ese año (evita duplicados si dos empresas usan la
+                # misma gestión "normal" de 01/01 - 31/12).
+                gestion, creada = Gestion.objects.get_or_create(
+                    anio=anio,
+                    fecha_inicio=date(anio, 1, 1),
+                    fecha_fin=date(anio, 12, 31),
+                )
+                if creada:
+                    registrar_creacion(gestion, request.user)
+                messages.success(
+                    request,
+                    f"Empresa registrada correctamente, con la gestión {anio} lista para usar.",
+                )
+            else:
+                messages.success(request, "Empresa registrada correctamente.")
             return redirect("registros:empresas_lista")
     else:
         form = EmpresaAuditadaForm()

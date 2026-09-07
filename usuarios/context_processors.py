@@ -13,6 +13,8 @@ from django.urls import resolve, reverse
 # (cargar/empresas ya tienen su propio enlace en el navbar).
 _MAPA_VOLVER = {
     "registros:detalle_carga": ("registros:cargar", "Volver a cargas"),
+    "registros:gestion_crear": ("registros:cargar", "Volver a cargar registros"),
+    "registros:gestion_editar": ("registros:cargar", "Volver a cargar registros"),
     "registros:empresa_crear": ("registros:empresas_lista", "Volver a empresas"),
     "registros:empresa_editar": ("registros:empresas_lista", "Volver a empresas"),
     "registros:empresa_historial": ("registros:empresas_lista", "Volver a empresas"),

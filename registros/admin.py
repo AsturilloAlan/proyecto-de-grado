@@ -17,7 +17,7 @@ class EmpresaAuditadaAdmin(admin.ModelAdmin):
 
 @admin.register(Gestion)
 class GestionAdmin(admin.ModelAdmin):
-    list_display = ("anio",)
+    list_display = ("anio", "fecha_inicio", "fecha_fin")
 
 
 @admin.register(CuentaContable)

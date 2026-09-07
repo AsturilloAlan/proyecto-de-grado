@@ -32,7 +32,7 @@
         @media (min-width: 1400px) {
             .navbar-guindo > .container, main.container { max-width: 1600px; }
         }
-        [data-bs-theme="dark"] html { background: #17111a; }
+        html[data-bs-theme="dark"] { background: #17111a; }
         body {
             min-height: 100vh;
             background:
@@ -225,7 +225,8 @@
             </a>
         {% endif %}
 
-        <div class="card card-principal shadow-sm">
+        <div class="card card-principal shadow-sm mx-auto {% block card_extra_class %}{% endblock %}"
+             style="{% block card_extra_style %}{% endblock %}">
             <div class="card-body p-4">
                 {% block content %}{% endblock %}
             </div>

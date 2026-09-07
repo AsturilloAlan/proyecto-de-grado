@@ -258,6 +258,24 @@ def procesar_carga(carga):
                 )
             continue
 
+        fecha_transaccion = fecha.date()
+        if not (carga.gestion.fecha_inicio <= fecha_transaccion <= carga.gestion.fecha_fin):
+            errores_a_guardar.append(
+                ErrorValidacion(
+                    carga=carga,
+                    fila=numero_fila,
+                    campo="fecha",
+                    tipo="aviso",
+                    descripcion=(
+                        f"La fecha {fecha_transaccion:%d/%m/%Y} está fuera del período de "
+                        f"la gestión {carga.gestion.anio} "
+                        f"({carga.gestion.fecha_inicio:%d/%m/%Y} - "
+                        f"{carga.gestion.fecha_fin:%d/%m/%Y}); verificar que corresponda a "
+                        "esta gestión."
+                    ),
+                )
+            )
+
         nombre_por_codigo.setdefault(codigo_cuenta, nombre_cuenta or codigo_cuenta)
         primera_fila_por_codigo.setdefault(codigo_cuenta, numero_fila)
         filas_validas.append(

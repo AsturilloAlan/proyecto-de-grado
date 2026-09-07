@@ -10,13 +10,14 @@ Se ejecutan con:
 """
 import shutil
 import tempfile
+from datetime import date
 
 from django.contrib.auth.models import Group, User
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase, override_settings
 from django.urls import reverse
 
-from .forms import CargaArchivoForm, EmpresaAuditadaForm
+from .forms import CargaArchivoForm, EmpresaAuditadaForm, GestionForm
 from .models import (
     CargaArchivo,
     CuentaContable,
@@ -98,6 +99,42 @@ class EmpresasCrudTests(TestCase):
             EmpresaAuditada.objects.create(nombre=f"Empresa {i:02d}")
         respuesta = self.client.get(reverse("registros:empresas_lista"))
         self.assertEqual(len(respuesta.context["empresas"]), 10)
+
+    def test_crear_empresa_con_anio_de_gestion_la_crea_junto_con_la_empresa(self):
+        """Atajo pedido: se puede indicar el año de la primera gestión a
+        auditar directo en el formulario de registrar empresa, sin tener
+        que ir a otra pantalla."""
+        respuesta = self.client.post(
+            reverse("registros:empresa_crear"),
+            {
+                "nombre": "Cooperativa Santa Rita R.L.",
+                "nit": "123456",
+                "rubro": "",
+                "contacto_nombre": "",
+                "contacto_email": "",
+                "contacto_telefono": "",
+                "anio_gestion_inicial": "2025",
+            },
+        )
+        self.assertRedirects(respuesta, reverse("registros:empresas_lista"))
+        gestion = Gestion.objects.get(anio=2025)
+        self.assertEqual(gestion.fecha_inicio, date(2025, 1, 1))
+        self.assertEqual(gestion.fecha_fin, date(2025, 12, 31))
+
+    def test_crear_empresa_sin_anio_de_gestion_no_crea_ninguna(self):
+        self.client.post(
+            reverse("registros:empresa_crear"),
+            {
+                "nombre": "Cooperativa Santa Rita R.L.",
+                "nit": "123456",
+                "rubro": "",
+                "contacto_nombre": "",
+                "contacto_email": "",
+                "contacto_telefono": "",
+                "anio_gestion_inicial": "",
+            },
+        )
+        self.assertFalse(Gestion.objects.exists())
 
 
 class HistorialCambioTests(TestCase):
@@ -190,7 +227,9 @@ class CargaArchivoFormTests(TestCase):
 
     def setUp(self):
         self.empresa = EmpresaAuditada.objects.create(nombre="Empresa X")
-        self.gestion = Gestion.objects.create(anio=2023)
+        self.gestion = Gestion.objects.create(
+            anio=2023, fecha_inicio=date(2023, 1, 1), fecha_fin=date(2023, 12, 31)
+        )
 
     def test_extension_no_permitida_es_rechazada(self):
         form = CargaArchivoForm(
@@ -234,7 +273,9 @@ class ProcesarCargaTests(TestCase):
 
     def setUp(self):
         self.empresa = EmpresaAuditada.objects.create(nombre="Empresa X")
-        self.gestion = Gestion.objects.create(anio=2023)
+        self.gestion = Gestion.objects.create(
+            anio=2023, fecha_inicio=date(2023, 1, 1), fecha_fin=date(2023, 12, 31)
+        )
         self.usuario = User.objects.create_user(
             username="auditor", password="Clave-Segura123"
         )
@@ -349,3 +390,110 @@ class ProcesarCargaTests(TestCase):
         self.assertTrue(
             ErrorValidacion.objects.filter(carga=carga, campo="cuenta").exists()
         )
+
+    def test_fecha_fuera_del_periodo_de_gestion_genera_aviso(self):
+        """Una transacción fechada fuera del rango de la gestión seleccionada
+        (ej. cargar un archivo de otra gestión por error) no se rechaza, pero
+        se deja un aviso para que el auditor lo revise (no todos los rubros
+        cierran el 31/12, así que esto no debe tratarse como error duro)."""
+        csv = "fecha,cuenta,glosa,debe,haber\n15/03/2024,1001,Fecha de otra gestion,100,0\n"
+        carga = self._crear_carga(csv)
+        procesar_carga(carga)
+        carga.refresh_from_db()
+
+        self.assertEqual(carga.registros_validos, 1)
+        self.assertTrue(
+            ErrorValidacion.objects.filter(
+                carga=carga, campo="fecha", tipo="aviso"
+            ).exists()
+        )
+
+
+class GestionFormTests(TestCase):
+    def test_solo_con_anio_completa_las_fechas_solo(self):
+        """Uso simple del día a día: escribir solo el año alcanza, sin
+        tener que pensar en fechas de cierre."""
+        form = GestionForm(data={"anio": 2025, "fecha_inicio": "", "fecha_fin": ""})
+        self.assertTrue(form.is_valid())
+        gestion = form.save()
+        self.assertEqual(gestion.fecha_inicio, date(2025, 1, 1))
+        self.assertEqual(gestion.fecha_fin, date(2025, 12, 31))
+
+    def test_fecha_fin_anterior_a_inicio_es_rechazada(self):
+        form = GestionForm(
+            data={"anio": 2023, "fecha_inicio": "2023-12-31", "fecha_fin": "2023-01-01"}
+        )
+        self.assertFalse(form.is_valid())
+
+    def test_periodo_valido_se_acepta(self):
+        form = GestionForm(
+            data={"anio": 2024, "fecha_inicio": "2023-04-01", "fecha_fin": "2024-03-31"}
+        )
+        self.assertTrue(form.is_valid())
+
+    def test_mismo_anio_con_fechas_distintas_puede_coexistir(self):
+        """Dos empresas con distinto rubro pueden necesitar una 'gestión
+        2024' con rangos de fechas distintos (ej. minera vs. comercial):
+        el año repetido no debe rechazarse si las fechas son diferentes."""
+        Gestion.objects.create(
+            anio=2024, fecha_inicio=date(2023, 10, 1), fecha_fin=date(2024, 9, 30)
+        )
+        form = GestionForm(
+            data={"anio": 2024, "fecha_inicio": "2024-01-01", "fecha_fin": "2024-12-31"}
+        )
+        self.assertTrue(form.is_valid())
+
+    def test_gestion_exactamente_duplicada_es_rechazada(self):
+        """Mismo año Y mismas fechas es un duplicado sin sentido, ese sí se
+        rechaza."""
+        Gestion.objects.create(
+            anio=2024, fecha_inicio=date(2024, 1, 1), fecha_fin=date(2024, 12, 31)
+        )
+        form = GestionForm(
+            data={"anio": 2024, "fecha_inicio": "2024-01-01", "fecha_fin": "2024-12-31"}
+        )
+        self.assertFalse(form.is_valid())
+
+
+class GestionEditarViewTests(TestCase):
+    """Corrección de errores humanos al registrar una gestión (RF-09,
+    solo Administrador). No hay borrado: on_delete=PROTECT en
+    CargaArchivo.gestion ya evita romper cargas existentes."""
+
+    def setUp(self):
+        self.admin = _crear_administrador()
+        self.client.login(username="admin", password="Clave-Segura123")
+        self.gestion = Gestion.objects.create(
+            anio=2023, fecha_inicio=date(2023, 1, 1), fecha_fin=date(2023, 12, 31)
+        )
+
+    def test_editar_gestion_corrige_fechas(self):
+        respuesta = self.client.post(
+            reverse("registros:gestion_editar", args=[self.gestion.id]),
+            {"anio": 2023, "fecha_inicio": "2023-04-01", "fecha_fin": "2024-03-31"},
+        )
+        self.assertRedirects(respuesta, reverse("registros:gestion_crear"))
+        self.gestion.refresh_from_db()
+        self.assertEqual(self.gestion.fecha_inicio, date(2023, 4, 1))
+        self.assertEqual(self.gestion.fecha_fin, date(2024, 3, 31))
+
+    def test_editar_gestion_registra_historial(self):
+        self.client.post(
+            reverse("registros:gestion_editar", args=[self.gestion.id]),
+            {"anio": 2023, "fecha_inicio": "2023-04-01", "fecha_fin": "2024-03-31"},
+        )
+        cambios = HistorialCambio.objects.filter(
+            modelo="Gestion", objeto_id=self.gestion.id, accion="edicion"
+        )
+        self.assertTrue(cambios.filter(campo="fecha_inicio").exists())
+        self.assertTrue(cambios.filter(campo="fecha_fin").exists())
+
+    def test_editar_gestion_sin_cambios_no_ensucia_el_historial(self):
+        self.client.post(
+            reverse("registros:gestion_editar", args=[self.gestion.id]),
+            {"anio": 2023, "fecha_inicio": "2023-01-01", "fecha_fin": "2023-12-31"},
+        )
+        cambios = HistorialCambio.objects.filter(
+            modelo="Gestion", objeto_id=self.gestion.id, accion="edicion"
+        )
+        self.assertEqual(cambios.count(), 0)

@@ -1,8 +1,24 @@
 {% extends "base.html" %}
 {% block title %}{{ titulo }}{% endblock %}
 {% block content %}
-    <h1 class="text-guindo">{{ titulo }}</h1>
-    <form method="post" style="max-width: 560px;">
+    <div class="d-flex align-items-center gap-3 mb-4">
+        <div class="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0"
+             style="width:56px;height:56px;background:linear-gradient(135deg, var(--guindo), var(--guindo-oscuro));">
+            <i class="bi bi-person-gear text-white fs-4"></i>
+        </div>
+        <div>
+            <h1 class="text-guindo mb-1 h3">{{ titulo }}</h1>
+            <p class="text-secondary mb-0">
+                {% if es_creacion %}
+                    Creá una cuenta nueva y asignale un rol dentro del sistema.
+                {% else %}
+                    Actualizá el correo, el rol o el estado de esta cuenta.
+                {% endif %}
+            </p>
+        </div>
+    </div>
+    <hr class="mb-4">
+    <form method="post" class="mx-auto" style="max-width: 560px;">
         {% csrf_token %}
         {{ form.non_field_errors }}
 

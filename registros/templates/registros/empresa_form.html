@@ -1,15 +1,29 @@
 {% extends "base.html" %}
 {% block title %}{{ titulo }}{% endblock %}
 {% block content %}
-    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
-        <h1 class="text-guindo">{{ titulo }}</h1>
+    <div class="d-flex align-items-start flex-wrap gap-3 mb-4">
+        <div class="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0"
+             style="width:56px;height:56px;background:linear-gradient(135deg, var(--guindo), var(--guindo-oscuro));">
+            <i class="bi bi-building text-white fs-4"></i>
+        </div>
+        <div class="flex-grow-1" style="min-width: 220px;">
+            <h1 class="text-guindo mb-1 h3">{{ titulo }}</h1>
+            <p class="text-secondary mb-0">
+                {% if empresa %}
+                    Actualiza los datos generales y de contacto de esta empresa auditada.
+                {% else %}
+                    Completa los datos generales y de contacto para registrar una nueva empresa cliente.
+                {% endif %}
+            </p>
+        </div>
         {% if empresa %}
-            <a class="btn btn-sm btn-outline-secondary" href="{% url 'registros:empresa_historial' empresa.id %}">
+            <a class="btn btn-sm btn-outline-guindo align-self-center" href="{% url 'registros:empresa_historial' empresa.id %}">
                 <i class="bi bi-clock-history"></i> Ver historial de cambios
             </a>
         {% endif %}
     </div>
-    <form method="post" style="max-width: 680px;">
+    <hr class="mb-4">
+    <form method="post" class="mx-auto" style="max-width: 680px;">
         {% csrf_token %}
         {{ form.non_field_errors }}
 
@@ -59,6 +73,18 @@
                 </div>
             </div>
         </div>
+
+        {% if not empresa %}
+            <div class="p-3 rounded border mb-3">
+                <h2 class="h6 text-guindo text-uppercase mb-3">
+                    <i class="bi bi-calendar3"></i> Gestión a auditar
+                </h2>
+                <label for="{{ form.anio_gestion_inicial.id_for_label }}" class="form-label">{{ form.anio_gestion_inicial.label }}</label>
+                {{ form.anio_gestion_inicial }}
+                {% if form.anio_gestion_inicial.help_text %}<div class="form-text">{{ form.anio_gestion_inicial.help_text }}</div>{% endif %}
+                {% for error in form.anio_gestion_inicial.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+            </div>
+        {% endif %}
 
         <div>
             <button class="btn btn-guindo" type="submit">

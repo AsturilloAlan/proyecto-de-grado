@@ -1,9 +1,10 @@
 import os
 import re
+from datetime import date
 
 from django import forms
 
-from .models import CargaArchivo, EmpresaAuditada
+from .models import CargaArchivo, EmpresaAuditada, Gestion
 
 PATRON_TELEFONO = re.compile(r"^[0-9+()\s-]{6,20}$")
 
@@ -13,6 +14,23 @@ TAMANO_MAXIMO_BYTES = TAMANO_MAXIMO_MB * 1024 * 1024
 
 
 class EmpresaAuditadaForm(forms.ModelForm):
+    # No es un campo del modelo EmpresaAuditada: es un atajo para no tener
+    # que ir a otra pantalla a crear la primera gestión de esta empresa.
+    # Si se deja vacío, la empresa queda registrada igual, sin gestión
+    # (se puede agregar después desde "Cargar registros").
+    anio_gestion_inicial = forms.IntegerField(
+        label="Año de la primera gestión a auditar (opcional)",
+        required=False,
+        min_value=2000,
+        max_value=2100,
+        widget=forms.NumberInput(attrs={"class": "form-control", "min": 2000, "max": 2100}),
+        help_text=(
+            "Se crea automáticamente con el año calendario (01/01 - 31/12). "
+            "Si el cierre de esta empresa es distinto, se puede ajustar "
+            "después desde \"Cargar registros\" → \"Agregar gestión\"."
+        ),
+    )
+
     class Meta:
         model = EmpresaAuditada
         fields = [
@@ -54,6 +72,73 @@ class EmpresaAuditadaForm(forms.ModelForm):
                 "paréntesis, entre 6 y 20 caracteres)."
             )
         return telefono
+
+
+class GestionForm(forms.ModelForm):
+    """Alta de una gestión (año fiscal).
+
+    Uso simple (la mayoría de los casos): solo se escribe el año y listo,
+    se asume automáticamente el año calendario (01/01 - 31/12).
+
+    Uso avanzado (opcional): si el cliente tiene un cierre distinto al
+    31 de diciembre (algo que en Bolivia depende de su rubro — el SIN
+    fija fechas distintas para industriales, agropecuarias, mineras,
+    etc.), se pueden editar las fechas de inicio/fin manualmente.
+    """
+
+    class Meta:
+        model = Gestion
+        fields = ["anio", "fecha_inicio", "fecha_fin"]
+        labels = {
+            "anio": "Año de la gestión",
+            "fecha_inicio": "Fecha de inicio (opcional)",
+            "fecha_fin": "Fecha de fin (opcional)",
+        }
+        widgets = {
+            "anio": forms.NumberInput(attrs={"class": "form-control", "min": 2000, "max": 2100}),
+            "fecha_inicio": forms.DateInput(attrs={"class": "form-control", "type": "date"}),
+            "fecha_fin": forms.DateInput(attrs={"class": "form-control", "type": "date"}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["fecha_inicio"].required = False
+        self.fields["fecha_fin"].required = False
+
+    def clean_anio(self):
+        anio = self.cleaned_data["anio"]
+        if anio < 2000 or anio > 2100:
+            raise forms.ValidationError("Ingresa un año válido (entre 2000 y 2100).")
+        return anio
+
+    def clean(self):
+        limpio = super().clean()
+        anio = limpio.get("anio")
+        inicio = limpio.get("fecha_inicio")
+        fin = limpio.get("fecha_fin")
+        # Si no se especifican fechas, se asume año calendario completo.
+        if anio and not inicio:
+            inicio = date(anio, 1, 1)
+            limpio["fecha_inicio"] = inicio
+        if anio and not fin:
+            fin = date(anio, 12, 31)
+            limpio["fecha_fin"] = fin
+        if inicio and fin and fin <= inicio:
+            raise forms.ValidationError(
+                "La fecha de fin debe ser posterior a la fecha de inicio."
+            )
+        return limpio
+
+    def save(self, commit=True):
+        instancia = super().save(commit=False)
+        # clean() ya rellenó fecha_inicio/fecha_fin si vinieron vacías,
+        # pero save(commit=False) no vuelve a pasar por cleaned_data para
+        # asignarlas al objeto — se hace explícito acá.
+        instancia.fecha_inicio = self.cleaned_data.get("fecha_inicio", instancia.fecha_inicio)
+        instancia.fecha_fin = self.cleaned_data.get("fecha_fin", instancia.fecha_fin)
+        if commit:
+            instancia.save()
+        return instancia
 
 
 class CargaArchivoForm(forms.ModelForm):
