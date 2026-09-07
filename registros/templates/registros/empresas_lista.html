@@ -46,7 +46,15 @@
                         <td>
                             {% if empresa.contacto_nombre %}
                                 {{ empresa.contacto_nombre }}<br>
-                                <small class="text-secondary">{{ empresa.contacto_email }} {{ empresa.contacto_telefono }}</small>
+                                <small class="text-secondary">
+                                    {% if empresa.contacto_email %}
+                                        <i class="bi bi-envelope"></i> {{ empresa.contacto_email }}
+                                    {% endif %}
+                                    {% if empresa.contacto_email and empresa.contacto_telefono %}<br>{% endif %}
+                                    {% if empresa.contacto_telefono %}
+                                        <i class="bi bi-telephone"></i> {{ empresa.contacto_telefono }}
+                                    {% endif %}
+                                </small>
                             {% else %}—{% endif %}
                         </td>
                         <td>{{ empresa.fecha_registro|date:"d/m/Y" }}</td>

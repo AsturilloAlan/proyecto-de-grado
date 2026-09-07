@@ -26,6 +26,12 @@
             --bs-primary: var(--guindo);
         }
         html { min-height: 100%; background: var(--lavanda-claro); }
+        /* En pantallas grandes, el .container de Bootstrap se queda muy
+           angosto (max 1320px) y deja franjas vacías enormes a los
+           costados. Se amplía un poco para aprovechar mejor el ancho. */
+        @media (min-width: 1400px) {
+            .navbar-guindo > .container, main.container { max-width: 1600px; }
+        }
         [data-bs-theme="dark"] html { background: #17111a; }
         body {
             min-height: 100vh;
@@ -243,6 +249,21 @@
                 document.documentElement.setAttribute("data-bs-theme", nuevo);
                 localStorage.setItem("tema", nuevo);
                 actualizarIcono(nuevo);
+            });
+
+            // Al navegar "atrás/adelante" con el navegador, Chrome a veces
+            // restaura la página desde su caché interna (bfcache) sin
+            // volver a ejecutar el script del <head> que fija el tema
+            // guardado, dejando el tema desactualizado. Se vuelve a
+            // aplicar explícitamente cada vez que la página se muestra así.
+            window.addEventListener("pageshow", function (evento) {
+                if (evento.persisted) {
+                    var guardado = localStorage.getItem("tema");
+                    if (guardado) {
+                        document.documentElement.setAttribute("data-bs-theme", guardado);
+                        actualizarIcono(guardado);
+                    }
+                }
             });
         })();
     </script>

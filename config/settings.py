@@ -5,7 +5,11 @@ Configuración del proyecto: Sistema de apoyo a la auditoría externa
 import os
 from pathlib import Path
 
+from dotenv import load_dotenv
+
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+load_dotenv(BASE_DIR / ".env")
 
 # ADVERTENCIA DE SEGURIDAD: esta clave es solo para desarrollo.
 # Antes de desplegar en producción, moverla a una variable de entorno.

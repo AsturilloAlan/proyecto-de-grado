@@ -1,8 +1,11 @@
 import os
+import re
 
 from django import forms
 
 from .models import CargaArchivo, EmpresaAuditada
+
+PATRON_TELEFONO = re.compile(r"^[0-9+()\s-]{6,20}$")
 
 EXTENSIONES_PERMITIDAS = [".xlsx", ".xls", ".csv"]
 TAMANO_MAXIMO_MB = 20
@@ -42,6 +45,15 @@ class EmpresaAuditadaForm(forms.ModelForm):
         if not nombre:
             raise forms.ValidationError("El nombre de la empresa es obligatorio.")
         return nombre
+
+    def clean_contacto_telefono(self):
+        telefono = self.cleaned_data.get("contacto_telefono", "").strip()
+        if telefono and not PATRON_TELEFONO.match(telefono):
+            raise forms.ValidationError(
+                "Ingresa un teléfono válido (solo números, espacios, +, - o "
+                "paréntesis, entre 6 y 20 caracteres)."
+            )
+        return telefono
 
 
 class CargaArchivoForm(forms.ModelForm):
