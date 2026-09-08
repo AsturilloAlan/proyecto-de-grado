@@ -34,7 +34,7 @@
             <div class="col-md-6">
                 <label for="{{ form.empresa.id_for_label }}" class="form-label">{{ form.empresa.label }}</label>
                 <div class="input-group">
-                    <span class="input-group-text bg-transparent"><i class="bi bi-building"></i></span>
+                    <span class="input-group-text input-group-text-icono"><i class="bi bi-building"></i></span>
                     {{ form.empresa }}
                 </div>
                 {% for error in form.empresa.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
@@ -50,7 +50,7 @@
                     {% endif %}
                 </div>
                 <div class="input-group">
-                    <span class="input-group-text bg-transparent"><i class="bi bi-calendar3"></i></span>
+                    <span class="input-group-text input-group-text-icono"><i class="bi bi-calendar3"></i></span>
                     {{ form.gestion }}
                 </div>
                 {% for error in form.gestion.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}

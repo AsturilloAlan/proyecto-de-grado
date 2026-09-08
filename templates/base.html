@@ -303,6 +303,23 @@
         [data-bs-theme="dark"] .barra-progreso-indeterminada.activa::after { background: linear-gradient(90deg, transparent, #e7b8cd, transparent); }
         @keyframes deslizar-progreso { from { left: -40%; } to { left: 100%; } }
 
+        /* Ficha de ícono para prefijos de input (Empresa/Gestión, buscador,
+           etc.): un tamaño fijo con fondo tintado, para que dos íconos
+           distintos siempre se vean parejos entre sí, sin depender de
+           cuánta tinta tenga cada glifo. */
+        .input-group-text-icono {
+            width: 2.6rem;
+            display: flex; align-items: center; justify-content: center;
+            background: rgba(110,27,63,.07) !important;
+            color: var(--guindo-oscuro);
+            border-color: var(--bs-border-color);
+        }
+        .input-group-text-icono i { font-size: .95rem; }
+        [data-bs-theme="dark"] .input-group-text-icono {
+            background: rgba(231,184,205,.1) !important;
+            color: #e7b8cd;
+        }
+
         /* Alerta "de marca" (guindo), para avisos que no son error/éxito
            genéricos de Bootstrap y quedaban con el amarillo de fábrica,
            fuera de la paleta. */
