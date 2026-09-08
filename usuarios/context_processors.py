@@ -12,7 +12,10 @@ from django.urls import resolve, reverse
 # Solo se listan páginas que NO están directamente en el menú principal
 # (cargar/empresas ya tienen su propio enlace en el navbar).
 _MAPA_VOLVER = {
-    "registros:detalle_carga": ("registros:cargar", "Volver a cargas"),
+    # detalle_carga NO está acá a propósito: esa página puede llegarse desde
+    # Inicio o desde Cargar registros, así que en vez de un "volver" fijo
+    # (que solo conoce un destino) usa un breadcrumb propio con ambos niveles
+    # (Inicio > Cargar registros > Carga #N).
     "registros:gestion_crear": ("registros:cargar", "Volver a cargar registros"),
     "registros:gestion_editar": ("registros:cargar", "Volver a cargar registros"),
     "registros:empresa_crear": ("registros:empresas_lista", "Volver a empresas"),

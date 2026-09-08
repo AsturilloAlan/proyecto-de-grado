@@ -116,6 +116,15 @@
         .dropdown-item { transition: background-color .15s ease, padding-left .15s ease; border-radius: .4rem; }
         .dropdown-item:hover { padding-left: 1.1rem; }
 
+        /* Breadcrumb: ruta jerárquica (Inicio > Módulo > Página actual) para
+           pantallas a las que se puede llegar desde más de un lugar, donde
+           un solo botón "volver" no alcanza para representar bien de dónde
+           viene el usuario. */
+        .breadcrumb { background: transparent; padding: 0; margin-bottom: 0; }
+        .breadcrumb-item + .breadcrumb-item::before { color: var(--bs-secondary-color); }
+        .breadcrumb-item.active { color: var(--bs-secondary-color); }
+        [data-bs-theme="dark"] .breadcrumb-item.active { color: #b9adc0; }
+
         /* Tablas y botones pequeños: hover más vivo */
         .table-hover > tbody > tr { transition: background-color .15s ease; }
         .btn { transition: transform .15s ease, box-shadow .2s ease, filter .2s ease, background-color .15s ease, color .15s ease; }
