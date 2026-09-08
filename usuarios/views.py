@@ -56,10 +56,14 @@ class LoginSiempreInicioView(LoginView):
                 clave = _clave_intentos_login(username)
                 intentos = cache.get(clave, 0)
                 if intentos >= MAXIMO_INTENTOS_LOGIN:
+                    # No se repite el nombre de usuario en el mensaje: no
+                    # aporta nada útil y, si alguien prueba usuarios al
+                    # azar, es mejor no confirmarle que ese texto fue
+                    # aceptado tal cual.
                     messages.error(
                         request,
-                        f"Demasiados intentos fallidos para el usuario '{username.strip()}'. "
-                        f"Espera {MINUTOS_BLOQUEO_LOGIN} minutos e intenta de nuevo.",
+                        f"Demasiados intentos fallidos. Espera {MINUTOS_BLOQUEO_LOGIN} "
+                        f"minutos e intenta de nuevo.",
                     )
                     return redirect("login")
         return super().dispatch(request, *args, **kwargs)
@@ -70,6 +74,20 @@ class LoginSiempreInicioView(LoginView):
             clave = _clave_intentos_login(username)
             intentos = cache.get(clave, 0) + 1
             cache.set(clave, intentos, timeout=MINUTOS_BLOQUEO_LOGIN * 60)
+
+            # Aviso previo al bloqueo: recién en los últimos intentos, para
+            # no generar ruido con cada simple error de tipeo.
+            intentos_restantes = MAXIMO_INTENTOS_LOGIN - intentos
+            if 0 < intentos_restantes <= 2:
+                if intentos_restantes == 1:
+                    texto = "Te queda 1 intento"
+                else:
+                    texto = f"Te quedan {intentos_restantes} intentos"
+                messages.warning(
+                    self.request,
+                    f"{texto} antes de que el acceso se bloquee por "
+                    f"{MINUTOS_BLOQUEO_LOGIN} minutos.",
+                )
         return super().form_invalid(form)
 
     def form_valid(self, form):

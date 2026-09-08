@@ -8,7 +8,7 @@
     <link rel="icon" type="image/png" href="{% static 'img/logo-sts.png' %}">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Lora:wght@500;600;700&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
     <script>
@@ -25,7 +25,7 @@
         :root {
             --guindo: #6E1B3F;
             --guindo-oscuro: #4A1129;
-            --lavanda-claro: #F3EAF1;
+            --lavanda-claro: #FAF6F8;
             --bs-primary: var(--guindo);
         }
         html { min-height: 100%; background: var(--lavanda-claro); overflow-x: hidden; }
@@ -39,12 +39,20 @@
            queda sobre una superficie que sí cambia con el tema, como la
            tarjeta del login — el navbar no, porque su fondo guindo es
            siempre el mismo con cualquier tema). */
-        .logo-tema-oscuro { display: none; }
-        [data-bs-theme="dark"] .logo-tema-oscuro { display: inline-block; }
-        [data-bs-theme="dark"] .logo-tema-claro { display: none; }
+        .logo-tema-claro, .logo-tema-oscuro { transition: opacity .35s ease; }
+        .logo-tema-oscuro { opacity: 0; }
+        [data-bs-theme="dark"] .logo-tema-oscuro { opacity: 1; }
+        [data-bs-theme="dark"] .logo-tema-claro { opacity: 0; }
+        @media (prefers-reduced-motion: reduce) {
+            .logo-tema-claro, .logo-tema-oscuro { transition: none; }
+        }
 
+        /* El logo ya usa una serif clásica ("ST&S AUDITORES...") — los
+           títulos usan una serif afín (Lora) en vez de la misma sans de
+           los botones/inputs, para que se sienta parte de la misma
+           marca en vez de una tipografía de sistema genérica. */
         h1, h2, h3, h4, h5, h6, .navbar-brand, .fs-4 {
-            font-family: "Plus Jakarta Sans", "Segoe UI", -apple-system, sans-serif;
+            font-family: "Lora", Georgia, "Times New Roman", serif;
             font-weight: 700;
             letter-spacing: -.01em;
         }
@@ -65,45 +73,115 @@
         body {
             min-height: 100vh;
             background:
-                radial-gradient(circle at 15% 0%, rgba(110,27,63,.06), transparent 45%),
-                radial-gradient(circle at 85% 100%, rgba(110,27,63,.05), transparent 40%),
+                radial-gradient(circle at 15% 0%, rgba(110,27,63,.08), rgba(110,27,63,.03) 25%, transparent 50%),
+                radial-gradient(circle at 85% 100%, rgba(110,27,63,.08), rgba(110,27,63,.03) 25%, transparent 50%),
                 var(--lavanda-claro);
             transition: background-color .2s ease;
         }
         [data-bs-theme="dark"] body {
             background:
-                radial-gradient(circle at 15% 0%, rgba(231,184,205,.05), transparent 45%),
-                radial-gradient(circle at 85% 100%, rgba(231,184,205,.04), transparent 40%),
+                radial-gradient(circle at 15% 0%, rgba(231,184,205,.05), rgba(231,184,205,.02) 25%, transparent 50%),
+                radial-gradient(circle at 85% 100%, rgba(231,184,205,.05), rgba(231,184,205,.02) 25%, transparent 50%),
                 #17111a;
         }
         [data-bs-theme="dark"] .card-principal { background: rgba(36,26,46,.75); }
         [data-bs-theme="dark"] .text-secondary { color: #b9adc0 !important; }
 
+        /* Navbar minimalista, con el mismo lenguaje en claro y oscuro:
+           fondo tipo "vidrio" en vez de la barra guindo sólida, texto en
+           el tono guindo/rosa de cada tema, y el link activo marcado con
+           una línea abajo en vez de un fondo relleno. */
         .navbar-guindo {
-            background: linear-gradient(100deg, var(--guindo) 0%, var(--guindo-oscuro) 100%);
-            box-shadow: 0 4px 24px rgba(74,17,41,.25);
+            /* Sin backdrop-filter a propósito: crea un contexto de
+               apilamiento nuevo en el <nav> que atrapa el menú
+               desplegable del usuario adentro, y el contenido de la
+               página termina pintándose encima (bug real, ya visto). */
+            background: rgba(255,255,255,.92);
+            box-shadow: none;
+            border-bottom: 1px solid rgba(110,27,63,.12);
         }
-        .navbar-guindo .navbar-brand, .navbar-guindo .nav-link { color: #fff !important; }
+        [data-bs-theme="dark"] .navbar-guindo {
+            background: rgba(23,17,26,.75);
+            border-bottom-color: rgba(255,255,255,.08);
+        }
+        .navbar-guindo .navbar-brand, .navbar-guindo .nav-link { color: var(--guindo-oscuro) !important; }
+        [data-bs-theme="dark"] .navbar-guindo .navbar-brand,
+        [data-bs-theme="dark"] .navbar-guindo .nav-link { color: #b9adc0 !important; }
         .navbar-guindo .nav-link {
             position: relative;
             border-radius: .5rem;
             padding-left: .7rem; padding-right: .7rem;
-            transition: background-color .2s ease, transform .15s ease;
+            transition: background-color .2s ease, color .2s ease;
         }
-        .navbar-guindo .nav-link:hover { background: rgba(255,255,255,.12); text-decoration: none; transform: translateY(-1px); }
-        .navbar-guindo .nav-link.active { background: rgba(255,255,255,.18); }
-        .logo-navbar { height: 40px; width: auto; transition: transform .2s ease; }
-        .logo-navbar:hover { transform: scale(1.03); }
+        .navbar-guindo .nav-link:hover { background: rgba(110,27,63,.08); text-decoration: none; }
+        [data-bs-theme="dark"] .navbar-guindo .nav-link:hover {
+            background: rgba(255,255,255,.06); color: #f1e9ee !important;
+        }
+        .navbar-guindo .nav-link.active { background: transparent; font-weight: 600; }
+        [data-bs-theme="dark"] .navbar-guindo .nav-link.active { color: #f4e9f0 !important; }
+        .navbar-guindo .nav-link.active::after {
+            content: ""; position: absolute; left: .7rem; right: .7rem; bottom: 2px;
+            height: 2px; background: var(--guindo); border-radius: 2px;
+        }
+        [data-bs-theme="dark"] .navbar-guindo .nav-link.active::after { background: #e7b8cd; }
+
+        /* El menú (Inicio / Cargar registros / ...) quedaba descentrado:
+           con space-between entre 3 bloques de ancho distinto (logo,
+           menú, acciones), el del medio no cae justo al centro de la
+           barra. Se centra de verdad, superpuesto, independiente del
+           ancho de los otros dos bloques. Solo desde md, que es cuando
+           el menú deja de estar colapsado en hamburguesa. */
+        @media (min-width: 768px) {
+            .navbar-guindo > .container { position: relative; }
+            .navbar-guindo .navbar-collapse {
+                position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+            }
+        }
+
+        .navbar-guindo #boton-tema { border-color: rgba(110,27,63,.3); color: var(--guindo-oscuro); }
+        .navbar-guindo #boton-tema:hover { background: rgba(110,27,63,.08); }
+        [data-bs-theme="dark"] .navbar-guindo #boton-tema {
+            border-color: transparent; background: rgba(255,255,255,.06); color: #e7b8cd;
+        }
+        [data-bs-theme="dark"] .navbar-guindo #boton-tema:hover { background: rgba(255,255,255,.12); }
+
+        #menuUsuario { color: var(--guindo-oscuro) !important; }
+        #menuUsuario:hover { background: rgba(110,27,63,.08); }
+        [data-bs-theme="dark"] #menuUsuario { color: #b9adc0 !important; }
+        [data-bs-theme="dark"] #menuUsuario:hover { background: rgba(255,255,255,.06); color: #f1e9ee !important; }
+
+        .avatar-inicial { background: rgba(110,27,63,.12); color: var(--guindo-oscuro); }
+        [data-bs-theme="dark"] .avatar-inicial { background: rgba(231,184,205,.15); color: #e7b8cd; }
+
+        .logo-navbar-caja {
+            position: relative; display: inline-block; height: 40px; width: 148px;
+            animation: logo-entrar .5s cubic-bezier(.2,.8,.2,1) both;
+        }
+        @keyframes logo-entrar {
+            from { opacity: 0; transform: translateY(-6px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .logo-navbar-caja img {
+            position: absolute; inset: 0; margin: auto;
+            max-height: 40px; max-width: 148px; height: auto; width: auto; object-fit: contain;
+            transition: transform .25s cubic-bezier(.34,1.56,.64,1), opacity .35s ease;
+        }
+        .logo-navbar-caja:hover img { transform: scale(1.06) rotate(-1deg); }
+        @media (prefers-reduced-motion: reduce) {
+            .logo-navbar-caja { animation: none; }
+            .logo-navbar-caja img { transition: opacity .35s ease; }
+            .logo-navbar-caja:hover img { transform: none; }
+        }
 
         /* Tarjeta principal: efecto "glass" sutil, sin perder legibilidad */
         .card-principal {
             border: none;
             border-top: 4px solid var(--guindo);
             border-radius: 1rem;
-            background: rgba(255,255,255,.72);
+            background: rgba(255,255,255,.88);
             backdrop-filter: blur(10px) saturate(140%);
             -webkit-backdrop-filter: blur(10px) saturate(140%);
-            box-shadow: 0 8px 30px rgba(74,17,41,.10), 0 1px 3px rgba(74,17,41,.06);
+            box-shadow: 0 8px 30px rgba(74,17,41,.09), 0 1px 3px rgba(74,17,41,.05);
             transition: box-shadow .25s ease, transform .25s ease;
         }
         [data-bs-theme="dark"] .card-principal { box-shadow: 0 8px 30px rgba(0,0,0,.45); }
@@ -149,7 +227,13 @@
             color: #fff;
         }
         [data-bs-theme="dark"] .input-group-text { background-color: rgba(255,255,255,.06); border-color: rgba(231,184,205,.25); color: #e7b8cd; }
-        [data-bs-theme="dark"] .form-select { color-scheme: dark; }
+        /* OJO: no forzar color-scheme:dark en los <select> — el navegador
+           intenta pintar de oscuro el panel desplegable nativo, pero lo
+           hace de forma inconsistente (algunas opciones quedan con texto
+           invisible, como se vio en Cargar registros). El campo cerrado
+           ya se ve oscuro por el color de fondo de arriba; el panel
+           desplegable se deja con el estilo claro por defecto del
+           navegador, que sí es legible siempre. */
 
         /* Encabezados de tabla: un tinte sutil en vez de blanco/negro
            plano, con las etiquetas en mayúsculas pequeñas — se ve más
@@ -168,12 +252,11 @@
         }
         a { color: var(--guindo); }
         [data-bs-theme="dark"] a { color: #e7b8cd; }
-        #boton-tema { border-color: rgba(255,255,255,.6); color: #fff; transition: transform .2s ease, background-color .2s ease; }
-        #boton-tema:hover { background: rgba(255,255,255,.15); color: #fff; transform: rotate(15deg); }
+        #boton-tema { transition: transform .2s ease, background-color .2s ease; }
+        #boton-tema:hover { transform: rotate(15deg); }
+        #frase-rotativa { transition: opacity .3s ease; }
         .avatar-navbar { width: 32px; height: 32px; object-fit: cover; transition: transform .2s ease; }
-        .avatar-inicial { width: 32px; height: 32px; background: rgba(255,255,255,.2); color: #fff; font-weight: 600; font-size: .85rem; transition: transform .2s ease; }
-        #menuUsuario { color: #fff !important; }
-        #menuUsuario:hover { background: rgba(255,255,255,.12); }
+        .avatar-inicial { width: 32px; height: 32px; font-weight: 600; font-size: .85rem; transition: transform .2s ease; }
         #menuUsuario:hover .avatar-navbar, #menuUsuario:hover .avatar-inicial { transform: scale(1.08); }
         .dropdown-menu {
             border: none; box-shadow: 0 12px 32px rgba(74,17,41,.18); border-radius: .75rem;
@@ -348,10 +431,37 @@
     {% block extra_head %}{% endblock %}
 </head>
 <body>
+    {% if not user.is_authenticated %}
+        <!-- Sin sesión iniciada (login, verificación de código): la barra
+             completa color guindo con el logo es redundante, porque el
+             logo ya aparece en la propia tarjeta de la página. En vez de
+             dejarlo vacío, se pone un identificador mínimo (no el logo
+             grande) y la hora del sistema — algo que se siente parte de
+             una herramienta real, no un adorno. -->
+        <div class="d-flex justify-content-between align-items-center px-4 py-3">
+            <div class="d-flex align-items-center gap-2">
+                <span class="rounded-circle d-inline-flex align-items-center justify-content-center flex-shrink-0"
+                      style="width:26px;height:26px;background:linear-gradient(135deg, var(--guindo), var(--guindo-oscuro));">
+                    <span class="text-white fw-bold" style="font-size:.68rem;">S</span>
+                </span>
+                <span class="fw-bold text-guindo" style="font-size:.9rem; letter-spacing:.02em;">ST&amp;S</span>
+            </div>
+            <div class="d-flex align-items-center gap-3">
+                <span class="d-none d-md-inline text-secondary small" id="frase-rotativa" style="min-width: 220px;"></span>
+                <span class="text-secondary small d-none d-sm-inline" id="reloj-sistema"></span>
+                <button type="button" id="boton-tema" class="btn btn-sm btn-outline-guindo" title="Cambiar tema claro/oscuro">
+                    <i class="bi bi-moon-stars" id="icono-tema"></i>
+                </button>
+            </div>
+        </div>
+    {% else %}
     <nav class="navbar navbar-expand-md navbar-guindo mb-4">
         <div class="container">
             <a class="navbar-brand d-flex align-items-center" href="{% if user.is_authenticated %}{% url 'home' %}{% else %}#{% endif %}">
-                <img src="{% static 'img/logo-sts-oscuro.png' %}" alt="ST&amp;S Auditores y Consultores" class="logo-navbar">
+                <span class="logo-navbar-caja">
+                    <img src="{% static 'img/logo-sts-claro.png' %}" alt="ST&amp;S Auditores y Consultores" class="logo-tema-claro">
+                    <img src="{% static 'img/logo-sts-oscuro.png' %}" alt="ST&amp;S Auditores y Consultores" class="logo-tema-oscuro">
+                </span>
             </a>
             {% if user.is_authenticated %}
                 <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#menuPrincipal">
@@ -429,16 +539,19 @@
             </div>
         </div>
     </nav>
+    {% endif %}
 
     <main class="container mb-5">
+        {% block mensajes_globales %}
         {% if messages %}
             {% for message in messages %}
-                <div class="alert {% if message.tags == 'error' %}alert-danger{% elif message.tags == 'success' %}alert-success alert-autocierre{% elif message.tags == 'warning' %}alert-warning{% else %}alert-info alert-autocierre{% endif %} alert-dismissible fade show" role="alert">
+                <div class="alert {% if message.tags == 'error' %}alert-danger{% elif message.tags == 'success' %}alert-success{% elif message.tags == 'warning' %}alert-warning{% else %}alert-info{% endif %} alert-dismissible fade show alert-autocierre" role="alert">
                     {{ message }}
                     <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Cerrar"></button>
                 </div>
             {% endfor %}
         {% endif %}
+        {% endblock %}
 
         {% if volver_url %}
             <a href="{{ volver_url }}" class="btn btn-sm btn-outline-guindo mb-3">
@@ -491,6 +604,55 @@
     </script>
     <script>
         (function () {
+            // Reloj del encabezado en las páginas sin sesión (login, código
+            // de verificación). Solo existe ese elemento ahí, así que en el
+            // resto de páginas esta función simplemente no hace nada.
+            var reloj = document.getElementById("reloj-sistema");
+            if (!reloj) return;
+            function actualizarReloj() {
+                var ahora = new Date();
+                var fecha = ahora.toLocaleDateString("es-BO", { weekday: "short", day: "numeric", month: "short" });
+                var hora = ahora.toLocaleTimeString("es-BO", { hour: "2-digit", minute: "2-digit" });
+                reloj.textContent = fecha + " · " + hora;
+            }
+            actualizarReloj();
+            setInterval(actualizarReloj, 15000);
+        })();
+    </script>
+    <script>
+        (function () {
+            // Frase rotativa del encabezado sin sesión: en vez de un texto
+            // fijo ("Sistema en línea"), va nombrando lo que el sistema
+            // realmente hace, una idea a la vez, con un fundido suave.
+            var elemento = document.getElementById("frase-rotativa");
+            if (!elemento) return;
+            var frases = [
+                "Detecta anomalías con Machine Learning",
+                "Valida cada archivo antes de guardarlo",
+                "Registra quién cambió qué, y cuándo",
+            ];
+            var indice = 0;
+            var prefiereReducido = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+            function mostrar(i) {
+                elemento.textContent = frases[i];
+            }
+            mostrar(0);
+
+            if (!prefiereReducido) {
+                setInterval(function () {
+                    indice = (indice + 1) % frases.length;
+                    elemento.style.opacity = "0";
+                    setTimeout(function () {
+                        mostrar(indice);
+                        elemento.style.opacity = "1";
+                    }, 300);
+                }, 3800);
+            }
+        })();
+    </script>
+    <script>
+        (function () {
             // Números de estadísticas (dashboard): cuentan de 0 al valor real
             // en vez de aparecer estáticos. Se marcan con data-contar="N".
             document.querySelectorAll("[data-contar]").forEach(function (elemento) {
@@ -531,15 +693,17 @@
                 });
             });
 
-            // Los mensajes de éxito/información se cierran solos (los de
-            // error/advertencia se quedan, para que el usuario los lea con
-            // calma). Se reusa el propio componente Alert de Bootstrap, así
-            // la animación de cierre es la misma que al tocar la "×".
+            // Todos los mensajes se cierran solos. Los de error/advertencia
+            // se quedan más tiempo (9s) para dar tiempo a leerlos con
+            // calma; los de éxito/información, menos (4.5s). Se reusa el
+            // propio componente Alert de Bootstrap, así la animación de
+            // cierre es la misma que al tocar la "×".
             document.querySelectorAll(".alert-autocierre").forEach(function (alerta) {
+                var urgente = alerta.classList.contains("alert-danger") || alerta.classList.contains("alert-warning");
                 setTimeout(function () {
                     var instancia = bootstrap.Alert.getOrCreateInstance(alerta);
                     if (instancia) instancia.close();
-                }, 4500);
+                }, urgente ? 9000 : 4500);
             });
         })();
     </script>

@@ -1,5 +1,43 @@
 {% extends "base.html" %}
 {% block title %}Cargar registros contables{% endblock %}
+{% block extra_head %}
+<style>
+    /* --- Dropdown personalizado: reemplaza el <select> nativo, cuyo
+       panel desplegable no se puede controlar del todo por CSS (se veía
+       mal en modo oscuro). El <select> real sigue ahí, oculto, para que
+       el formulario funcione igual; el botón y la lista son propios. --- */
+    .select-oculto {
+        position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+        overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0;
+    }
+    .selector-personalizado { position: relative; }
+    .selector-boton {
+        display: flex; align-items: center; justify-content: space-between; gap: .5rem;
+        cursor: pointer; width: 100%; text-align: left;
+    }
+    .selector-boton .bi-chevron-down { transition: transform .2s ease; color: var(--guindo-oscuro); flex-shrink: 0; }
+    [data-bs-theme="dark"] .selector-boton .bi-chevron-down { color: #e7b8cd; }
+    .selector-abierto .bi-chevron-down { transform: rotate(180deg); }
+    .selector-lista {
+        position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 1050;
+        background: #fff; border: 1px solid rgba(110,27,63,.15); border-radius: .6rem;
+        box-shadow: 0 12px 32px rgba(74,17,41,.18); max-height: 240px; overflow-y: auto;
+        padding: .35rem; margin: 0; list-style: none;
+        animation: selector-desplegar .15s ease both;
+    }
+    @keyframes selector-desplegar {
+        from { opacity: 0; transform: translateY(-4px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    @media (prefers-reduced-motion: reduce) { .selector-lista { animation: none; } }
+    [data-bs-theme="dark"] .selector-lista { background: #241a2e; border-color: rgba(231,184,205,.2); }
+    .selector-opcion { padding: .5rem .75rem; border-radius: .4rem; cursor: pointer; font-size: .95rem; }
+    .selector-opcion:hover { background: rgba(110,27,63,.08); }
+    [data-bs-theme="dark"] .selector-opcion:hover { background: rgba(255,255,255,.06); }
+    .selector-opcion-activa { background: rgba(110,27,63,.12); font-weight: 600; color: var(--guindo-oscuro); }
+    [data-bs-theme="dark"] .selector-opcion-activa { background: rgba(231,184,205,.15); color: #e7b8cd; }
+</style>
+{% endblock %}
 {% block content %}
     <div class="d-flex align-items-center gap-3 mb-3">
         <div class="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0"
@@ -33,9 +71,18 @@
 
             <div class="col-md-6">
                 <label for="{{ form.empresa.id_for_label }}" class="form-label">{{ form.empresa.label }}</label>
-                <div class="input-group">
+                <div class="input-group selector-personalizado">
                     <span class="input-group-text input-group-text-icono"><i class="bi bi-building"></i></span>
-                    {{ form.empresa }}
+                    <div class="select-oculto">{{ form.empresa }}</div>
+                    <button type="button" class="form-control selector-boton">
+                        <span class="selector-texto"></span>
+                        <i class="bi bi-chevron-down"></i>
+                    </button>
+                    <ul class="selector-lista d-none" role="listbox">
+                        {% for valor, etiqueta in form.empresa.field.choices %}
+                            <li class="selector-opcion" data-valor="{{ valor }}" role="option">{{ etiqueta }}</li>
+                        {% endfor %}
+                    </ul>
                 </div>
                 {% for error in form.empresa.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
             </div>
@@ -49,9 +96,18 @@
                         </a>
                     {% endif %}
                 </div>
-                <div class="input-group">
+                <div class="input-group selector-personalizado">
                     <span class="input-group-text input-group-text-icono"><i class="bi bi-calendar3"></i></span>
-                    {{ form.gestion }}
+                    <div class="select-oculto">{{ form.gestion }}</div>
+                    <button type="button" class="form-control selector-boton">
+                        <span class="selector-texto"></span>
+                        <i class="bi bi-chevron-down"></i>
+                    </button>
+                    <ul class="selector-lista d-none" role="listbox">
+                        {% for valor, etiqueta in form.gestion.field.choices %}
+                            <li class="selector-opcion" data-valor="{{ valor }}" role="option">{{ etiqueta }}</li>
+                        {% endfor %}
+                    </ul>
                 </div>
                 {% for error in form.gestion.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
             </div>
@@ -96,34 +152,70 @@
         <form method="get" class="row row-cols-lg-auto g-2 align-items-end mb-3">
             <div class="col-12">
                 <label for="filtro-empresa" class="form-label small mb-1">Empresa</label>
-                <select id="filtro-empresa" name="empresa" class="form-select form-select-sm">
-                    <option value="">Todas</option>
-                    {% for empresa in empresas_con_cargas %}
-                        <option value="{{ empresa.id }}" {% if filtro_empresa == empresa.id|stringformat:"s" %}selected{% endif %}>
-                            {{ empresa.nombre }}
-                        </option>
-                    {% endfor %}
-                </select>
+                <div class="selector-personalizado" style="min-width: 180px;">
+                    <select id="filtro-empresa" name="empresa" class="select-oculto">
+                        <option value="">Todas</option>
+                        {% for empresa in empresas_con_cargas %}
+                            <option value="{{ empresa.id }}" {% if filtro_empresa == empresa.id|stringformat:"s" %}selected{% endif %}>
+                                {{ empresa.nombre }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                    <button type="button" class="form-control form-control-sm selector-boton">
+                        <span class="selector-texto"></span>
+                        <i class="bi bi-chevron-down"></i>
+                    </button>
+                    <ul class="selector-lista d-none" role="listbox">
+                        <li class="selector-opcion" data-valor="" role="option">Todas</li>
+                        {% for empresa in empresas_con_cargas %}
+                            <li class="selector-opcion" data-valor="{{ empresa.id }}" role="option">{{ empresa.nombre }}</li>
+                        {% endfor %}
+                    </ul>
+                </div>
             </div>
             <div class="col-12">
                 <label for="filtro-gestion" class="form-label small mb-1">Gestión</label>
-                <select id="filtro-gestion" name="gestion" class="form-select form-select-sm">
-                    <option value="">Todas</option>
-                    {% for gestion in gestiones_con_cargas %}
-                        <option value="{{ gestion.id }}" {% if filtro_gestion == gestion.id|stringformat:"s" %}selected{% endif %}>
-                            {{ gestion }}
-                        </option>
-                    {% endfor %}
-                </select>
+                <div class="selector-personalizado" style="min-width: 180px;">
+                    <select id="filtro-gestion" name="gestion" class="select-oculto">
+                        <option value="">Todas</option>
+                        {% for gestion in gestiones_con_cargas %}
+                            <option value="{{ gestion.id }}" {% if filtro_gestion == gestion.id|stringformat:"s" %}selected{% endif %}>
+                                {{ gestion }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                    <button type="button" class="form-control form-control-sm selector-boton">
+                        <span class="selector-texto"></span>
+                        <i class="bi bi-chevron-down"></i>
+                    </button>
+                    <ul class="selector-lista d-none" role="listbox">
+                        <li class="selector-opcion" data-valor="" role="option">Todas</li>
+                        {% for gestion in gestiones_con_cargas %}
+                            <li class="selector-opcion" data-valor="{{ gestion.id }}" role="option">{{ gestion }}</li>
+                        {% endfor %}
+                    </ul>
+                </div>
             </div>
             <div class="col-12">
                 <label for="filtro-estado" class="form-label small mb-1">Estado</label>
-                <select id="filtro-estado" name="estado" class="form-select form-select-sm">
-                    <option value="">Todos</option>
-                    {% for valor, etiqueta in estado_choices %}
-                        <option value="{{ valor }}" {% if filtro_estado == valor %}selected{% endif %}>{{ etiqueta }}</option>
-                    {% endfor %}
-                </select>
+                <div class="selector-personalizado" style="min-width: 160px;">
+                    <select id="filtro-estado" name="estado" class="select-oculto">
+                        <option value="">Todos</option>
+                        {% for valor, etiqueta in estado_choices %}
+                            <option value="{{ valor }}" {% if filtro_estado == valor %}selected{% endif %}>{{ etiqueta }}</option>
+                        {% endfor %}
+                    </select>
+                    <button type="button" class="form-control form-control-sm selector-boton">
+                        <span class="selector-texto"></span>
+                        <i class="bi bi-chevron-down"></i>
+                    </button>
+                    <ul class="selector-lista d-none" role="listbox">
+                        <li class="selector-opcion" data-valor="" role="option">Todos</li>
+                        {% for valor, etiqueta in estado_choices %}
+                            <li class="selector-opcion" data-valor="{{ valor }}" role="option">{{ etiqueta }}</li>
+                        {% endfor %}
+                    </ul>
+                </div>
             </div>
             <div class="col-12">
                 <button class="btn btn-sm btn-guindo" type="submit">
@@ -272,6 +364,71 @@
                 input.files = e.dataTransfer.files;
                 actualizarVista();
             }
+        });
+    })();
+</script>
+<script>
+    (function () {
+        // Dropdown personalizado: reemplaza la apariencia del <select>
+        // nativo (cuyo panel desplegable no combina bien con el modo
+        // oscuro) por un botón + lista propios. El <select> real sigue
+        // ahí oculto y sigue siendo la fuente de verdad para el envío
+        // del formulario.
+        document.querySelectorAll(".selector-personalizado").forEach(function (contenedor) {
+            var nativo = contenedor.querySelector("select");
+            var boton = contenedor.querySelector(".selector-boton");
+            var texto = contenedor.querySelector(".selector-texto");
+            var lista = contenedor.querySelector(".selector-lista");
+            if (!nativo || !boton || !texto || !lista) return;
+
+            var opciones = Array.prototype.slice.call(lista.querySelectorAll(".selector-opcion"));
+
+            function marcarActiva() {
+                opciones.forEach(function (opcionEl) {
+                    var esActiva = opcionEl.getAttribute("data-valor") === nativo.value;
+                    opcionEl.classList.toggle("selector-opcion-activa", esActiva);
+                });
+            }
+
+            function sincronizarTexto() {
+                var opcion = nativo.options[nativo.selectedIndex];
+                texto.textContent = opcion ? opcion.text.trim() : "";
+                marcarActiva();
+            }
+            sincronizarTexto();
+
+            function abrir() {
+                lista.classList.remove("d-none");
+                contenedor.classList.add("selector-abierto");
+            }
+            function cerrar() {
+                lista.classList.add("d-none");
+                contenedor.classList.remove("selector-abierto");
+            }
+
+            boton.addEventListener("click", function (e) {
+                e.preventDefault();
+                e.stopPropagation();
+                if (lista.classList.contains("d-none")) abrir(); else cerrar();
+            });
+
+            opciones.forEach(function (opcionEl) {
+                opcionEl.addEventListener("click", function () {
+                    nativo.value = opcionEl.getAttribute("data-valor");
+                    nativo.dispatchEvent(new Event("change", { bubbles: true }));
+                    sincronizarTexto();
+                    cerrar();
+                    boton.focus();
+                });
+            });
+
+            boton.addEventListener("keydown", function (e) {
+                if (e.key === "Escape") cerrar();
+            });
+
+            document.addEventListener("click", function (e) {
+                if (!contenedor.contains(e.target)) cerrar();
+            });
         });
     })();
 </script>

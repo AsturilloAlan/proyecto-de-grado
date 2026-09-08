@@ -1,85 +1,257 @@
 {% extends "base.html" %}
 {% load static %}
 {% block title %}Iniciar sesión{% endblock %}
-{% block card_extra_class %}mt-4 mt-md-5{% endblock %}
-{% block card_extra_style %}max-width: 840px;{% endblock %}
+{% block card_extra_class %}mt-5 tarjeta-editorial{% endblock %}
+{% block card_extra_style %}max-width: 960px;{% endblock %}
+{% block mensajes_globales %}{% endblock %}
+{% block extra_head %}
+<style>
+    /* --- Entrada escalonada: cada bloque aparece con una fracción de
+       segundo de diferencia, en vez de todo de golpe. --- */
+    @keyframes fluido-in {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    .fluido-in { animation: fluido-in .5s cubic-bezier(.2,.8,.2,1) both; }
+    @media (prefers-reduced-motion: reduce) { .fluido-in { animation: none; } }
+
+    /* En celular la columna izquierda (chip/titular) se oculta y solo
+       queda la tarjeta sola — sin el centrado de acá se queda pegada
+       arriba, dejando un hueco enorme y vacío abajo en pantallas altas.
+       Solo aplica a esta página (:has apunta a la tarjeta editorial), no
+       toca el <main> de las demás vistas. */
+    @media (max-width: 767.98px) {
+        main.container:has(.tarjeta-editorial) {
+            display: flex;
+            align-items: center;
+            min-height: calc(100vh - 96px);
+        }
+        .tarjeta-editorial { margin-top: 0 !important; }
+    }
+
+    /* --- Logo (solo celular): crossfade suave entre versión clara y
+       oscura en vez del cambio instantáneo. --- */
+    .logo-login-caja { position: relative; height: 44px; }
+    .logo-login-caja img {
+        position: absolute; inset: 0; margin: auto;
+        width: 170px; height: 44px; object-fit: contain;
+        transition: opacity .35s ease;
+    }
+    @media (prefers-reduced-motion: reduce) { .logo-login-caja img { transition: none; } }
+
+    /* --- Campos con etiqueta flotante (componente real de Bootstrap). --- */
+    .form-floating > .form-control { height: calc(3.5rem + 2px); }
+    .form-floating > label { transition: opacity .2s ease, transform .2s cubic-bezier(.4,0,.2,1); }
+    .form-floating > .form-control:focus ~ label,
+    .form-floating > .form-control:not(:placeholder-shown) ~ label { color: var(--guindo); opacity: 1; }
+    [data-bs-theme="dark"] .form-floating > .form-control:focus ~ label,
+    [data-bs-theme="dark"] .form-floating > .form-control:not(:placeholder-shown) ~ label { color: #e7b8cd; }
+    .input-group > .form-floating:not(:last-child) > .form-control { border-top-right-radius: 0; border-bottom-right-radius: 0; }
+
+    /* Botón de mostrar/ocultar clave: giro breve al hacer clic. */
+    #icono-mostrar-clave { display: inline-block; transition: transform .3s ease; }
+    #icono-mostrar-clave.girar { transform: rotateY(180deg); }
+
+    /* Django devuelve los errores del formulario como <ul>, con el
+       margen/relleno por defecto del navegador — de ahí el espacio
+       vacío abajo del mensaje de error. Se quita. */
+    .alert ul { list-style: none; margin: 0; padding: 0; }
+    .alert ul li + li { margin-top: .25rem; }
+
+    /* --- Diseño editorial: la tarjeta general pierde su fondo/borde de
+       "card" (eso lo lleva ahora solo la tarjeta de vidrio de la derecha),
+       y detrás de todo va el nombre de la marca en tipografía enorme y
+       muy tenue — un fondo con identidad en vez de espacio vacío. --- */
+    .tarjeta-editorial {
+        background: transparent !important; border: none !important;
+        box-shadow: none !important; backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
+    }
+    /* Sin overflow:hidden aquí: recortaba tanto la marca de agua como el
+       contenido de verdad (el <div> no compensa el margen negativo del
+       .row de Bootstrap, así que el texto quedaba mordido a la
+       izquierda) y también la sombra de la tarjeta, en un borde duro y
+       cuadrado. El scroll horizontal ya está bloqueado a nivel de
+       página (ver <body> más arriba), así que no hace falta repetirlo
+       aquí. */
+    .zona-editorial { position: relative; }
+    .marca-fondo-login {
+        position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+        font-size: 11rem; font-weight: 800; letter-spacing: -.03em; white-space: nowrap;
+        color: rgba(110,27,63,.06); pointer-events: none; user-select: none; z-index: 0;
+    }
+    [data-bs-theme="dark"] .marca-fondo-login { color: rgba(231,184,205,.06); }
+    .fila-editorial { position: relative; z-index: 1; }
+
+    .chip-editorial {
+        display: inline-block; padding: .3rem .85rem; border-radius: 20px;
+        background: rgba(110,27,63,.08); color: var(--guindo-oscuro);
+        font-size: .7rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+    }
+    [data-bs-theme="dark"] .chip-editorial { background: rgba(231,184,205,.12); color: #e7b8cd; }
+
+    .titular-editorial {
+        font-size: 2.1rem; line-height: 1.15; font-weight: 700; letter-spacing: -.01em;
+        color: var(--guindo-oscuro); margin: 1rem 0 .85rem;
+    }
+    [data-bs-theme="dark"] .titular-editorial { color: #fff; }
+
+    .parrafo-editorial { color: #6c757d; font-size: .95rem; line-height: 1.6; max-width: 340px; }
+    [data-bs-theme="dark"] .parrafo-editorial { color: #b9adc0; }
+
+    .icono-ml-caja {
+        width: 44px; height: 44px; border-radius: 50%; flex-shrink: 0;
+        display: flex; align-items: center; justify-content: center;
+        background: rgba(110,27,63,.08); color: var(--guindo-oscuro); font-size: 1.15rem;
+    }
+    [data-bs-theme="dark"] .icono-ml-caja { background: rgba(231,184,205,.12); color: #e7b8cd; }
+
+    /* Sombra en capas (contacto + ambiente muy difuminado, con spread
+       negativo) en vez de una sola sombra de bloque: así el borde se
+       desvanece de verdad en vez de recortarse en un rectángulo. */
+    .tarjeta-vidrio {
+        background: rgba(255,255,255,.88); border: 1px solid rgba(110,27,63,.1);
+        border-radius: 20px; padding: 2rem; backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+        box-shadow:
+            0 2px 6px rgba(74,17,41,.05),
+            0 15px 35px -10px rgba(74,17,41,.12),
+            0 45px 90px -30px rgba(74,17,41,.16);
+    }
+    [data-bs-theme="dark"] .tarjeta-vidrio {
+        background: rgba(255,255,255,.04); border-color: rgba(255,255,255,.09);
+        box-shadow:
+            0 2px 6px rgba(0,0,0,.25),
+            0 15px 35px -10px rgba(0,0,0,.35),
+            0 45px 90px -30px rgba(0,0,0,.45);
+    }
+</style>
+{% endblock %}
 {% block content %}
-    <div class="row g-0 align-items-stretch" style="margin: -1.5rem;">
-        <!-- Panel de marca: solo visible desde md hacia arriba, para no
-             quitarle espacio al formulario en celular. -->
-        <div class="col-md-5 d-none d-md-flex flex-column justify-content-between text-white p-4 p-lg-5 position-relative overflow-hidden"
-             style="background: radial-gradient(120% 140% at 15% 0%, #8a2a54 0%, var(--guindo) 45%, var(--guindo-oscuro) 100%); border-radius: 1rem 0 0 1rem;">
-            <!-- Manchas de luz difuminadas (glow), no círculos planos: da
-                 profundidad tipo "aurora" en vez de verse un recorte liso. -->
-            <div class="position-absolute rounded-circle" style="width:320px;height:320px;top:-140px;right:-120px;background:#e7b8cd;opacity:.35;filter:blur(70px);"></div>
-            <div class="position-absolute rounded-circle" style="width:260px;height:260px;bottom:-100px;left:-100px;background:#4A1129;opacity:.55;filter:blur(60px);"></div>
-            <div class="position-absolute rounded-circle" style="width:140px;height:140px;top:38%;right:-50px;background:#fff;opacity:.12;filter:blur(40px);"></div>
-
-            <div class="position-relative d-flex align-items-center gap-2">
-                <span class="d-inline-flex align-items-center justify-content-center rounded-circle bg-white flex-shrink-0"
-                      style="width:38px;height:38px;">
-                    <span class="fw-bold" style="color:var(--guindo-oscuro);font-size:1rem;">S</span>
-                </span>
-                <div>
-                    <div class="fw-bold" style="font-size:1.1rem; line-height:1;">ST&amp;S</div>
-                    <div class="small" style="opacity:.7; letter-spacing:.04em; font-size:.65rem;">AUDITORES Y CONSULTORES</div>
+    <div class="zona-editorial py-3">
+        <span class="marca-fondo-login d-none d-md-block">ST&amp;S</span>
+        <div class="row align-items-start g-4 g-lg-5 fila-editorial">
+            <div class="col-md-6 d-none d-md-block fluido-in" style="padding-top: 2rem;">
+                <span class="chip-editorial">Auditoría + ML</span>
+                <h2 class="titular-editorial">Cada registro,<br>verificado.</h2>
+                <div class="d-flex align-items-center gap-3 mt-1">
+                    <span class="icono-ml-caja">
+                        <i class="bi bi-graph-up-arrow"></i>
+                    </span>
+                    <p class="parrafo-editorial mb-0">Un modelo entrenado para notar lo que no encaja.</p>
                 </div>
             </div>
 
-            <div class="position-relative">
-                <h2 class="h4 fw-bold mb-2">Auditoría con precisión y velocidad.</h2>
-                <p class="mb-0" style="opacity:.85;">
-                    Cargá los registros contables y detectá anomalías al instante,
-                    con trazabilidad completa de cada cambio.
-                </p>
-            </div>
+            <div class="col-md-6">
+                <div class="tarjeta-vidrio fluido-in" style="animation-delay: .06s;">
+                    <div class="text-center text-md-start mb-4">
+                        <div class="logo-login-caja mb-3 d-md-none">
+                            <img src="{% static 'img/logo-sts-claro.png' %}" alt="ST&amp;S Auditores y Consultores" class="logo-tema-claro">
+                            <img src="{% static 'img/logo-sts-oscuro.png' %}" alt="ST&amp;S Auditores y Consultores" class="logo-tema-oscuro">
+                        </div>
+                        <h1 class="text-guindo mb-1 h4">Iniciar sesión</h1>
+                        <p class="text-secondary small mb-0">Sistema de Apoyo a la Auditoría Externa</p>
+                    </div>
 
-            <div class="position-relative small d-flex align-items-center gap-2" style="opacity:.65;">
-                <i class="bi bi-shield-check"></i> Sistema de Apoyo a la Auditoría Externa
-            </div>
-        </div>
+                    {% if messages %}
+                        {% for message in messages %}
+                            <div class="alert {% if message.tags == 'error' %}alert-danger{% elif message.tags == 'warning' %}alert-warning{% elif message.tags == 'success' %}alert-success{% else %}alert-info{% endif %} alert-dismissible fade show alert-autocierre py-2 d-flex align-items-start gap-2 fluido-in mb-3" role="alert">
+                                <i class="bi {% if message.tags == 'error' %}bi-exclamation-triangle-fill{% elif message.tags == 'warning' %}bi-exclamation-circle-fill{% else %}bi-info-circle-fill{% endif %} mt-1"></i>
+                                <div>{{ message }}</div>
+                                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Cerrar" style="font-size: .65rem;"></button>
+                            </div>
+                        {% endfor %}
+                    {% endif %}
 
-        <div class="col-md-7 p-4 p-lg-5">
-            <div class="text-center text-md-start mb-4">
-                <img src="{% static 'img/logo-sts-claro.png' %}" alt="ST&amp;S Auditores y Consultores" class="d-md-none mb-3 logo-tema-claro" style="max-width: 220px; width: 100%; height: auto;">
-                <img src="{% static 'img/logo-sts-oscuro.png' %}" alt="ST&amp;S Auditores y Consultores" class="d-md-none mb-3 logo-tema-oscuro" style="max-width: 220px; width: 100%; height: auto;">
-                <h1 class="text-guindo mb-1 h3">Iniciar sesión</h1>
-                <p class="text-secondary mb-0 d-md-none">
-                    Sistema de Apoyo a la Auditoría Externa
-                </p>
-                <p class="text-secondary mb-0 d-none d-md-block">
-                    Ingresá con tu usuario para continuar.
-                </p>
-            </div>
-            <form method="post" autocomplete="off" novalidate>
-                {% csrf_token %}
-                {% if form.non_field_errors %}
-                    <div class="alert alert-danger py-2">{{ form.non_field_errors }}</div>
-                {% endif %}
+                    <form method="post" autocomplete="off" novalidate>
+                        {% csrf_token %}
+                        {% if form.non_field_errors %}
+                            <div class="alert alert-danger alert-dismissible fade show alert-autocierre py-2 d-flex align-items-start gap-2 fluido-in">
+                                <i class="bi bi-exclamation-triangle-fill mt-1"></i>
+                                <div>{{ form.non_field_errors }}</div>
+                                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Cerrar" style="font-size: .65rem;"></button>
+                            </div>
+                        {% endif %}
 
-                <div class="mb-3">
-                    <label for="id_username" class="form-label">Usuario</label>
-                    {{ form.username }}
-                    {% for error in form.username.errors %}
-                        <div class="text-danger small mt-1">{{ error }}</div>
-                    {% endfor %}
+                        <div class="mb-3 form-floating fluido-in" style="animation-delay: .1s;">
+                            {{ form.username }}
+                            <label for="id_username">Usuario</label>
+                            {% for error in form.username.errors %}
+                                <div class="text-danger small mt-1">{{ error }}</div>
+                            {% endfor %}
+                        </div>
+
+                        <div class="mb-3 fluido-in" style="animation-delay: .16s;">
+                            <div class="input-group">
+                                <div class="form-floating">
+                                    {{ form.password }}
+                                    <label for="id_password">Contraseña</label>
+                                </div>
+                                <button class="btn btn-outline-guindo" type="button" id="boton-mostrar-clave" aria-label="Mostrar contraseña" tabindex="-1">
+                                    <i class="bi bi-eye" id="icono-mostrar-clave"></i>
+                                </button>
+                            </div>
+                            <div class="text-warning small mt-1 d-none" id="aviso-mayus">
+                                <i class="bi bi-exclamation-triangle"></i> Bloq Mayús está activado.
+                            </div>
+                            {% for error in form.password.errors %}
+                                <div class="text-danger small mt-1">{{ error }}</div>
+                            {% endfor %}
+                        </div>
+
+                        <button class="btn btn-guindo w-100 fluido-in" type="submit" data-cargando-texto="Ingresando..." style="animation-delay: .22s;">
+                            <i class="bi bi-box-arrow-in-right"></i> Ingresar
+                        </button>
+                    </form>
+                    <div class="fluido-in" style="animation-delay: .28s;">
+                        <p class="text-secondary small text-center text-md-start mt-3 mb-1">
+                            ¿Olvidaste tu usuario o contraseña? Contacta con el administrador del sistema.
+                        </p>
+                        <p class="text-secondary text-center text-md-start mb-0" style="font-size: .72rem; opacity: .7;">
+                            © {% now "Y" %} ST&amp;S Auditores y Consultores S.R.L.
+                        </p>
+                    </div>
                 </div>
-
-                <div class="mb-3">
-                    <label for="id_password" class="form-label">Contraseña</label>
-                    {{ form.password }}
-                    {% for error in form.password.errors %}
-                        <div class="text-danger small mt-1">{{ error }}</div>
-                    {% endfor %}
-                </div>
-
-                <button class="btn btn-guindo w-100" type="submit" data-cargando-texto="Ingresando...">
-                    <i class="bi bi-box-arrow-in-right"></i> Ingresar
-                </button>
-            </form>
-            <p class="text-secondary small text-center text-md-start mt-3 mb-0">
-                ¿Olvidaste tu usuario o contraseña? Contacta con el administrador del sistema.
-            </p>
+            </div>
         </div>
     </div>
+{% endblock %}
+{% block extra_js %}
+<script>
+    (function () {
+        var campoUsuario = document.getElementById("id_username");
+        var campoClave = document.getElementById("id_password");
+        var botonMostrar = document.getElementById("boton-mostrar-clave");
+        var iconoMostrar = document.getElementById("icono-mostrar-clave");
+        var avisoMayus = document.getElementById("aviso-mayus");
+
+        if (campoUsuario) { campoUsuario.setAttribute("placeholder", " "); }
+        if (campoClave) { campoClave.setAttribute("placeholder", " "); }
+
+        if (campoUsuario && !campoUsuario.value) {
+            campoUsuario.focus();
+        }
+
+        if (botonMostrar && campoClave && iconoMostrar) {
+            botonMostrar.addEventListener("click", function () {
+                var mostrando = campoClave.type === "text";
+                campoClave.type = mostrando ? "password" : "text";
+                iconoMostrar.classList.add("girar");
+                setTimeout(function () {
+                    iconoMostrar.className = (mostrando ? "bi bi-eye" : "bi bi-eye-slash") + " girar";
+                    setTimeout(function () { iconoMostrar.classList.remove("girar"); }, 150);
+                }, 150);
+                botonMostrar.setAttribute("aria-label", mostrando ? "Mostrar contraseña" : "Ocultar contraseña");
+            });
+        }
+
+        if (campoClave && avisoMayus) {
+            var revisarMayus = function (e) {
+                var activo = !!(e.getModifierState && e.getModifierState("CapsLock"));
+                avisoMayus.classList.toggle("d-none", !activo);
+            };
+            campoClave.addEventListener("keyup", revisarMayus);
+            campoClave.addEventListener("keydown", revisarMayus);
+        }
+    })();
+</script>
 {% endblock %}
