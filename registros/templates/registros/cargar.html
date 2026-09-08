@@ -70,6 +70,7 @@
                         <th>Fecha</th>
                         <th>Empresa</th>
                         <th>Gestión</th>
+                        <th>Subido por</th>
                         <th>Estado</th>
                         <th>Total / Válidos / Con error</th>
                     </tr>
@@ -83,6 +84,7 @@
                             <span class="badge" style="background-color: var(--guindo) !important;">{{ carga.gestion.anio }}</span>
                             <div class="text-secondary small">{{ carga.gestion.fecha_inicio|date:"d/m/Y" }} - {{ carga.gestion.fecha_fin|date:"d/m/Y" }}</div>
                         </td>
+                        <td>{{ carga.usuario.username }}</td>
                         <td>
                             <span class="badge {% if carga.estado == 'validado' %}text-bg-success{% elif carga.estado == 'con_errores' %}text-bg-danger{% else %}text-bg-secondary{% endif %}">
                                 {{ carga.get_estado_display }}

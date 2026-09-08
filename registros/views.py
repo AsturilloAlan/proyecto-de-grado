@@ -36,7 +36,7 @@ def cargar_registros(request):
     else:
         form = CargaArchivoForm()
 
-    cargas_qs = CargaArchivo.objects.select_related("empresa", "gestion").order_by(
+    cargas_qs = CargaArchivo.objects.select_related("empresa", "gestion", "usuario").order_by(
         "-fecha_carga"
     )
     paginador = Paginator(cargas_qs, 8)
