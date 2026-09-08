@@ -422,7 +422,7 @@
     <main class="container mb-5">
         {% if messages %}
             {% for message in messages %}
-                <div class="alert {% if message.tags == 'error' %}alert-danger{% elif message.tags == 'success' %}alert-success{% elif message.tags == 'warning' %}alert-warning{% else %}alert-info{% endif %} alert-dismissible fade show" role="alert">
+                <div class="alert {% if message.tags == 'error' %}alert-danger{% elif message.tags == 'success' %}alert-success alert-autocierre{% elif message.tags == 'warning' %}alert-warning{% else %}alert-info alert-autocierre{% endif %} alert-dismissible fade show" role="alert">
                     {{ message }}
                     <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Cerrar"></button>
                 </div>
@@ -518,6 +518,17 @@
                     var barra = formulario.querySelector(".barra-progreso-indeterminada");
                     if (barra) barra.classList.add("activa");
                 });
+            });
+
+            // Los mensajes de éxito/información se cierran solos (los de
+            // error/advertencia se quedan, para que el usuario los lea con
+            // calma). Se reusa el propio componente Alert de Bootstrap, así
+            // la animación de cierre es la misma que al tocar la "×".
+            document.querySelectorAll(".alert-autocierre").forEach(function (alerta) {
+                setTimeout(function () {
+                    var instancia = bootstrap.Alert.getOrCreateInstance(alerta);
+                    if (instancia) instancia.close();
+                }, 4500);
             });
         })();
     </script>
