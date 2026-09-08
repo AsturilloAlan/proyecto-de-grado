@@ -2,44 +2,75 @@
 {% load static %}
 {% block title %}Iniciar sesión{% endblock %}
 {% block card_extra_class %}mt-4 mt-md-5{% endblock %}
-{% block card_extra_style %}max-width: 460px;{% endblock %}
+{% block card_extra_style %}max-width: 840px;{% endblock %}
 {% block content %}
-    <div>
-        <div class="text-center mb-4">
-            <img src="{% static 'img/logo-sts.png' %}" alt="ST&amp;S Auditores y Consultores" class="mb-3" style="max-width: 260px; width: 100%; height: auto;">
-            <h1 class="text-guindo mb-1 h3">Iniciar sesión</h1>
-            <p class="text-secondary mb-0">
+    <div class="row g-0 align-items-stretch" style="margin: -1.5rem;">
+        <!-- Panel de marca: solo visible desde md hacia arriba, para no
+             quitarle espacio al formulario en celular. -->
+        <div class="col-md-5 d-none d-md-flex flex-column justify-content-between text-white p-4 p-lg-5 position-relative overflow-hidden"
+             style="background: linear-gradient(160deg, var(--guindo) 0%, var(--guindo-oscuro) 100%); border-radius: 1rem 0 0 1rem;">
+            <div class="position-absolute rounded-circle" style="width:260px;height:260px;top:-90px;right:-90px;background:rgba(255,255,255,.08);"></div>
+            <div class="position-absolute rounded-circle" style="width:180px;height:180px;bottom:-60px;left:-60px;background:rgba(255,255,255,.06);"></div>
+            <div class="position-absolute rounded-circle" style="width:90px;height:90px;bottom:40%;right:-30px;background:rgba(255,255,255,.05);"></div>
+
+            <div class="position-relative">
+                <span class="fs-3 fw-bold">ST&amp;S</span>
+                <div class="small" style="opacity:.75; letter-spacing:.05em;">AUDITORES Y CONSULTORES</div>
+            </div>
+
+            <div class="position-relative">
+                <h2 class="h4 fw-bold mb-2">Auditoría con precisión y velocidad.</h2>
+                <p class="mb-0" style="opacity:.85;">
+                    Cargá los registros contables y detectá anomalías al instante,
+                    con trazabilidad completa de cada cambio.
+                </p>
+            </div>
+
+            <div class="position-relative small" style="opacity:.65;">
                 Sistema de Apoyo a la Auditoría Externa
+            </div>
+        </div>
+
+        <div class="col-md-7 p-4 p-lg-5">
+            <div class="text-center text-md-start mb-4">
+                <img src="{% static 'img/logo-sts.png' %}" alt="ST&amp;S Auditores y Consultores" class="d-md-none mb-3" style="max-width: 220px; width: 100%; height: auto;">
+                <h1 class="text-guindo mb-1 h3">Iniciar sesión</h1>
+                <p class="text-secondary mb-0 d-md-none">
+                    Sistema de Apoyo a la Auditoría Externa
+                </p>
+                <p class="text-secondary mb-0 d-none d-md-block">
+                    Ingresá con tu usuario para continuar.
+                </p>
+            </div>
+            <form method="post" autocomplete="off" novalidate>
+                {% csrf_token %}
+                {% if form.non_field_errors %}
+                    <div class="alert alert-danger py-2">{{ form.non_field_errors }}</div>
+                {% endif %}
+
+                <div class="mb-3">
+                    <label for="id_username" class="form-label">Usuario</label>
+                    {{ form.username }}
+                    {% for error in form.username.errors %}
+                        <div class="text-danger small mt-1">{{ error }}</div>
+                    {% endfor %}
+                </div>
+
+                <div class="mb-3">
+                    <label for="id_password" class="form-label">Contraseña</label>
+                    {{ form.password }}
+                    {% for error in form.password.errors %}
+                        <div class="text-danger small mt-1">{{ error }}</div>
+                    {% endfor %}
+                </div>
+
+                <button class="btn btn-guindo w-100" type="submit" data-cargando-texto="Ingresando...">
+                    <i class="bi bi-box-arrow-in-right"></i> Ingresar
+                </button>
+            </form>
+            <p class="text-secondary small text-center text-md-start mt-3 mb-0">
+                ¿Olvidaste tu usuario o contraseña? Contacta con el administrador del sistema.
             </p>
         </div>
-        <form method="post" autocomplete="off" novalidate>
-            {% csrf_token %}
-            {% if form.non_field_errors %}
-                <div class="alert alert-danger py-2">{{ form.non_field_errors }}</div>
-            {% endif %}
-
-            <div class="mb-3">
-                <label for="id_username" class="form-label">Usuario</label>
-                {{ form.username }}
-                {% for error in form.username.errors %}
-                    <div class="text-danger small mt-1">{{ error }}</div>
-                {% endfor %}
-            </div>
-
-            <div class="mb-3">
-                <label for="id_password" class="form-label">Contraseña</label>
-                {{ form.password }}
-                {% for error in form.password.errors %}
-                    <div class="text-danger small mt-1">{{ error }}</div>
-                {% endfor %}
-            </div>
-
-            <button class="btn btn-guindo w-100" type="submit">
-                <i class="bi bi-box-arrow-in-right"></i> Ingresar
-            </button>
-        </form>
-        <p class="text-secondary small text-center mt-3 mb-0">
-            ¿Olvidaste tu usuario o contraseña? Contacta con el administrador del sistema.
-        </p>
     </div>
 {% endblock %}

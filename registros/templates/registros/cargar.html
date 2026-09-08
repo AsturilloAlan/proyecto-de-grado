@@ -1,8 +1,16 @@
 {% extends "base.html" %}
 {% block title %}Cargar registros contables{% endblock %}
 {% block content %}
-    <h1 class="text-guindo">Cargar registros contables</h1>
-    <p class="text-secondary">Sube el archivo del libro mayor o libro diario (formato .xlsx, .xls o .csv).</p>
+    <div class="d-flex align-items-center gap-3 mb-3">
+        <div class="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0"
+             style="width:52px;height:52px;background:linear-gradient(135deg, var(--guindo), var(--guindo-oscuro));">
+            <i class="bi bi-cloud-arrow-up text-white fs-4"></i>
+        </div>
+        <div>
+            <h1 class="text-guindo mb-1 h3">Cargar registros contables</h1>
+            <p class="text-secondary mb-0">Sube el archivo del libro mayor o libro diario (formato .xlsx, .xls o .csv).</p>
+        </div>
+    </div>
 
     {% if not form.fields.empresa.queryset.exists or not form.fields.gestion.queryset.exists %}
         <div class="alert alert-warning">
@@ -52,7 +60,7 @@
             </div>
 
             <div class="col-12">
-                <button class="btn btn-guindo" type="submit">
+                <button class="btn btn-guindo" type="submit" data-cargando-texto="Procesando archivo...">
                     <i class="bi bi-cloud-upload"></i> Cargar y validar
                 </button>
             </div>
@@ -61,7 +69,7 @@
 
     <hr class="my-4">
 
-    <h2 class="h5 text-guindo">Cargas anteriores</h2>
+    <h2 class="h5 text-guindo"><i class="bi bi-clock-history"></i> Historial de cargas</h2>
 
     {% if hay_cargas_en_total %}
         <form method="get" class="row row-cols-lg-auto g-2 align-items-end mb-3">
@@ -147,11 +155,17 @@
         </div>
         {% include "_paginacion.html" with pagina_obj=cargas_anteriores querystring=querystring %}
     {% elif hay_filtro_activo %}
-        <p class="text-secondary">
-            Ninguna carga coincide con ese filtro.
-            <a href="{% url 'registros:cargar' %}">Quitar filtros</a>
-        </p>
+        <div class="estado-vacio">
+            <div class="estado-vacio-icono"><i class="bi bi-funnel"></i></div>
+            <h3 class="text-guindo">Ninguna carga coincide con ese filtro.</h3>
+            <p class="text-secondary">Probá con otra combinación de empresa, gestión o estado.</p>
+            <a class="btn btn-outline-guindo btn-sm mt-2" href="{% url 'registros:cargar' %}">Quitar filtros</a>
+        </div>
     {% else %}
-        <p class="text-secondary">Todavía no se ha cargado ningún archivo.</p>
+        <div class="estado-vacio">
+            <div class="estado-vacio-icono"><i class="bi bi-inbox"></i></div>
+            <h3 class="text-guindo">Todavía no se cargó ningún archivo</h3>
+            <p class="text-secondary">Usá el formulario de arriba para subir el primero.</p>
+        </div>
     {% endif %}
 {% endblock %}

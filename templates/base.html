@@ -6,6 +6,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Sistema de Auditoría{% endblock %} · ST&amp;S</title>
     <link rel="icon" type="image/png" href="{% static 'img/logo-sts.png' %}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
     <script>
@@ -26,6 +29,21 @@
             --bs-primary: var(--guindo);
         }
         html { min-height: 100%; background: var(--lavanda-claro); }
+        body, .btn, .form-control, .form-select {
+            font-family: "Plus Jakarta Sans", "Segoe UI", -apple-system, sans-serif;
+        }
+        h1, h2, h3, h4, h5, h6, .navbar-brand, .fs-4 {
+            font-family: "Plus Jakarta Sans", "Segoe UI", -apple-system, sans-serif;
+            font-weight: 700;
+            letter-spacing: -.01em;
+        }
+        /* Scrollbar afinado, en tono guindo, en vez del gris por defecto. */
+        ::-webkit-scrollbar { width: 10px; height: 10px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(110,27,63,.3); border-radius: 8px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(110,27,63,.5); }
+        [data-bs-theme="dark"] ::-webkit-scrollbar-thumb { background: rgba(231,184,205,.22); }
+        [data-bs-theme="dark"] ::-webkit-scrollbar-thumb:hover { background: rgba(231,184,205,.4); }
         /* En pantallas grandes, el .container de Bootstrap se queda muy
            angosto (max 1320px) y deja franjas vacías enormes a los
            costados. Se amplía un poco para aprovechar mejor el ancho. */
@@ -132,6 +150,66 @@
         .badge { transition: transform .15s ease; }
         .alert { animation: aparecer-alerta .2s ease; }
         @keyframes aparecer-alerta { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* La tarjeta principal entra con un leve deslizamiento: da esa
+           sensación de "ágil" en vez de aparecer de golpe. */
+        @keyframes entrar-tarjeta { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+        .card-principal { animation: entrar-tarjeta .35s cubic-bezier(.2,.8,.3,1) both; }
+
+        /* Filas de tabla en cascada (stagger), no todas de golpe. */
+        @keyframes entrar-fila { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+        .table tbody tr { animation: entrar-fila .3s ease both; }
+        .table tbody tr:nth-child(1) { animation-delay: .02s; }
+        .table tbody tr:nth-child(2) { animation-delay: .05s; }
+        .table tbody tr:nth-child(3) { animation-delay: .08s; }
+        .table tbody tr:nth-child(4) { animation-delay: .11s; }
+        .table tbody tr:nth-child(5) { animation-delay: .14s; }
+        .table tbody tr:nth-child(6) { animation-delay: .17s; }
+        .table tbody tr:nth-child(7) { animation-delay: .2s; }
+        .table tbody tr:nth-child(8) { animation-delay: .23s; }
+        .table tbody tr:nth-child(n+9) { animation-delay: .26s; }
+        @media (prefers-reduced-motion: reduce) {
+            .card-principal, .table tbody tr { animation: none; }
+        }
+
+        /* Tarjetas de estadística (dashboard): se sienten "vivas" al pasar
+           el mouse, no solo un recuadro estático. */
+        .tarjeta-stat {
+            transition: transform .2s ease, box-shadow .2s ease, border-color .2s ease;
+        }
+        .tarjeta-stat:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 24px rgba(74,17,41,.12);
+            border-color: var(--guindo) !important;
+        }
+        [data-bs-theme="dark"] .tarjeta-stat:hover { box-shadow: 0 10px 24px rgba(0,0,0,.35); }
+
+        /* Estado vacío reutilizable: icono + mensaje, en vez de un simple
+           párrafo gris que se siente a medio hacer. */
+        .estado-vacio { text-align: center; padding: 2.75rem 1rem; }
+        .estado-vacio .estado-vacio-icono {
+            width: 64px; height: 64px; margin: 0 auto 1rem;
+            border-radius: 50%;
+            background: rgba(110,27,63,.08);
+            color: var(--guindo-oscuro);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.6rem;
+        }
+        [data-bs-theme="dark"] .estado-vacio .estado-vacio-icono { background: rgba(231,184,205,.12); color: #e7b8cd; }
+        .estado-vacio h3 { font-size: 1.05rem; margin-bottom: .35rem; }
+        .estado-vacio p { max-width: 420px; margin: 0 auto; }
+
+        /* Spinner inline para botones que quedan "procesando" (da feedback
+           inmediato en cargas de archivo, que pueden tardar). */
+        .btn.cargando { pointer-events: none; opacity: .85; }
+        .spinner-inline {
+            width: .9rem; height: .9rem; display: inline-block;
+            border: 2px solid rgba(255,255,255,.45); border-top-color: #fff;
+            border-radius: 50%; animation: girar-spinner .6s linear infinite;
+            vertical-align: -1px;
+        }
+        .btn-outline-guindo .spinner-inline { border-color: rgba(110,27,63,.35); border-top-color: var(--guindo); }
+        @keyframes girar-spinner { to { transform: rotate(360deg); } }
     </style>
     {% block extra_head %}{% endblock %}
 </head>
@@ -274,6 +352,41 @@
                         actualizarIcono(guardado);
                     }
                 }
+            });
+        })();
+    </script>
+    <script>
+        (function () {
+            // Números de estadísticas (dashboard): cuentan de 0 al valor real
+            // en vez de aparecer estáticos. Se marcan con data-contar="N".
+            document.querySelectorAll("[data-contar]").forEach(function (elemento) {
+                var final = parseInt(elemento.getAttribute("data-contar"), 10) || 0;
+                var duracion = 700;
+                var inicio = null;
+                function paso(marca) {
+                    if (!inicio) inicio = marca;
+                    var progreso = Math.min((marca - inicio) / duracion, 1);
+                    elemento.textContent = Math.floor(progreso * final);
+                    if (progreso < 1) {
+                        window.requestAnimationFrame(paso);
+                    } else {
+                        elemento.textContent = final;
+                    }
+                }
+                window.requestAnimationFrame(paso);
+            });
+
+            // Botones marcados con data-cargando-texto: al enviar el
+            // formulario muestran un spinner + texto ("Procesando...") en
+            // vez de quedarse igual mientras el usuario no sabe si pasó
+            // algo. Útil sobre todo en la carga de archivos.
+            document.querySelectorAll("form").forEach(function (formulario) {
+                formulario.addEventListener("submit", function () {
+                    var boton = formulario.querySelector("[data-cargando-texto]");
+                    if (!boton) return;
+                    boton.classList.add("cargando");
+                    boton.innerHTML = '<span class="spinner-inline"></span> ' + boton.getAttribute("data-cargando-texto");
+                });
             });
         })();
     </script>
