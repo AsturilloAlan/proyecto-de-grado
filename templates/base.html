@@ -28,7 +28,10 @@
             --lavanda-claro: #F3EAF1;
             --bs-primary: var(--guindo);
         }
-        html { min-height: 100%; background: var(--lavanda-claro); }
+        html { min-height: 100%; background: var(--lavanda-claro); overflow-x: hidden; }
+        /* Salvaguarda: si algo se desborda del ancho de pantalla en
+           celular, que no habilite scroll horizontal de toda la página. */
+        body { overflow-x: hidden; }
         body, .btn, .form-control, .form-select {
             font-family: "Plus Jakarta Sans", "Segoe UI", -apple-system, sans-serif;
         }
