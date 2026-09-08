@@ -35,6 +35,14 @@
         body, .btn, .form-control, .form-select {
             font-family: "Plus Jakarta Sans", "Segoe UI", -apple-system, sans-serif;
         }
+        /* Logo con variante para fondo claro/oscuro (se usa donde el logo
+           queda sobre una superficie que sí cambia con el tema, como la
+           tarjeta del login — el navbar no, porque su fondo guindo es
+           siempre el mismo con cualquier tema). */
+        .logo-tema-oscuro { display: none; }
+        [data-bs-theme="dark"] .logo-tema-oscuro { display: inline-block; }
+        [data-bs-theme="dark"] .logo-tema-claro { display: none; }
+
         h1, h2, h3, h4, h5, h6, .navbar-brand, .fs-4 {
             font-family: "Plus Jakarta Sans", "Segoe UI", -apple-system, sans-serif;
             font-weight: 700;
