@@ -351,7 +351,7 @@
     <nav class="navbar navbar-expand-md navbar-guindo mb-4">
         <div class="container">
             <a class="navbar-brand d-flex align-items-center" href="{% if user.is_authenticated %}{% url 'home' %}{% else %}#{% endif %}">
-                <img src="{% static 'img/logo-sts.png' %}" alt="ST&amp;S Auditores y Consultores" class="logo-navbar">
+                <img src="{% static 'img/logo-sts-oscuro.png' %}" alt="ST&amp;S Auditores y Consultores" class="logo-navbar">
             </a>
             {% if user.is_authenticated %}
                 <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#menuPrincipal">
