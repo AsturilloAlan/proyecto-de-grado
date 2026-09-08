@@ -273,6 +273,35 @@
             position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
             overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0;
         }
+        /* Ícono de la nube "respira" un poco: invita a interactuar en vez
+           de quedarse estático. */
+        @keyframes flotar-icono { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
+        .dropzone-icono-flotante { display: inline-block; animation: flotar-icono 2.4s ease-in-out infinite; }
+        @media (prefers-reduced-motion: reduce) { .dropzone-icono-flotante { animation: none; } }
+
+        /* Ficha del archivo ya elegido (reemplaza el texto de "arrastrá tu
+           archivo" una vez que hay uno seleccionado). */
+        .dropzone-archivo-icono {
+            width: 42px; height: 42px; border-radius: .6rem;
+            background: rgba(110,27,63,.1); color: var(--guindo-oscuro);
+            display: flex; align-items: center; justify-content: center; font-size: 1.2rem;
+            flex-shrink: 0;
+        }
+        [data-bs-theme="dark"] .dropzone-archivo-icono { background: rgba(231,184,205,.15); color: #e7b8cd; }
+
+        /* Barra de progreso indeterminada: acompaña al botón mientras
+           "cargando" está activo, puramente decorativa (no mide el avance
+           real), pero refuerza la sensación de rapidez/feedback. */
+        .barra-progreso-indeterminada { display: none; height: 4px; border-radius: 4px; overflow: hidden; background: rgba(110,27,63,.12); margin-top: .75rem; position: relative; }
+        [data-bs-theme="dark"] .barra-progreso-indeterminada { background: rgba(231,184,205,.15); }
+        .barra-progreso-indeterminada.activa { display: block; }
+        .barra-progreso-indeterminada.activa::after {
+            content: ""; position: absolute; top: 0; left: -40%; height: 100%; width: 40%;
+            background: linear-gradient(90deg, transparent, var(--guindo), transparent);
+            animation: deslizar-progreso 1.1s ease-in-out infinite;
+        }
+        [data-bs-theme="dark"] .barra-progreso-indeterminada.activa::after { background: linear-gradient(90deg, transparent, #e7b8cd, transparent); }
+        @keyframes deslizar-progreso { from { left: -40%; } to { left: 100%; } }
 
         /* Alerta "de marca" (guindo), para avisos que no son error/éxito
            genéricos de Bootstrap y quedaban con el amarillo de fábrica,
@@ -463,6 +492,14 @@
                     if (!boton) return;
                     boton.classList.add("cargando");
                     boton.innerHTML = '<span class="spinner-inline"></span> ' + boton.getAttribute("data-cargando-texto");
+
+                    // Si el formulario tiene una barra de progreso decorativa
+                    // (.barra-progreso-indeterminada), se activa junto con el
+                    // spinner del botón — no mide el avance real (eso
+                    // requeriría cambiar cómo se envía el formulario), pero
+                    // da esa sensación de "está pasando algo, ya casi".
+                    var barra = formulario.querySelector(".barra-progreso-indeterminada");
+                    if (barra) barra.classList.add("activa");
                 });
             });
         })();
