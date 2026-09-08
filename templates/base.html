@@ -119,6 +119,42 @@
         [data-bs-theme="dark"] .text-guindo { color: #e7b8cd; }
         .form-control, .form-select { transition: border-color .15s ease, box-shadow .2s ease; }
         .form-control:focus, .form-select:focus { border-color: var(--guindo); box-shadow: 0 0 0 .25rem rgba(110,27,63,.15); }
+        /* En modo oscuro, Bootstrap pone un azul/gris genérico en los
+           inputs que no combina con la paleta guindo (se notaba feo en el
+           login y en cualquier formulario). Se homologa al tono de la
+           tarjeta, con acento guindo claro en vez de azul. */
+        [data-bs-theme="dark"] .form-control,
+        [data-bs-theme="dark"] .form-select {
+            background-color: rgba(255,255,255,.06);
+            border-color: rgba(231,184,205,.25);
+            color: #f1e9ee;
+        }
+        [data-bs-theme="dark"] .form-control::placeholder { color: #9c8ba3; }
+        [data-bs-theme="dark"] .form-control:focus,
+        [data-bs-theme="dark"] .form-select:focus {
+            background-color: rgba(255,255,255,.09);
+            border-color: #e7b8cd;
+            box-shadow: 0 0 0 .25rem rgba(231,184,205,.15);
+            color: #fff;
+        }
+        [data-bs-theme="dark"] .input-group-text { background-color: rgba(255,255,255,.06); border-color: rgba(231,184,205,.25); color: #e7b8cd; }
+        [data-bs-theme="dark"] .form-select { color-scheme: dark; }
+
+        /* Encabezados de tabla: un tinte sutil en vez de blanco/negro
+           plano, con las etiquetas en mayúsculas pequeñas — se ve más
+           "producto" y menos hoja de cálculo. */
+        .table > thead > tr > th {
+            background: rgba(110,27,63,.05);
+            text-transform: uppercase;
+            font-size: .72rem;
+            letter-spacing: .04em;
+            color: var(--guindo-oscuro);
+            border-bottom-width: 2px;
+        }
+        [data-bs-theme="dark"] .table > thead > tr > th {
+            background: rgba(231,184,205,.06);
+            color: #e7b8cd;
+        }
         a { color: var(--guindo); }
         [data-bs-theme="dark"] a { color: #e7b8cd; }
         #boton-tema { border-color: rgba(255,255,255,.6); color: #fff; transition: transform .2s ease, background-color .2s ease; }

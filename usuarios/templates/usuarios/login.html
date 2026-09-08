@@ -8,14 +8,22 @@
         <!-- Panel de marca: solo visible desde md hacia arriba, para no
              quitarle espacio al formulario en celular. -->
         <div class="col-md-5 d-none d-md-flex flex-column justify-content-between text-white p-4 p-lg-5 position-relative overflow-hidden"
-             style="background: linear-gradient(160deg, var(--guindo) 0%, var(--guindo-oscuro) 100%); border-radius: 1rem 0 0 1rem;">
-            <div class="position-absolute rounded-circle" style="width:260px;height:260px;top:-90px;right:-90px;background:rgba(255,255,255,.08);"></div>
-            <div class="position-absolute rounded-circle" style="width:180px;height:180px;bottom:-60px;left:-60px;background:rgba(255,255,255,.06);"></div>
-            <div class="position-absolute rounded-circle" style="width:90px;height:90px;bottom:40%;right:-30px;background:rgba(255,255,255,.05);"></div>
+             style="background: radial-gradient(120% 140% at 15% 0%, #8a2a54 0%, var(--guindo) 45%, var(--guindo-oscuro) 100%); border-radius: 1rem 0 0 1rem;">
+            <!-- Manchas de luz difuminadas (glow), no círculos planos: da
+                 profundidad tipo "aurora" en vez de verse un recorte liso. -->
+            <div class="position-absolute rounded-circle" style="width:320px;height:320px;top:-140px;right:-120px;background:#e7b8cd;opacity:.35;filter:blur(70px);"></div>
+            <div class="position-absolute rounded-circle" style="width:260px;height:260px;bottom:-100px;left:-100px;background:#4A1129;opacity:.55;filter:blur(60px);"></div>
+            <div class="position-absolute rounded-circle" style="width:140px;height:140px;top:38%;right:-50px;background:#fff;opacity:.12;filter:blur(40px);"></div>
 
-            <div class="position-relative">
-                <span class="fs-3 fw-bold">ST&amp;S</span>
-                <div class="small" style="opacity:.75; letter-spacing:.05em;">AUDITORES Y CONSULTORES</div>
+            <div class="position-relative d-flex align-items-center gap-2">
+                <span class="d-inline-flex align-items-center justify-content-center rounded-circle bg-white flex-shrink-0"
+                      style="width:38px;height:38px;">
+                    <span class="fw-bold" style="color:var(--guindo-oscuro);font-size:1rem;">S</span>
+                </span>
+                <div>
+                    <div class="fw-bold" style="font-size:1.1rem; line-height:1;">ST&amp;S</div>
+                    <div class="small" style="opacity:.7; letter-spacing:.04em; font-size:.65rem;">AUDITORES Y CONSULTORES</div>
+                </div>
             </div>
 
             <div class="position-relative">
@@ -26,8 +34,8 @@
                 </p>
             </div>
 
-            <div class="position-relative small" style="opacity:.65;">
-                Sistema de Apoyo a la Auditoría Externa
+            <div class="position-relative small d-flex align-items-center gap-2" style="opacity:.65;">
+                <i class="bi bi-shield-check"></i> Sistema de Apoyo a la Auditoría Externa
             </div>
         </div>
 
