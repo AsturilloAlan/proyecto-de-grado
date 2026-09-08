@@ -1,6 +1,5 @@
 {% extends "base.html" %}
 {% block title %}Cargar registros contables{% endblock %}
-{% block card_extra_style %}max-width: 1100px;{% endblock %}
 {% block content %}
     <h1 class="text-guindo">Cargar registros contables</h1>
     <p class="text-secondary">Sube el archivo del libro mayor o libro diario (formato .xlsx, .xls o .csv).</p>
@@ -65,14 +64,14 @@
     <h2 class="h5 text-guindo">Cargas anteriores</h2>
     {% if cargas_anteriores %}
         <div class="table-responsive">
-            <table class="table table-hover align-middle" style="width:auto;min-width:0;">
+            <table class="table table-hover align-middle">
                 <thead>
                     <tr>
-                        <th style="white-space:nowrap;">Fecha</th>
-                        <th style="white-space:nowrap;">Empresa</th>
-                        <th style="white-space:nowrap;">Gestión</th>
-                        <th style="white-space:nowrap;">Estado</th>
-                        <th style="white-space:nowrap;">Total / Válidos / Con error</th>
+                        <th>Fecha</th>
+                        <th>Empresa</th>
+                        <th>Gestión</th>
+                        <th>Estado</th>
+                        <th>Total / Válidos / Con error</th>
                     </tr>
                 </thead>
                 <tbody>
