@@ -246,6 +246,47 @@
         }
         .btn-outline-guindo .spinner-inline { border-color: rgba(110,27,63,.35); border-top-color: var(--guindo); }
         @keyframes girar-spinner { to { transform: rotate(360deg); } }
+
+        /* Zona de arrastrar-y-soltar para subir archivos: reemplaza el
+           <input type="file"> por defecto (feo, distinto en cada
+           navegador) por algo más "producto". El input real sigue ahí,
+           solo se oculta de forma accesible (no display:none). */
+        .dropzone-archivo {
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            text-align: center; gap: .35rem;
+            border: 2px dashed rgba(110,27,63,.3);
+            border-radius: .75rem;
+            padding: 1.75rem 1rem;
+            cursor: pointer;
+            background: rgba(110,27,63,.02);
+            transition: border-color .2s ease, background-color .2s ease;
+        }
+        .dropzone-archivo:hover, .dropzone-archivo.dropzone-activa {
+            border-color: var(--guindo);
+            background: rgba(110,27,63,.06);
+        }
+        [data-bs-theme="dark"] .dropzone-archivo { border-color: rgba(231,184,205,.3); background: rgba(255,255,255,.03); }
+        [data-bs-theme="dark"] .dropzone-archivo:hover, [data-bs-theme="dark"] .dropzone-archivo.dropzone-activa {
+            border-color: #e7b8cd; background: rgba(255,255,255,.06);
+        }
+        .input-archivo-oculto {
+            position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+            overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0;
+        }
+
+        /* Alerta "de marca" (guindo), para avisos que no son error/éxito
+           genéricos de Bootstrap y quedaban con el amarillo de fábrica,
+           fuera de la paleta. */
+        .alert-guindo-suave {
+            background: rgba(110,27,63,.06);
+            border: 1px solid rgba(110,27,63,.18);
+            color: var(--guindo-oscuro);
+        }
+        [data-bs-theme="dark"] .alert-guindo-suave {
+            background: rgba(231,184,205,.08);
+            border-color: rgba(231,184,205,.25);
+            color: #e7b8cd;
+        }
     </style>
     {% block extra_head %}{% endblock %}
 </head>
