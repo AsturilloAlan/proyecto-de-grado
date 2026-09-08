@@ -62,6 +62,51 @@
     <hr class="my-4">
 
     <h2 class="h5 text-guindo">Cargas anteriores</h2>
+
+    {% if hay_cargas_en_total %}
+        <form method="get" class="row row-cols-lg-auto g-2 align-items-end mb-3">
+            <div class="col-12">
+                <label for="filtro-empresa" class="form-label small mb-1">Empresa</label>
+                <select id="filtro-empresa" name="empresa" class="form-select form-select-sm">
+                    <option value="">Todas</option>
+                    {% for empresa in empresas_con_cargas %}
+                        <option value="{{ empresa.id }}" {% if filtro_empresa == empresa.id|stringformat:"s" %}selected{% endif %}>
+                            {{ empresa.nombre }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-12">
+                <label for="filtro-gestion" class="form-label small mb-1">Gestión</label>
+                <select id="filtro-gestion" name="gestion" class="form-select form-select-sm">
+                    <option value="">Todas</option>
+                    {% for gestion in gestiones_con_cargas %}
+                        <option value="{{ gestion.id }}" {% if filtro_gestion == gestion.id|stringformat:"s" %}selected{% endif %}>
+                            {{ gestion }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-12">
+                <label for="filtro-estado" class="form-label small mb-1">Estado</label>
+                <select id="filtro-estado" name="estado" class="form-select form-select-sm">
+                    <option value="">Todos</option>
+                    {% for valor, etiqueta in estado_choices %}
+                        <option value="{{ valor }}" {% if filtro_estado == valor %}selected{% endif %}>{{ etiqueta }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-12">
+                <button class="btn btn-sm btn-guindo" type="submit">
+                    <i class="bi bi-funnel"></i> Filtrar
+                </button>
+                {% if hay_filtro_activo %}
+                    <a href="{% url 'registros:cargar' %}" class="btn btn-sm btn-outline-guindo">Quitar filtros</a>
+                {% endif %}
+            </div>
+        </form>
+    {% endif %}
+
     {% if cargas_anteriores %}
         <div class="table-responsive">
             <table class="table table-hover align-middle">
@@ -100,7 +145,12 @@
                 </tbody>
             </table>
         </div>
-        {% include "_paginacion.html" with pagina_obj=cargas_anteriores %}
+        {% include "_paginacion.html" with pagina_obj=cargas_anteriores querystring=querystring %}
+    {% elif hay_filtro_activo %}
+        <p class="text-secondary">
+            Ninguna carga coincide con ese filtro.
+            <a href="{% url 'registros:cargar' %}">Quitar filtros</a>
+        </p>
     {% else %}
         <p class="text-secondary">Todavía no se ha cargado ningún archivo.</p>
     {% endif %}

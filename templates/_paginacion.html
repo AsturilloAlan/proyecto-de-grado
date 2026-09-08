@@ -4,6 +4,12 @@ variable `page_obj`-compatible (lo que devuelve `Paginator.get_page`)
 bajo el nombre que se le pase, y usa el parámetro GET `pagina`.
 Uso: {% include "_paginacion.html" with pagina_obj=empresas %}
 
+Para conservar filtros/búsqueda al cambiar de página, la vista puede
+pasar `querystring` ya armado (ej. "empresa=1&estado=validado", sin
+"pagina" y sin "?" inicial ni "&" final) — se antepone a cada link.
+Si la vista en cambio usa el patrón viejo de un solo campo `busqueda`,
+también se sigue soportando.
+
 Importante: `previous_page_number` / `next_page_number` de Django
 *lanzan* `EmptyPage` cuando no existen (no devuelven `None`), así que
 NO se pueden llamar sin antes comprobar `has_previous`/`has_next` — de
@@ -15,7 +21,7 @@ lo contrario se rompe el render completo de la página en el primer o
     <ul class="pagination pagination-sm mb-0">
         <li class="page-item {% if not pagina_obj.has_previous %}disabled{% endif %}">
             {% if pagina_obj.has_previous %}
-                <a class="page-link" href="?{% if busqueda %}q={{ busqueda }}&{% endif %}pagina={{ pagina_obj.previous_page_number }}">
+                <a class="page-link" href="?{% if querystring %}{{ querystring }}&{% elif busqueda %}q={{ busqueda }}&{% endif %}pagina={{ pagina_obj.previous_page_number }}">
                     <i class="bi bi-chevron-left"></i>
                 </a>
             {% else %}
@@ -24,12 +30,12 @@ lo contrario se rompe el render completo de la página en el primer o
         </li>
         {% for numero in pagina_obj.paginator.page_range %}
             <li class="page-item {% if numero == pagina_obj.number %}active{% endif %}">
-                <a class="page-link" href="?{% if busqueda %}q={{ busqueda }}&{% endif %}pagina={{ numero }}">{{ numero }}</a>
+                <a class="page-link" href="?{% if querystring %}{{ querystring }}&{% elif busqueda %}q={{ busqueda }}&{% endif %}pagina={{ numero }}">{{ numero }}</a>
             </li>
         {% endfor %}
         <li class="page-item {% if not pagina_obj.has_next %}disabled{% endif %}">
             {% if pagina_obj.has_next %}
-                <a class="page-link" href="?{% if busqueda %}q={{ busqueda }}&{% endif %}pagina={{ pagina_obj.next_page_number }}">
+                <a class="page-link" href="?{% if querystring %}{{ querystring }}&{% elif busqueda %}q={{ busqueda }}&{% endif %}pagina={{ pagina_obj.next_page_number }}">
                     <i class="bi bi-chevron-right"></i>
                 </a>
             {% else %}

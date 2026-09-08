@@ -39,12 +39,54 @@ def cargar_registros(request):
     cargas_qs = CargaArchivo.objects.select_related("empresa", "gestion", "usuario").order_by(
         "-fecha_carga"
     )
+
+    # Filtro por empresa/gestión/estado: útil apenas hay más de un puñado de
+    # cargas (varias empresas y/o varios años), que es el caso real de uso.
+    filtro_empresa = request.GET.get("empresa", "")
+    filtro_gestion = request.GET.get("gestion", "")
+    filtro_estado = request.GET.get("estado", "")
+    if filtro_empresa.isdigit():
+        cargas_qs = cargas_qs.filter(empresa_id=filtro_empresa)
+    if filtro_gestion.isdigit():
+        cargas_qs = cargas_qs.filter(gestion_id=filtro_gestion)
+    if filtro_estado in dict(CargaArchivo.ESTADO_CHOICES):
+        cargas_qs = cargas_qs.filter(estado=filtro_estado)
+
     paginador = Paginator(cargas_qs, 8)
     cargas_anteriores = paginador.get_page(request.GET.get("pagina"))
+
+    # Para que los filtros no se pierdan al cambiar de página (ver
+    # templates/_paginacion.html).
+    parametros = request.GET.copy()
+    parametros.pop("pagina", None)
+    querystring = parametros.urlencode()
+
+    # Solo se listan como opción empresas/gestiones que realmente tienen
+    # alguna carga: un filtro con opciones que siempre dan resultado vacío
+    # no sirve de nada.
+    empresas_con_cargas = EmpresaAuditada.objects.filter(
+        id__in=CargaArchivo.objects.values_list("empresa_id", flat=True).distinct()
+    ).order_by("nombre")
+    gestiones_con_cargas = Gestion.objects.filter(
+        id__in=CargaArchivo.objects.values_list("gestion_id", flat=True).distinct()
+    )
+
     return render(
         request,
         "registros/cargar.html",
-        {"form": form, "cargas_anteriores": cargas_anteriores},
+        {
+            "form": form,
+            "cargas_anteriores": cargas_anteriores,
+            "querystring": querystring,
+            "empresas_con_cargas": empresas_con_cargas,
+            "gestiones_con_cargas": gestiones_con_cargas,
+            "estado_choices": CargaArchivo.ESTADO_CHOICES,
+            "filtro_empresa": filtro_empresa,
+            "filtro_gestion": filtro_gestion,
+            "filtro_estado": filtro_estado,
+            "hay_filtro_activo": bool(filtro_empresa or filtro_gestion or filtro_estado),
+            "hay_cargas_en_total": empresas_con_cargas.exists(),
+        },
     )
 
 

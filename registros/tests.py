@@ -497,3 +497,93 @@ class GestionEditarViewTests(TestCase):
             modelo="Gestion", objeto_id=self.gestion.id, accion="edicion"
         )
         self.assertEqual(cambios.count(), 0)
+
+
+@override_settings(MEDIA_ROOT=MEDIA_TEMPORAL)
+class CargarRegistrosFiltroTests(TestCase):
+    """Filtro por empresa/gestión/estado en 'Cargas anteriores': útil apenas
+    hay más de una empresa o gestión con archivos cargados."""
+
+    @classmethod
+    def tearDownClass(cls):
+        super().tearDownClass()
+        shutil.rmtree(MEDIA_TEMPORAL, ignore_errors=True)
+
+    def setUp(self):
+        self.admin = _crear_administrador()
+        self.client.login(username="admin", password="Clave-Segura123")
+        self.empresa_a = EmpresaAuditada.objects.create(nombre="Empresa A")
+        self.empresa_b = EmpresaAuditada.objects.create(nombre="Empresa B")
+        self.gestion_2022 = Gestion.objects.create(
+            anio=2022, fecha_inicio=date(2022, 1, 1), fecha_fin=date(2022, 12, 31)
+        )
+        self.gestion_2023 = Gestion.objects.create(
+            anio=2023, fecha_inicio=date(2023, 1, 1), fecha_fin=date(2023, 12, 31)
+        )
+        self.carga_a = self._crear_carga(self.empresa_a, self.gestion_2023, "validado")
+        self.carga_b = self._crear_carga(self.empresa_b, self.gestion_2022, "con_errores")
+
+    def _crear_carga(self, empresa, gestion, estado):
+        archivo = SimpleUploadedFile("carga.csv", b"fecha,cuenta,glosa,debe,haber\n")
+        return CargaArchivo.objects.create(
+            archivo=archivo,
+            usuario=self.admin,
+            empresa=empresa,
+            gestion=gestion,
+            estado=estado,
+        )
+
+    def test_sin_filtro_muestra_todas(self):
+        respuesta = self.client.get(reverse("registros:cargar"))
+        ids = [c.id for c in respuesta.context["cargas_anteriores"]]
+        self.assertCountEqual(ids, [self.carga_a.id, self.carga_b.id])
+
+    def test_filtro_por_empresa(self):
+        respuesta = self.client.get(
+            reverse("registros:cargar"), {"empresa": self.empresa_a.id}
+        )
+        ids = [c.id for c in respuesta.context["cargas_anteriores"]]
+        self.assertEqual(ids, [self.carga_a.id])
+
+    def test_filtro_por_gestion(self):
+        respuesta = self.client.get(
+            reverse("registros:cargar"), {"gestion": self.gestion_2022.id}
+        )
+        ids = [c.id for c in respuesta.context["cargas_anteriores"]]
+        self.assertEqual(ids, [self.carga_b.id])
+
+    def test_filtro_por_estado(self):
+        respuesta = self.client.get(
+            reverse("registros:cargar"), {"estado": "con_errores"}
+        )
+        ids = [c.id for c in respuesta.context["cargas_anteriores"]]
+        self.assertEqual(ids, [self.carga_b.id])
+
+    def test_filtros_combinados_sin_coincidencias(self):
+        respuesta = self.client.get(
+            reverse("registros:cargar"),
+            {"empresa": self.empresa_a.id, "estado": "con_errores"},
+        )
+        self.assertEqual(len(respuesta.context["cargas_anteriores"]), 0)
+        self.assertContains(respuesta, "Ninguna carga coincide con ese filtro.")
+
+    def test_solo_se_listan_empresas_y_gestiones_con_cargas(self):
+        """No tiene sentido ofrecer como filtro una empresa o gestión que
+        nunca tuvo ninguna carga: siempre daría una lista vacía."""
+        EmpresaAuditada.objects.create(nombre="Empresa Sin Cargas")
+        Gestion.objects.create(
+            anio=2020, fecha_inicio=date(2020, 1, 1), fecha_fin=date(2020, 12, 31)
+        )
+        respuesta = self.client.get(reverse("registros:cargar"))
+        nombres_empresas = [e.nombre for e in respuesta.context["empresas_con_cargas"]]
+        self.assertNotIn("Empresa Sin Cargas", nombres_empresas)
+        anios_gestiones = [g.anio for g in respuesta.context["gestiones_con_cargas"]]
+        self.assertNotIn(2020, anios_gestiones)
+
+    def test_querystring_conserva_filtro_para_paginacion(self):
+        respuesta = self.client.get(
+            reverse("registros:cargar"), {"empresa": self.empresa_a.id}
+        )
+        self.assertEqual(
+            respuesta.context["querystring"], f"empresa={self.empresa_a.id}"
+        )
