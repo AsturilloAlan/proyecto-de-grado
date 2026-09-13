@@ -9,6 +9,7 @@ datos: el usuario, contraseña, permisos y grupos siguen viviendo solo en
 `auth_user`.
 """
 import random
+import secrets
 from datetime import timedelta
 
 from django.conf import settings
@@ -99,3 +100,53 @@ class CodigoVerificacion(models.Model):
         cls.objects.filter(usuario=usuario, usado=False).update(usado=True)
         codigo = f"{random.randint(0, 999999):06d}"
         return cls.objects.create(usuario=usuario, codigo=codigo)
+
+
+class TokenAcceso(models.Model):
+    """Token de acceso personal (tipo "Personal Access Token" de GitHub),
+    pensado para uso programático (un script o sistema externo que
+    consulte datos por API), NO para reemplazar el login del sitio.
+
+    El login web sigue siendo por sesión + 2FA (ver `LoginSiempreInicioView`
+    en views.py) — eso no cambia. Este token es un mecanismo aparte y
+    aditivo: cada usuario puede generar uno o varios desde su perfil, y
+    usarlo para autenticarse contra endpoints de solo lectura pensados
+    para integraciones (ej. `/api/mis-cargas/`), sin necesidad de manejar
+    cookies de sesión.
+
+    El valor del token se muestra completo una sola vez, justo al
+    crearlo (ver vista `generar_token`); después solo se listan sus
+    últimos caracteres, igual que hacen GitHub/GitLab con sus tokens.
+    """
+
+    usuario = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="tokens_acceso"
+    )
+    token = models.CharField(max_length=64, unique=True, editable=False)
+    nombre = models.CharField(
+        "Nombre/etiqueta",
+        max_length=100,
+        blank=True,
+        help_text="Para identificar para qué es este token (ej. 'script de reportes').",
+    )
+    creado = models.DateTimeField(auto_now_add=True)
+    ultimo_uso = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        verbose_name = "Token de acceso"
+        verbose_name_plural = "Tokens de acceso"
+        ordering = ["-creado"]
+
+    def __str__(self):
+        return f"Token de {self.usuario.username} ({self.nombre or 'sin nombre'})"
+
+    def save(self, *args, **kwargs):
+        if not self.token:
+            self.token = secrets.token_hex(32)
+        super().save(*args, **kwargs)
+
+    @property
+    def token_parcial(self):
+        """Solo los últimos 4 caracteres, para mostrar en el listado sin
+        exponer el token completo de nuevo."""
+        return f"••••••••{self.token[-4:]}"

@@ -116,6 +116,23 @@ SESSION_COOKIE_AGE = 60 * 30  # 30 minutos
 SESSION_COOKIE_HTTPONLY = True
 CSRF_COOKIE_HTTPONLY = True
 
+# Cookies solo por HTTPS: si el sitio se sirve bajo HTTPS (producción),
+# las cookies de sesión y CSRF no deben viajar nunca en texto plano por
+# HTTP, porque alguien en la misma red podría leerlas. En desarrollo
+# local se sigue usando HTTP (http://127.0.0.1:8000), así que esto se
+# activa con una variable de entorno (USAR_HTTPS=True en el .env) en vez
+# de forzarlo siempre — si se forzara y no hubiera HTTPS real, el
+# navegador directamente descartaría las cookies y nadie podría loguearse.
+USAR_HTTPS = os.environ.get("USAR_HTTPS", "False") == "True"
+SESSION_COOKIE_SECURE = USAR_HTTPS
+CSRF_COOKIE_SECURE = USAR_HTTPS
+# SameSite=Lax: la cookie no se envía en peticiones disparadas desde un
+# sitio externo (ej. un <img> o un formulario en otra página apuntando a
+# este sistema), lo que agrega una capa extra contra CSRF además del
+# token de CSRF que ya usa Django.
+SESSION_COOKIE_SAMESITE = "Lax"
+CSRF_COOKIE_SAMESITE = "Lax"
+
 # Envío de correo (RNF-03: verificación en dos pasos / 2FA por correo al
 # iniciar sesión). Usa variables de entorno para no dejar la contraseña
 # de la cuenta de correo escrita en el código. Para configurarlo:

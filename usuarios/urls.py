@@ -21,4 +21,7 @@ urlpatterns = [
     path("usuarios/", views.usuarios_lista, name="usuarios_lista"),
     path("usuarios/nuevo/", views.usuario_crear, name="usuario_crear"),
     path("usuarios/<int:usuario_id>/editar/", views.usuario_editar, name="usuario_editar"),
+    path("perfil/tokens/nuevo/", views.generar_token, name="generar_token"),
+    path("perfil/tokens/<int:token_id>/revocar/", views.revocar_token, name="revocar_token"),
+    path("api/mis-cargas/", views.api_mis_cargas, name="api_mis_cargas"),
 ]

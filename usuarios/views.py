@@ -4,11 +4,13 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import Group, User
 from django.contrib.auth.views import LoginView, PasswordChangeView
 from django.core.cache import cache
+from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse_lazy
+from django.views.decorators.http import require_POST
 
 from .autenticacion_2fa import CLAVE_SESION_USUARIO_PENDIENTE, enviar_codigo, validar_codigo
-from .decorators import rol_requerido
+from .decorators import rol_requerido, token_requerido
 from .forms import (
     CambiarClaveForm,
     CodigoVerificacionForm,
@@ -17,7 +19,7 @@ from .forms import (
     UsuarioCrearForm,
     UsuarioEditarForm,
 )
-from .models import PRESETS_AVATAR, PerfilUsuario
+from .models import PRESETS_AVATAR, PerfilUsuario, TokenAcceso
 
 # --- Bloqueo por intentos fallidos de login (RNF-03, protección básica
 # contra fuerza bruta) ---
@@ -239,8 +241,67 @@ def perfil(request):
             "form": form_avatar,
             "form_datos": form_datos,
             "presets_avatar": PRESETS_AVATAR,
+            "tokens": request.user.tokens_acceso.all(),
         },
     )
+
+
+@login_required
+@require_POST
+def generar_token(request):
+    """Crea un nuevo token de acceso personal para el usuario autenticado
+    (ver `TokenAcceso` en models.py). El valor completo del token solo se
+    muestra esta vez, en el mensaje de éxito — después no se vuelve a
+    mostrar completo, solo sus últimos 4 caracteres."""
+    nombre = request.POST.get("nombre", "").strip()
+    token = TokenAcceso.objects.create(usuario=request.user, nombre=nombre)
+    messages.success(
+        request,
+        f"Token generado: {token.token} — cópialo ahora, no se va a volver "
+        f"a mostrar completo.",
+    )
+    return redirect("perfil")
+
+
+@login_required
+@require_POST
+def revocar_token(request, token_id):
+    """Elimina un token del propio usuario. Cualquier script que lo
+    estuviera usando deja de poder autenticarse de inmediato."""
+    token = get_object_or_404(TokenAcceso, pk=token_id, usuario=request.user)
+    token.delete()
+    messages.success(request, "Token revocado correctamente.")
+    return redirect("perfil")
+
+
+@token_requerido
+def api_mis_cargas(request):
+    """Endpoint de solo lectura autenticado por token (no por sesión),
+    pensado como demostración de uso programático: un script externo
+    puede consultar sus propias cargas sin pasar por el login web ni
+    por el 2FA. Deliberadamente no toca ningún dato ni vista existente.
+    """
+    from registros.models import CargaArchivo  # import local: evita acoplar usuarios <-> registros a nivel de módulo
+
+    usuario = request.usuario_token
+    cargas = CargaArchivo.objects.filter(usuario=usuario).select_related(
+        "empresa", "gestion"
+    ).order_by("-fecha_carga")[:50]
+
+    datos = [
+        {
+            "id": carga.id,
+            "empresa": carga.empresa.nombre,
+            "gestion": carga.gestion.anio,
+            "estado": carga.get_estado_display(),
+            "total_registros": carga.total_registros,
+            "registros_validos": carga.registros_validos,
+            "registros_con_error": carga.registros_con_error,
+            "fecha_carga": carga.fecha_carga.isoformat(),
+        }
+        for carga in cargas
+    ]
+    return JsonResponse({"usuario": usuario.username, "cargas": datos})
 
 
 class CambiarClaveView(PasswordChangeView):

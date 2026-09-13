@@ -84,7 +84,7 @@
                 </form>
             </div>
 
-            <div class="p-3 rounded border">
+            <div class="p-3 rounded border mb-3">
                 <h2 class="h6 text-guindo text-uppercase mb-3">
                     <i class="bi bi-shield-lock"></i> Seguridad
                 </h2>
@@ -94,6 +94,65 @@
                 <a class="btn btn-outline-guindo" href="{% url 'cambiar_clave' %}">
                     <i class="bi bi-key"></i> Cambiar contraseña
                 </a>
+            </div>
+
+            <div class="p-3 rounded border">
+                <h2 class="h6 text-guindo text-uppercase mb-3">
+                    <i class="bi bi-key-fill"></i> Tokens de acceso (API)
+                </h2>
+                <p class="text-secondary small mb-3">
+                    Para uso programático (un script externo que consulte tus datos), no para
+                    iniciar sesión en el sitio: eso siempre se hace con usuario, contraseña y
+                    el código de verificación. Un token da acceso de solo lectura a
+                    <code>/api/mis-cargas/</code> mediante el encabezado
+                    <code>Authorization: Bearer &lt;token&gt;</code>.
+                </p>
+
+                {% if tokens %}
+                    <div class="table-responsive mb-3">
+                        <table class="table table-sm align-middle mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Nombre</th>
+                                    <th>Token</th>
+                                    <th>Creado</th>
+                                    <th>Último uso</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for token in tokens %}
+                                <tr>
+                                    <td>{{ token.nombre|default:"—" }}</td>
+                                    <td><code>{{ token.token_parcial }}</code></td>
+                                    <td class="text-nowrap">{{ token.creado|date:"d/m/Y H:i" }}</td>
+                                    <td class="text-nowrap">{{ token.ultimo_uso|date:"d/m/Y H:i"|default:"Nunca" }}</td>
+                                    <td class="text-end">
+                                        <form method="post" action="{% url 'revocar_token' token.id %}"
+                                              onsubmit="return confirm('¿Revocar este token? Cualquier script que lo use dejará de poder acceder.');">
+                                            {% csrf_token %}
+                                            <button class="btn btn-sm btn-outline-danger" type="submit">
+                                                <i class="bi bi-trash"></i> Revocar
+                                            </button>
+                                        </form>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <p class="text-secondary small">Todavía no tienes ningún token generado.</p>
+                {% endif %}
+
+                <form method="post" action="{% url 'generar_token' %}" class="d-flex gap-2">
+                    {% csrf_token %}
+                    <input type="text" name="nombre" class="form-control form-control-sm"
+                           placeholder="Nombre (opcional, ej. 'script de reportes')" maxlength="100">
+                    <button class="btn btn-sm btn-guindo text-nowrap" type="submit">
+                        <i class="bi bi-plus-lg"></i> Generar token
+                    </button>
+                </form>
             </div>
         </div>
     </div>

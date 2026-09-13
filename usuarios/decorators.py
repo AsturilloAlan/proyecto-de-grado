@@ -16,7 +16,9 @@ from functools import wraps
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.http import JsonResponse
 from django.shortcuts import redirect
+from django.utils import timezone
 
 
 def rol_requerido(*roles):
@@ -46,3 +48,43 @@ def rol_requerido(*roles):
         return envoltura
 
     return decorador
+
+
+def token_requerido(vista):
+    """Autenticación por token para endpoints pensados para integraciones
+    externas (ej. `/api/mis-cargas/`), como alternativa a la sesión del
+    navegador — ver `TokenAcceso` en models.py.
+
+    Se espera el encabezado `Authorization: Bearer <token>`. A diferencia
+    de `login_required`/`rol_requerido`, esta vista NO depende de la
+    sesión ni de las cookies: identifica al usuario únicamente por el
+    token, así que sirve para un script que solo hace una petición HTTP
+    (sin pasar antes por el formulario de login ni por el 2FA).
+    """
+
+    @wraps(vista)
+    def envoltura(request, *args, **kwargs):
+        # Import local: evita un ciclo de imports entre decorators.py y
+        # models.py al cargarse la app.
+        from .models import TokenAcceso
+
+        encabezado = request.META.get("HTTP_AUTHORIZATION", "")
+        if not encabezado.startswith("Bearer "):
+            return JsonResponse(
+                {"error": "Falta el encabezado 'Authorization: Bearer <token>'."},
+                status=401,
+            )
+
+        valor_token = encabezado.removeprefix("Bearer ").strip()
+        try:
+            token = TokenAcceso.objects.select_related("usuario").get(token=valor_token)
+        except TokenAcceso.DoesNotExist:
+            return JsonResponse({"error": "Token inválido."}, status=401)
+
+        token.ultimo_uso = timezone.now()
+        token.save(update_fields=["ultimo_uso"])
+
+        request.usuario_token = token.usuario
+        return vista(request, *args, **kwargs)
+
+    return envoltura

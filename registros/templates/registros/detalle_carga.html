@@ -19,6 +19,42 @@
         <li><strong>Registros con error:</strong> {{ carga.registros_con_error }}</li>
     </ul>
 
+    {% if registros_pagina %}
+        <h2 class="h4 text-guindo mt-4"><i class="bi bi-table"></i> Registros cargados</h2>
+        <p class="text-secondary small">
+            {{ carga.registros_validos }} fila{{ carga.registros_validos|pluralize }} guardada{{ carga.registros_validos|pluralize }} de este archivo, tal como quedaron en el sistema.
+        </p>
+        <div class="table-responsive">
+            <table class="table table-hover align-middle table-sm">
+                <thead>
+                    <tr>
+                        <th style="width:1%;white-space:nowrap;">Fila</th>
+                        <th style="width:1%;white-space:nowrap;">Fecha</th>
+                        <th>Cuenta</th>
+                        <th>Comprobante</th>
+                        <th>Glosa</th>
+                        <th class="text-end">Debe</th>
+                        <th class="text-end">Haber</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for registro in registros_pagina %}
+                    <tr>
+                        <td>{{ registro.fila_origen }}</td>
+                        <td class="text-nowrap">{{ registro.fecha|date:"d/m/Y" }}</td>
+                        <td>{{ registro.cuenta.codigo }} — {{ registro.cuenta.nombre }}</td>
+                        <td>{{ registro.numero_comprobante|default:"—" }}</td>
+                        <td>{{ registro.glosa|default:"—" }}</td>
+                        <td class="text-end">{{ registro.debe }}</td>
+                        <td class="text-end">{{ registro.haber }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% include "_paginacion.html" with pagina_obj=registros_pagina %}
+    {% endif %}
+
     {% if errores %}
         <h2 class="h4 text-danger mt-4"><i class="bi bi-x-circle"></i> Errores de validación (filas rechazadas)</h2>
         <div class="table-responsive">

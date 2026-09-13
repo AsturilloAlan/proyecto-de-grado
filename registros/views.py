@@ -97,10 +97,24 @@ def detalle_carga(request, carga_id):
     )
     errores = carga.errores.filter(tipo="error")[:200]
     avisos = carga.errores.filter(tipo="aviso")[:200]
+
+    # Los registros que sí se guardaron bien (RF-01): se muestran acá para
+    # que el auditor vea de inmediato qué quedó cargado, no solo el
+    # resumen de errores/avisos. Puede haber miles de filas por carga, así
+    # que va paginado en vez de mostrarlas todas de una.
+    registros_qs = carga.registros.select_related("cuenta").order_by("fila_origen")
+    paginador = Paginator(registros_qs, 50)
+    registros_pagina = paginador.get_page(request.GET.get("pagina"))
+
     return render(
         request,
         "registros/detalle_carga.html",
-        {"carga": carga, "errores": errores, "avisos": avisos},
+        {
+            "carga": carga,
+            "errores": errores,
+            "avisos": avisos,
+            "registros_pagina": registros_pagina,
+        },
     )
 
 
