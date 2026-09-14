@@ -42,11 +42,17 @@
                     {{ form.nit }}
                     {% for error in form.nit.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
                 </div>
-                <div class="col-12">
+                <div class="col-md-8">
                     <label for="{{ form.rubro.id_for_label }}" class="form-label">{{ form.rubro.label }}</label>
                     {{ form.rubro }}
                     {% if form.rubro.help_text %}<div class="form-text">{{ form.rubro.help_text }}</div>{% endif %}
                     {% for error in form.rubro.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+                </div>
+                <div class="col-md-4">
+                    <label for="{{ form.categoria_cierre.id_for_label }}" class="form-label">{{ form.categoria_cierre.label }}</label>
+                    {{ form.categoria_cierre }}
+                    {% if form.categoria_cierre.help_text %}<div class="form-text">{{ form.categoria_cierre.help_text }}</div>{% endif %}
+                    {% for error in form.categoria_cierre.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
                 </div>
             </div>
         </div>

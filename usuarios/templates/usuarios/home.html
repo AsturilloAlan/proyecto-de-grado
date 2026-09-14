@@ -93,7 +93,7 @@
                         <td>{{ carga.usuario.username }}</td>
                         <td>
                             <span class="badge {% if carga.estado == 'validado' %}text-bg-success{% elif carga.estado == 'con_observaciones' %}text-bg-warning{% elif carga.estado == 'con_errores' %}text-bg-danger{% else %}text-bg-secondary{% endif %}">
-                                {{ carga.get_estado_display }}
+                                {{ carga.get_estado_display }}{% if carga.registros_con_error %} ({{ carga.registros_con_error }}){% endif %}
                             </span>
                         </td>
                         <td>

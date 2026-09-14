@@ -60,6 +60,7 @@ class EmpresasCrudTests(TestCase):
                 "nombre": "Cooperativa Santa Rita R.L.",
                 "nit": "123456",
                 "rubro": "Financiero",
+                "categoria_cierre": "general",
                 "contacto_nombre": "",
                 "contacto_email": "",
                 "contacto_telefono": "",
@@ -78,6 +79,7 @@ class EmpresasCrudTests(TestCase):
                 "nombre": "La Razón S.R.L.",
                 "nit": "8880320",
                 "rubro": "",
+                "categoria_cierre": "general",
                 "contacto_nombre": "",
                 "contacto_email": "",
                 "contacto_telefono": "",
@@ -110,6 +112,7 @@ class EmpresasCrudTests(TestCase):
                 "nombre": "Cooperativa Santa Rita R.L.",
                 "nit": "123456",
                 "rubro": "",
+                "categoria_cierre": "general",
                 "contacto_nombre": "",
                 "contacto_email": "",
                 "contacto_telefono": "",
@@ -121,6 +124,28 @@ class EmpresasCrudTests(TestCase):
         self.assertEqual(gestion.fecha_inicio, date(2025, 1, 1))
         self.assertEqual(gestion.fecha_fin, date(2025, 12, 31))
 
+    def test_crear_empresa_industrial_calcula_gestion_con_cierre_31_marzo(self):
+        """Una empresa industrial cierra el 31 de marzo, no el 31 de
+        diciembre: la gestión inicial debe calcularse con esas fechas,
+        sin que quien registra la empresa tenga que saberlo de memoria."""
+        respuesta = self.client.post(
+            reverse("registros:empresa_crear"),
+            {
+                "nombre": "Fábrica Andina S.A.",
+                "nit": "654321",
+                "rubro": "Industrial",
+                "categoria_cierre": "industrial",
+                "contacto_nombre": "",
+                "contacto_email": "",
+                "contacto_telefono": "",
+                "anio_gestion_inicial": "2025",
+            },
+        )
+        self.assertRedirects(respuesta, reverse("registros:empresas_lista"))
+        gestion = Gestion.objects.get(anio=2025)
+        self.assertEqual(gestion.fecha_inicio, date(2024, 4, 1))
+        self.assertEqual(gestion.fecha_fin, date(2025, 3, 31))
+
     def test_crear_empresa_sin_anio_de_gestion_no_crea_ninguna(self):
         self.client.post(
             reverse("registros:empresa_crear"),
@@ -128,6 +153,7 @@ class EmpresasCrudTests(TestCase):
                 "nombre": "Cooperativa Santa Rita R.L.",
                 "nit": "123456",
                 "rubro": "",
+                "categoria_cierre": "general",
                 "contacto_nombre": "",
                 "contacto_email": "",
                 "contacto_telefono": "",
@@ -152,6 +178,7 @@ class HistorialCambioTests(TestCase):
                 "nombre": "Cooperativa Santa Rita R.L.",
                 "nit": "123456",
                 "rubro": "",
+                "categoria_cierre": "general",
                 "contacto_nombre": "",
                 "contacto_email": "",
                 "contacto_telefono": "",
@@ -172,6 +199,7 @@ class HistorialCambioTests(TestCase):
                 "nombre": "La Razón S.R.L.",
                 "nit": "8880320",
                 "rubro": "",
+                "categoria_cierre": "general",
                 "contacto_nombre": "",
                 "contacto_email": "",
                 "contacto_telefono": "",
@@ -195,6 +223,7 @@ class HistorialCambioTests(TestCase):
                 "nombre": "Empresa X",
                 "nit": "111",
                 "rubro": "",
+                "categoria_cierre": "general",
                 "contacto_nombre": "",
                 "contacto_email": "",
                 "contacto_telefono": "",

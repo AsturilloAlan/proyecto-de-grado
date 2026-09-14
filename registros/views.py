@@ -1,5 +1,3 @@
-from datetime import date
-
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
@@ -17,6 +15,7 @@ CAMPOS_AUDITABLES_EMPRESA = [
     "nombre",
     "nit",
     "rubro",
+    "categoria_cierre",
     "contacto_nombre",
     "contacto_email",
     "contacto_telefono",
@@ -204,13 +203,17 @@ def empresa_crear(request):
 
             anio = form.cleaned_data.get("anio_gestion_inicial")
             if anio:
-                # Se reutiliza si ya existe una con año calendario completo
-                # para ese año (evita duplicados si dos empresas usan la
-                # misma gestión "normal" de 01/01 - 31/12).
+                # Las fechas ya no se asumen siempre calendario: se calculan
+                # según la categoría de cierre (SIN) elegida para la empresa
+                # (ver EmpresaAuditada.fechas_gestion_para). Se reutiliza si
+                # ya existe una gestión con esas mismas fechas exactas (evita
+                # duplicados si dos empresas de la misma categoría comparten
+                # gestión).
+                fecha_inicio, fecha_fin = empresa.fechas_gestion_para(anio)
                 gestion, creada = Gestion.objects.get_or_create(
                     anio=anio,
-                    fecha_inicio=date(anio, 1, 1),
-                    fecha_fin=date(anio, 12, 31),
+                    fecha_inicio=fecha_inicio,
+                    fecha_fin=fecha_fin,
                 )
                 if creada:
                     registrar_creacion(gestion, request.user)

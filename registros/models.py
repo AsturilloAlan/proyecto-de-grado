@@ -4,6 +4,8 @@ Modelo de datos para la carga y validación de registros contables
 únicamente de su propia clave, sin datos repetidos ni dependencias
 transitivas entre atributos.
 """
+from datetime import date
+
 from django.conf import settings
 from django.db import models
 
@@ -16,6 +18,21 @@ class EmpresaAuditada(models.Model):
     el sistema a más de una empresa auditada.
     """
 
+    # Categoría de cierre de gestión según el Servicio de Impuestos
+    # Nacionales (SIN, Bolivia): el cierre del año fiscal no es siempre
+    # el 31 de diciembre — depende del rubro de la empresa. Se usa para
+    # sugerir automáticamente las fechas al crear una gestión (ver
+    # `fechas_gestion_para`), sin obligar a escribirlas a mano cada vez.
+    # Es independiente del campo "rubro" (texto libre, descriptivo) de
+    # abajo: este campo es estructurado a propósito, justamente para
+    # poder calcular fechas con él.
+    CATEGORIA_CIERRE_CHOICES = [
+        ("general", "Comercio, servicios, bancos y seguros — cierra 31 de diciembre"),
+        ("industrial", "Industrial o petrolera — cierra 31 de marzo"),
+        ("agropecuaria", "Agropecuaria o agroindustrial — cierra 30 de junio"),
+        ("minera", "Minera — cierra 30 de septiembre"),
+    ]
+
     nombre = models.CharField(max_length=200)
     nit = models.CharField("NIT", max_length=30, blank=True)
     rubro = models.CharField(
@@ -24,6 +41,15 @@ class EmpresaAuditada(models.Model):
         blank=True,
         help_text="Ayuda a interpretar mejor los resultados del análisis, "
         "ya que el comportamiento contable normal varía según el rubro.",
+    )
+    categoria_cierre = models.CharField(
+        "Categoría de cierre de gestión (SIN)",
+        max_length=20,
+        choices=CATEGORIA_CIERRE_CHOICES,
+        default="general",
+        help_text="Define en qué mes cierra el año fiscal de esta empresa. Se usa "
+        "solo para sugerir las fechas al crear una nueva gestión — siempre "
+        "se pueden ajustar a mano si hay una excepción real.",
     )
     contacto_nombre = models.CharField("Nombre del contacto", max_length=150, blank=True)
     contacto_email = models.EmailField("Correo del contacto", blank=True)
@@ -37,6 +63,21 @@ class EmpresaAuditada(models.Model):
 
     def __str__(self):
         return self.nombre
+
+    def fechas_gestion_para(self, anio):
+        """Calcula (fecha_inicio, fecha_fin) de la gestión `anio` según la
+        categoría de cierre de esta empresa. Para las categorías con cierre
+        distinto al 31/12, la gestión "anio" es la que TERMINA en ese año
+        (ej. industrial, gestión 2024: 01/04/2023 - 31/03/2024) — así se
+        nombra habitualmente en Bolivia, igual que la gestión "general" ya
+        se nombra por el año en que transcurre."""
+        if self.categoria_cierre == "industrial":
+            return date(anio - 1, 4, 1), date(anio, 3, 31)
+        if self.categoria_cierre == "agropecuaria":
+            return date(anio - 1, 7, 1), date(anio, 6, 30)
+        if self.categoria_cierre == "minera":
+            return date(anio - 1, 10, 1), date(anio, 9, 30)
+        return date(anio, 1, 1), date(anio, 12, 31)
 
 
 class Gestion(models.Model):

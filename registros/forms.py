@@ -25,9 +25,10 @@ class EmpresaAuditadaForm(forms.ModelForm):
         max_value=2100,
         widget=forms.NumberInput(attrs={"class": "form-control", "min": 2000, "max": 2100}),
         help_text=(
-            "Se crea automáticamente con el año calendario (01/01 - 31/12). "
-            "Si el cierre de esta empresa es distinto, se puede ajustar "
-            "después desde \"Cargar registros\" → \"Agregar gestión\"."
+            "Las fechas se calculan solas según la categoría de cierre elegida "
+            "abajo (por defecto, año calendario 01/01 - 31/12). Si hace falta "
+            "ajustarlas a mano, se puede después desde \"Cargar registros\" → "
+            "\"Agregar gestión\"."
         ),
     )
 
@@ -37,6 +38,7 @@ class EmpresaAuditadaForm(forms.ModelForm):
             "nombre",
             "nit",
             "rubro",
+            "categoria_cierre",
             "contacto_nombre",
             "contacto_email",
             "contacto_telefono",
@@ -45,6 +47,7 @@ class EmpresaAuditadaForm(forms.ModelForm):
             "nombre": "Nombre de la empresa",
             "nit": "NIT",
             "rubro": "Rubro / sector económico",
+            "categoria_cierre": "Categoría de cierre de gestión (SIN)",
             "contacto_nombre": "Nombre del contacto",
             "contacto_email": "Correo del contacto",
             "contacto_telefono": "Teléfono del contacto",
@@ -53,6 +56,7 @@ class EmpresaAuditadaForm(forms.ModelForm):
             "nombre": forms.TextInput(attrs={"class": "form-control"}),
             "nit": forms.TextInput(attrs={"class": "form-control"}),
             "rubro": forms.TextInput(attrs={"class": "form-control"}),
+            "categoria_cierre": forms.Select(attrs={"class": "form-select"}),
             "contacto_nombre": forms.TextInput(attrs={"class": "form-control"}),
             "contacto_email": forms.EmailInput(attrs={"class": "form-control"}),
             "contacto_telefono": forms.TextInput(attrs={"class": "form-control"}),
