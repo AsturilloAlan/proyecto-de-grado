@@ -168,6 +168,16 @@ class CargaArchivo(models.Model):
         # rechazada.
         ("con_observaciones", "Cargado con pendientes"),
         ("con_errores", "Con errores"),
+        # Vía sancionada para corregir un error humano al elegir la empresa
+        # o la gestión al cargar (ej. gestión 2025 en vez de 2022): en un
+        # sistema de auditoría no tiene sentido "editar" en silencio una
+        # carga ya procesada (los avisos de fecha ya se calcularon contra
+        # la gestión original, y quedarían desactualizados). En cambio, se
+        # anula (con motivo obligatorio, quién y cuándo — ver
+        # `carga_anular` en views.py) y se sube de nuevo el archivo con los
+        # datos correctos: la carga anulada NUNCA se borra ni se oculta,
+        # queda como constancia de que existió y por qué se descartó.
+        ("anulada", "Anulada"),
     ]
 
     # A qué tipo de libro contable corresponde el archivo, detectado
@@ -229,6 +239,22 @@ class CargaArchivo(models.Model):
         blank=True,
     )
     fecha_revision = models.DateTimeField(null=True, blank=True)
+
+    # Anulación (ver ESTADO_CHOICES["anulada"] arriba): quién, cuándo y por
+    # qué se descartó esta carga. `motivo_anulacion` es obligatorio a nivel
+    # de formulario (no de base de datos, para no romper cargas viejas sin
+    # anular) — es lo que reemplaza a un simple "borrar y listo": deja
+    # constancia legible del motivo, en vez de solo un registro genérico
+    # de que "algo cambió".
+    anulado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="cargas_anuladas",
+        null=True,
+        blank=True,
+    )
+    fecha_anulacion = models.DateTimeField(null=True, blank=True)
+    motivo_anulacion = models.TextField("Motivo de la anulación", blank=True)
 
     class Meta:
         verbose_name = "Carga de Archivo"

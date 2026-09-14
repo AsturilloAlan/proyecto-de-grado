@@ -12,6 +12,7 @@ urlpatterns = [
         views.carga_confirmar_validacion,
         name="carga_confirmar_validacion",
     ),
+    path("cargar/<int:carga_id>/anular/", views.carga_anular, name="carga_anular"),
     path("gestiones/nueva/", views.gestion_crear, name="gestion_crear"),
     path("gestiones/<int:gestion_id>/editar/", views.gestion_editar, name="gestion_editar"),
     path("empresas/", views.empresas_lista, name="empresas_lista"),

@@ -573,6 +573,97 @@ class CargaConfirmarValidacionViewTests(TestCase):
         self.assertEqual(respuesta.status_code, 405)
 
 
+class CargaAnularViewTests(TestCase):
+    """Corrección de un error humano al elegir empresa/gestión (ej. cargar
+    con la gestión 2025 en vez de 2022): se anula la carga (con motivo,
+    quién y cuándo — nunca se edita ni se borra) y se sube de nuevo el
+    archivo correcto. Ver `carga_anular` en views.py."""
+
+    def setUp(self):
+        Group.objects.get_or_create(name="Administrador")
+        Group.objects.get_or_create(name="Auditor")
+        self.administrador = User.objects.create_user(
+            username="admin", password="Clave-Segura123"
+        )
+        self.administrador.groups.add(Group.objects.get(name="Administrador"))
+        self.auditor = User.objects.create_user(
+            username="auditor", password="Clave-Segura123"
+        )
+        self.auditor.groups.add(Group.objects.get(name="Auditor"))
+
+        self.empresa = EmpresaAuditada.objects.create(nombre="Empresa X")
+        self.gestion_2025 = Gestion.objects.create(
+            anio=2025, fecha_inicio=date(2025, 1, 1), fecha_fin=date(2025, 12, 31)
+        )
+
+    def _crear_carga(self, estado="validado"):
+        archivo = SimpleUploadedFile("carga.csv", b"contenido")
+        return CargaArchivo.objects.create(
+            archivo=archivo,
+            usuario=self.auditor,
+            empresa=self.empresa,
+            gestion=self.gestion_2025,
+            estado=estado,
+        )
+
+    def test_administrador_puede_anular_con_motivo(self):
+        carga = self._crear_carga()
+        self.client.login(username="admin", password="Clave-Segura123")
+
+        respuesta = self.client.post(
+            reverse("registros:carga_anular", args=[carga.id]),
+            {"motivo": "Se cargó con la gestión 2025, correspondía la 2022."},
+        )
+
+        carga.refresh_from_db()
+        self.assertRedirects(
+            respuesta, reverse("registros:detalle_carga", args=[carga.id])
+        )
+        self.assertEqual(carga.estado, "anulada")
+        self.assertEqual(carga.anulado_por, self.administrador)
+        self.assertIsNotNone(carga.fecha_anulacion)
+        self.assertIn("gestión 2025", carga.motivo_anulacion)
+        self.assertTrue(
+            HistorialCambio.objects.filter(
+                modelo="CargaArchivo", objeto_id=carga.id, campo="estado", valor_nuevo="anulada"
+            ).exists()
+        )
+
+    def test_motivo_muy_corto_se_rechaza_y_no_anula(self):
+        carga = self._crear_carga()
+        self.client.login(username="admin", password="Clave-Segura123")
+
+        self.client.post(reverse("registros:carga_anular", args=[carga.id]), {"motivo": "corto"})
+
+        carga.refresh_from_db()
+        self.assertEqual(carga.estado, "validado")
+        self.assertIsNone(carga.anulado_por)
+
+    def test_auditor_no_puede_anular(self):
+        carga = self._crear_carga()
+        self.client.login(username="auditor", password="Clave-Segura123")
+
+        self.client.post(
+            reverse("registros:carga_anular", args=[carga.id]),
+            {"motivo": "Se cargó con la gestión equivocada."},
+        )
+
+        carga.refresh_from_db()
+        self.assertEqual(carga.estado, "validado")
+
+    def test_no_se_puede_anular_dos_veces(self):
+        carga = self._crear_carga(estado="anulada")
+        self.client.login(username="admin", password="Clave-Segura123")
+
+        respuesta = self.client.post(
+            reverse("registros:carga_anular", args=[carga.id]),
+            {"motivo": "Intento de anular de nuevo."},
+            follow=True,
+        )
+
+        self.assertContains(respuesta, "ya está anulada")
+
+
 class GestionFormTests(TestCase):
     def test_solo_con_anio_completa_las_fechas_solo(self):
         """Uso simple del día a día: escribir solo el año alcanza, sin

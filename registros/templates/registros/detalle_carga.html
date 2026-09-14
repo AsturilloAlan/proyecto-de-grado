@@ -17,12 +17,16 @@
         <li><strong>Gestión:</strong> {{ carga.gestion }}</li>
         <li><strong>Cargado por:</strong> {{ carga.usuario.username }} — {{ carga.fecha_carga|date:"d/m/Y H:i" }}</li>
         <li><strong>Estado:</strong>
-            <span class="badge {% if carga.estado == 'validado' %}text-bg-success{% elif carga.estado == 'con_observaciones' %}text-bg-warning{% elif carga.estado == 'con_errores' %}text-bg-danger{% else %}text-bg-secondary{% endif %}">
+            <span class="badge {% if carga.estado == 'validado' %}text-bg-success{% elif carga.estado == 'con_observaciones' %}text-bg-warning{% elif carga.estado == 'con_errores' %}text-bg-danger{% elif carga.estado == 'anulada' %}text-bg-dark{% else %}text-bg-secondary{% endif %}">
                 {{ carga.get_estado_display }}{% if carga.registros_con_error %} ({{ carga.registros_con_error }}){% endif %}
             </span>
         </li>
         {% if carga.revisado_por %}
             <li><strong>Revisado y confirmado por:</strong> {{ carga.revisado_por.username }} — {{ carga.fecha_revision|date:"d/m/Y H:i" }}</li>
+        {% endif %}
+        {% if carga.estado == 'anulada' %}
+            <li><strong>Anulada por:</strong> {{ carga.anulado_por.username }} — {{ carga.fecha_anulacion|date:"d/m/Y H:i" }}</li>
+            <li><strong>Motivo:</strong> {{ carga.motivo_anulacion }}</li>
         {% endif %}
         <li><strong>Total de filas procesadas:</strong> {{ carga.total_registros }}</li>
         <li>
@@ -32,6 +36,15 @@
             <span class="badge text-bg-danger fw-normal"><i class="bi bi-x-lg"></i> {{ carga.registros_con_error }} error{{ carga.registros_con_error|pluralize }}</span>
         </li>
     </ul>
+
+    {% if carga.estado == 'anulada' %}
+        <div class="alert alert-dark">
+            <i class="bi bi-slash-circle"></i>
+            Esta carga está anulada: no cuenta como información válida. Si hace falta,
+            subí el archivo de nuevo con los datos correctos desde
+            <a href="{% url 'registros:cargar' %}">Cargar registros</a>.
+        </div>
+    {% endif %}
 
     {% if carga.estado == 'con_observaciones' and puede_confirmar_carga %}
         <div class="alert alert-warning d-flex flex-wrap align-items-center justify-content-between gap-2">
@@ -49,6 +62,14 @@
                 </button>
             </form>
         </div>
+    {% endif %}
+
+    {% if carga.estado != 'anulada' and es_administrador %}
+        <p class="text-end">
+            <a href="{% url 'registros:carga_anular' carga.id %}" class="btn btn-sm btn-outline-danger">
+                <i class="bi bi-slash-circle"></i> ¿Se cargó con la empresa o gestión equivocada? Anular esta carga
+            </a>
+        </p>
     {% endif %}
 
     {% if registros_pagina %}

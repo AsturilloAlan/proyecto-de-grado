@@ -179,6 +179,23 @@ class GestionForm(forms.ModelForm):
         return instancia
 
 
+class AnulacionForm(forms.Form):
+    """Motivo obligatorio para anular una carga (ver `carga_anular` en
+    views.py). No es un ModelForm porque no edita el archivo/registros de
+    la carga en sí — solo junta el motivo antes de aplicar la anulación,
+    que la vista hace explícitamente sobre los campos de auditoría
+    (estado, anulado_por, fecha_anulacion, motivo_anulacion)."""
+
+    motivo = forms.CharField(
+        label="Motivo de la anulación",
+        widget=forms.Textarea(attrs={"class": "form-control", "rows": 3}),
+        min_length=10,
+        error_messages={
+            "min_length": "Escribí un motivo un poco más detallado (mínimo 10 caracteres) — queda en el historial de auditoría.",
+        },
+    )
+
+
 class CargaArchivoForm(forms.ModelForm):
     class Meta:
         model = CargaArchivo

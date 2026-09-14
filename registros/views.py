@@ -9,7 +9,7 @@ from django.views.decorators.http import require_POST
 from usuarios.decorators import rol_requerido
 
 from .auditoria import registrar_creacion, registrar_edicion
-from .forms import CargaArchivoForm, EmpresaAuditadaForm, GestionForm
+from .forms import AnulacionForm, CargaArchivoForm, EmpresaAuditadaForm, GestionForm
 from .models import CargaArchivo, EmpresaAuditada, Gestion, HistorialCambio
 from .services import procesar_carga
 
@@ -154,6 +154,52 @@ def carga_confirmar_validacion(request, carga_id):
         "vos, con la fecha y hora actual.",
     )
     return redirect("registros:detalle_carga", carga_id=carga.id)
+
+
+@rol_requerido("Administrador")
+def carga_anular(request, carga_id):
+    """Corrige un error humano al elegir empresa/gestión al cargar un
+    archivo (ej. gestión 2025 en vez de 2022), sin "editar" en silencio
+    una carga ya procesada — ver el comentario de ESTADO_CHOICES en
+    models.py sobre por qué no se permite editar directamente.
+
+    La carga anulada NUNCA se borra: queda con su estado en "Anulada",
+    el motivo escrito acá, y quién/cuándo la anuló, siempre visible en su
+    detalle. El camino correcto después de anular es volver a "Cargar
+    registros" y subir el archivo de nuevo con los datos correctos.
+    """
+    carga = get_object_or_404(CargaArchivo, pk=carga_id)
+    if carga.estado == "anulada":
+        messages.error(request, "Esta carga ya está anulada.")
+        return redirect("registros:detalle_carga", carga_id=carga.id)
+
+    if request.method == "POST":
+        form = AnulacionForm(request.POST)
+        if form.is_valid():
+            valores_anteriores = {
+                "estado": carga.estado,
+                "motivo_anulacion": carga.motivo_anulacion,
+            }
+            carga.estado = "anulada"
+            carga.anulado_por = request.user
+            carga.fecha_anulacion = timezone.now()
+            carga.motivo_anulacion = form.cleaned_data["motivo"]
+            carga.save()
+            registrar_edicion(
+                carga, valores_anteriores, request.user, ["estado", "motivo_anulacion"]
+            )
+            messages.success(
+                request,
+                f"Carga #{carga.id} anulada. Ya podés subir el archivo de nuevo con "
+                "los datos correctos desde \"Cargar registros\".",
+            )
+            return redirect("registros:detalle_carga", carga_id=carga.id)
+    else:
+        form = AnulacionForm()
+
+    return render(
+        request, "registros/carga_anular.html", {"form": form, "carga": carga}
+    )
 
 
 @rol_requerido("Administrador")

@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}Anular carga #{{ carga.id }}{% endblock %}
+{% block content %}
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb small mb-3">
+            <li class="breadcrumb-item"><a href="{% url 'home' %}"><i class="bi bi-house"></i> Inicio</a></li>
+            <li class="breadcrumb-item"><a href="{% url 'registros:cargar' %}">Cargar registros</a></li>
+            <li class="breadcrumb-item"><a href="{% url 'registros:detalle_carga' carga.id %}">Carga #{{ carga.id }}</a></li>
+            <li class="breadcrumb-item active" aria-current="page">Anular</li>
+        </ol>
+    </nav>
+
+    <h1 class="text-guindo h3">Anular carga #{{ carga.id }}</h1>
+
+    <div class="alert alert-warning mt-3">
+        <i class="bi bi-exclamation-triangle"></i>
+        Esta carga <strong>no se borra ni se puede editar</strong>: va a quedar marcada
+        como "Anulada", visible en el historial con tu usuario, la fecha y el motivo
+        que escribas abajo. Es la forma correcta de corregir un error al elegir la
+        empresa o la gestión (ej. cargaste con la gestión 2025 en vez de 2022) — después
+        de anular, subís el archivo de nuevo desde "Cargar registros" con los datos
+        correctos.
+    </div>
+
+    <ul class="list-unstyled">
+        <li><strong>Empresa:</strong> {{ carga.empresa }}</li>
+        <li><strong>Gestión:</strong> {{ carga.gestion }}</li>
+        <li><strong>Cargado por:</strong> {{ carga.usuario.username }} — {{ carga.fecha_carga|date:"d/m/Y H:i" }}</li>
+        <li><strong>Registros guardados:</strong> {{ carga.registros_validos }}</li>
+    </ul>
+
+    <form method="post" class="mx-auto" style="max-width: 560px;">
+        {% csrf_token %}
+        {{ form.non_field_errors }}
+        <div class="mb-3">
+            <label for="{{ form.motivo.id_for_label }}" class="form-label">{{ form.motivo.label }}</label>
+            {{ form.motivo }}
+            <div class="form-text">Ej.: "Se cargó con la gestión 2025, correspondía la gestión 2022."</div>
+            {% for error in form.motivo.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+        </div>
+        <div>
+            <button class="btn btn-danger" type="submit">
+                <i class="bi bi-slash-circle"></i> Anular esta carga
+            </button>
+            <a class="btn btn-outline-guindo" href="{% url 'registros:detalle_carga' carga.id %}">Cancelar</a>
+        </div>
+    </form>
+{% endblock %}
