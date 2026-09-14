@@ -21,10 +21,35 @@
                 {{ carga.get_estado_display }}{% if carga.registros_con_error %} ({{ carga.registros_con_error }}){% endif %}
             </span>
         </li>
+        {% if carga.revisado_por %}
+            <li><strong>Revisado y confirmado por:</strong> {{ carga.revisado_por.username }} — {{ carga.fecha_revision|date:"d/m/Y H:i" }}</li>
+        {% endif %}
         <li><strong>Total de filas procesadas:</strong> {{ carga.total_registros }}</li>
-        <li><strong>Registros válidos:</strong> {{ carga.registros_validos }}</li>
-        <li><strong>Registros con error:</strong> {{ carga.registros_con_error }}</li>
+        <li>
+            <strong>Resultado:</strong>
+            <span class="badge text-bg-success fw-normal"><i class="bi bi-check-lg"></i> {{ carga.registros_validos }} válido{{ carga.registros_validos|pluralize }}</span>
+            <span class="badge text-bg-warning fw-normal"><i class="bi bi-exclamation-triangle"></i> {{ carga.registros_con_aviso }} aviso{{ carga.registros_con_aviso|pluralize }}</span>
+            <span class="badge text-bg-danger fw-normal"><i class="bi bi-x-lg"></i> {{ carga.registros_con_error }} error{{ carga.registros_con_error|pluralize }}</span>
+        </li>
     </ul>
+
+    {% if carga.estado == 'con_observaciones' and puede_confirmar_carga %}
+        <div class="alert alert-warning d-flex flex-wrap align-items-center justify-content-between gap-2">
+            <div>
+                <i class="bi bi-info-circle"></i>
+                Esta carga se guardó con {{ carga.registros_con_aviso }} aviso{{ carga.registros_con_aviso|pluralize }}
+                {% if carga.registros_con_error %} y {{ carga.registros_con_error }} fila{{ carga.registros_con_error|pluralize }} rechazada{{ carga.registros_con_error|pluralize }}{% endif %}
+                a revisar. Si ya las revisaste y están bien, podés confirmarla como válida definitivamente.
+            </div>
+            <form method="post" action="{% url 'registros:carga_confirmar_validacion' carga.id %}"
+                  onsubmit="return confirm('¿Estás seguro de marcar esta carga como Validado a pesar de las observaciones pendientes? Esta acción queda registrada con tu usuario y no se puede deshacer.');">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-sm btn-guindo text-nowrap">
+                    <i class="bi bi-patch-check"></i> Confirmar como válida definitivamente
+                </button>
+            </form>
+        </div>
+    {% endif %}
 
     {% if registros_pagina %}
         <h2 class="h4 text-guindo mt-4"><i class="bi bi-table"></i> Registros cargados</h2>

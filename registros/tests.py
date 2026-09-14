@@ -376,6 +376,7 @@ class ProcesarCargaTests(TestCase):
         # La fila se guarda igual (no es un error real, solo un aviso):
         self.assertEqual(carga.estado, "validado")
         self.assertEqual(carga.registros_con_error, 0)
+        self.assertEqual(carga.registros_con_aviso, 1)
         aviso = ErrorValidacion.objects.get(carga=carga, campo="cuenta")
         self.assertEqual(aviso.tipo, "aviso")
 
@@ -442,6 +443,7 @@ class ProcesarCargaTests(TestCase):
         carga.refresh_from_db()
 
         self.assertEqual(carga.registros_validos, 1)
+        self.assertEqual(carga.registros_con_aviso, 1)
         self.assertTrue(
             ErrorValidacion.objects.filter(
                 carga=carga, campo="fecha", tipo="aviso"
@@ -466,6 +468,104 @@ class ProcesarCargaTests(TestCase):
         self.assertEqual(carga.estado, "con_observaciones")
         self.assertEqual(carga.registros_validos, 2)
         self.assertEqual(carga.registros_con_error, 1)
+        self.assertEqual(carga.registros_con_aviso, 0)
+
+
+class CargaConfirmarValidacionViewTests(TestCase):
+    """RF-02: confirmación manual de una carga "con pendientes" como
+    definitiva, por un Administrador o Auditor (ver
+    `carga_confirmar_validacion` en views.py)."""
+
+    def setUp(self):
+        Group.objects.get_or_create(name="Administrador")
+        Group.objects.get_or_create(name="Auditor")
+        self.administrador = User.objects.create_user(
+            username="admin", password="Clave-Segura123"
+        )
+        self.administrador.groups.add(Group.objects.get(name="Administrador"))
+        self.auditor = User.objects.create_user(
+            username="auditor", password="Clave-Segura123"
+        )
+        self.auditor.groups.add(Group.objects.get(name="Auditor"))
+
+        self.empresa = EmpresaAuditada.objects.create(nombre="Empresa X")
+        self.gestion = Gestion.objects.create(
+            anio=2023, fecha_inicio=date(2023, 1, 1), fecha_fin=date(2023, 12, 31)
+        )
+
+    def _crear_carga(self, estado, usuario=None):
+        archivo = SimpleUploadedFile("carga.csv", b"contenido")
+        return CargaArchivo.objects.create(
+            archivo=archivo,
+            usuario=usuario or self.auditor,
+            empresa=self.empresa,
+            gestion=self.gestion,
+            estado=estado,
+            total_registros=3,
+            registros_validos=2,
+            registros_con_error=1,
+        )
+
+    def test_administrador_puede_confirmar_carga_con_observaciones(self):
+        carga = self._crear_carga("con_observaciones")
+        self.client.login(username="admin", password="Clave-Segura123")
+
+        respuesta = self.client.post(
+            reverse("registros:carga_confirmar_validacion", args=[carga.id])
+        )
+
+        carga.refresh_from_db()
+        self.assertRedirects(
+            respuesta, reverse("registros:detalle_carga", args=[carga.id])
+        )
+        self.assertEqual(carga.estado, "validado")
+        self.assertEqual(carga.revisado_por, self.administrador)
+        self.assertIsNotNone(carga.fecha_revision)
+        self.assertTrue(
+            HistorialCambio.objects.filter(
+                modelo="CargaArchivo", objeto_id=carga.id, campo="estado"
+            ).exists()
+        )
+
+    def test_auditor_tambien_puede_confirmar(self):
+        carga = self._crear_carga("con_observaciones")
+        self.client.login(username="auditor", password="Clave-Segura123")
+
+        self.client.post(reverse("registros:carga_confirmar_validacion", args=[carga.id]))
+
+        carga.refresh_from_db()
+        self.assertEqual(carga.estado, "validado")
+        self.assertEqual(carga.revisado_por, self.auditor)
+
+    def test_usuario_sin_rol_no_puede_confirmar(self):
+        carga = self._crear_carga("con_observaciones")
+        sin_rol = User.objects.create_user(username="nadie", password="Clave-Segura123")
+        self.client.login(username="nadie", password="Clave-Segura123")
+
+        self.client.post(reverse("registros:carga_confirmar_validacion", args=[carga.id]))
+
+        carga.refresh_from_db()
+        self.assertEqual(carga.estado, "con_observaciones")
+
+    def test_no_se_puede_confirmar_una_carga_que_no_tiene_pendientes(self):
+        carga = self._crear_carga("validado")
+        self.client.login(username="admin", password="Clave-Segura123")
+
+        self.client.post(reverse("registros:carga_confirmar_validacion", args=[carga.id]))
+
+        carga.refresh_from_db()
+        self.assertEqual(carga.estado, "validado")
+        self.assertIsNone(carga.revisado_por)
+
+    def test_get_no_esta_permitido(self):
+        carga = self._crear_carga("con_observaciones")
+        self.client.login(username="admin", password="Clave-Segura123")
+
+        respuesta = self.client.get(
+            reverse("registros:carga_confirmar_validacion", args=[carga.id])
+        )
+
+        self.assertEqual(respuesta.status_code, 405)
 
 
 class GestionFormTests(TestCase):
@@ -646,3 +746,47 @@ class CargarRegistrosFiltroTests(TestCase):
         self.assertEqual(
             respuesta.context["querystring"], f"empresa={self.empresa_a.id}"
         )
+
+
+class BorrarDatosPruebaCommandTests(TestCase):
+    """Comando de mantenimiento `borrar_datos_prueba` (ver
+    registros/management/commands/borrar_datos_prueba.py)."""
+
+    def setUp(self):
+        self.usuario = User.objects.create_user(
+            username="admin", password="Clave-Segura123"
+        )
+        self.empresa = EmpresaAuditada.objects.create(nombre="Empresa X")
+        self.gestion = Gestion.objects.create(
+            anio=2023, fecha_inicio=date(2023, 1, 1), fecha_fin=date(2023, 12, 31)
+        )
+        archivo = SimpleUploadedFile("carga.csv", b"contenido")
+        self.carga = CargaArchivo.objects.create(
+            archivo=archivo, usuario=self.usuario, empresa=self.empresa, gestion=self.gestion
+        )
+        self.cuenta = CuentaContable.objects.create(codigo="1001", nombre="Caja", tipo="activo")
+        RegistroContable.objects.create(
+            carga=self.carga, cuenta=self.cuenta, fecha=date(2023, 1, 1), fila_origen=1
+        )
+
+    def test_sin_confirmar_no_borra_nada(self):
+        from django.core.management import call_command
+
+        call_command("borrar_datos_prueba")
+
+        self.assertEqual(CargaArchivo.objects.count(), 1)
+        self.assertEqual(EmpresaAuditada.objects.count(), 1)
+        self.assertEqual(User.objects.count(), 1)
+
+    def test_con_confirmar_borra_datos_de_negocio_pero_no_usuarios(self):
+        from django.core.management import call_command
+
+        call_command("borrar_datos_prueba", "--confirmar")
+
+        self.assertEqual(CargaArchivo.objects.count(), 0)
+        self.assertEqual(RegistroContable.objects.count(), 0)
+        self.assertEqual(EmpresaAuditada.objects.count(), 0)
+        self.assertEqual(Gestion.objects.count(), 0)
+        self.assertEqual(CuentaContable.objects.count(), 0)
+        # Los usuarios NO se tocan.
+        self.assertEqual(User.objects.count(), 1)

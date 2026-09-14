@@ -629,9 +629,15 @@ def procesar_carga(carga):
 
     validos = len(filas_validas)
     con_error = total - validos
+    # Los avisos son sobre filas que SÍ se guardaron (están en filas_validas
+    # y también generaron un ErrorValidacion tipo "aviso", ej. fecha fuera
+    # de la gestión, cuenta creada automáticamente) — se cuentan aparte de
+    # los errores para poder mostrar los tres números por separado.
+    con_aviso = sum(1 for e in errores_a_guardar if e.tipo == "aviso")
     carga.total_registros = total
     carga.registros_validos = validos
     carga.registros_con_error = con_error
+    carga.registros_con_aviso = con_aviso
     if con_error == 0:
         carga.estado = "validado"
     elif validos > 0:

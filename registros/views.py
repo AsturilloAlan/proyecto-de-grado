@@ -3,6 +3,8 @@ from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
 from django.db.models import Q
 from django.shortcuts import get_object_or_404, redirect, render
+from django.utils import timezone
+from django.views.decorators.http import require_POST
 
 from usuarios.decorators import rol_requerido
 
@@ -115,6 +117,43 @@ def detalle_carga(request, carga_id):
             "registros_pagina": registros_pagina,
         },
     )
+
+
+@rol_requerido("Administrador", "Auditor")
+@require_POST
+def carga_confirmar_validacion(request, carga_id):
+    """Permite al Administrador o Auditor dar por válida definitivamente
+    una carga que quedó "Cargado con pendientes" (RF-02), en vez de que
+    ese estado quede así para siempre en la actividad reciente.
+
+    Solo tiene sentido para ese estado puntual: una carga ya "Validado"
+    no necesita confirmación, y una "Con errores" (cero filas guardadas)
+    no tiene nada que dar por bueno. La confirmación en sí misma (el
+    "¿estás seguro?") se pide del lado del template con un cuadro de
+    diálogo antes de enviar el POST, porque es una decisión que no se
+    puede deshacer con un clic — y queda registrada en HistorialCambio,
+    además de en los campos revisado_por/fecha_revision, para no perder
+    el rastro de quién aceptó las observaciones y cuándo (es información
+    sensible de auditoría).
+    """
+    carga = get_object_or_404(CargaArchivo, pk=carga_id)
+    if carga.estado != "con_observaciones":
+        messages.error(request, "Esta carga no tiene observaciones pendientes por confirmar.")
+        return redirect("registros:detalle_carga", carga_id=carga.id)
+
+    valores_anteriores = {"estado": carga.estado}
+    carga.estado = "validado"
+    carga.revisado_por = request.user
+    carga.fecha_revision = timezone.now()
+    carga.save()
+    registrar_edicion(carga, valores_anteriores, request.user, ["estado"])
+
+    messages.success(
+        request,
+        f"Carga #{carga.id} confirmada como válida. Quedó registrado que la revisaste "
+        "vos, con la fecha y hora actual.",
+    )
+    return redirect("registros:detalle_carga", carga_id=carga.id)
 
 
 @rol_requerido("Administrador")

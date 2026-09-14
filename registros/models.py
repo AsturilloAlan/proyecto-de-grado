@@ -206,6 +206,29 @@ class CargaArchivo(models.Model):
     total_registros = models.PositiveIntegerField(default=0)
     registros_validos = models.PositiveIntegerField(default=0)
     registros_con_error = models.PositiveIntegerField(default=0)
+    # Filas que SÍ se guardaron pero generaron un ErrorValidacion tipo
+    # "aviso" (no rechaza la fila, solo la señala para revisión — ver
+    # ErrorValidacion). Se guarda aparte de registros_con_error porque son
+    # cosas distintas: error = fila rechazada, aviso = fila guardada con
+    # algo puntual a revisar. Antes solo se mostraba el conteo de errores;
+    # esto permite mostrar los tres números (válidos/avisos/errores) sin
+    # tener que contar los ErrorValidacion en cada request.
+    registros_con_aviso = models.PositiveIntegerField(default=0)
+
+    # Cuando una carga queda "con_observaciones", el auditor o
+    # administrador puede revisarla y darla por válida definitivamente
+    # (ver vista `carga_confirmar_validacion`) en vez de que quede
+    # marcada como pendiente para siempre. Se deja constancia de quién y
+    # cuándo, porque es información sensible (RF de auditoría): no basta
+    # con que el estado cambie solo, sin rastro de quién lo aprobó.
+    revisado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="cargas_revisadas",
+        null=True,
+        blank=True,
+    )
+    fecha_revision = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         verbose_name = "Carga de Archivo"

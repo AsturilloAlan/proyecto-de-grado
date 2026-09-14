@@ -29,13 +29,20 @@ _MAPA_VOLVER = {
 
 
 def navegacion(request):
-    contexto = {"es_administrador": False}
+    contexto = {"es_administrador": False, "es_auditor": False, "puede_confirmar_carga": False}
 
     usuario = getattr(request, "user", None)
     if usuario is not None and usuario.is_authenticated:
         contexto["es_administrador"] = usuario.is_superuser or usuario.groups.filter(
             name="Administrador"
         ).exists()
+        contexto["es_auditor"] = usuario.is_superuser or usuario.groups.filter(
+            name="Auditor"
+        ).exists()
+        # Quién puede confirmar definitivamente una carga "con pendientes"
+        # (ver `carga_confirmar_validacion`): Administrador y Auditor, los
+        # dos roles que ya pueden ver el detalle de una carga.
+        contexto["puede_confirmar_carga"] = contexto["es_administrador"] or contexto["es_auditor"]
 
     try:
         coincidencia = resolve(request.path_info)

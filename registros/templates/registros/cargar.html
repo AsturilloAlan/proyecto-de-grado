@@ -201,7 +201,7 @@
                         <th>Gestión</th>
                         <th>Subido por</th>
                         <th>Estado</th>
-                        <th>Total / Válidos / Con error</th>
+                        <th>Válidos / Avisos / Errores</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -227,8 +227,10 @@
                             </span>
                         </td>
                         <td>
-                            <a href="{% url 'registros:detalle_carga' carga.id %}">
-                                {{ carga.total_registros }} / {{ carga.registros_validos }} / {{ carga.registros_con_error }}
+                            <a class="text-decoration-none d-flex flex-wrap gap-1" href="{% url 'registros:detalle_carga' carga.id %}">
+                                <span class="badge text-bg-success fw-normal">{{ carga.registros_validos }}</span>
+                                <span class="badge text-bg-warning fw-normal">{{ carga.registros_con_aviso }}</span>
+                                <span class="badge text-bg-danger fw-normal">{{ carga.registros_con_error }}</span>
                             </a>
                         </td>
                     </tr>
