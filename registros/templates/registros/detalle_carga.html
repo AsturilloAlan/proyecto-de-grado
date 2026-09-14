@@ -13,7 +13,11 @@
         <li><strong>Empresa:</strong> {{ carga.empresa }}</li>
         <li><strong>Gestión:</strong> {{ carga.gestion }}</li>
         <li><strong>Cargado por:</strong> {{ carga.usuario.username }} — {{ carga.fecha_carga|date:"d/m/Y H:i" }}</li>
-        <li><strong>Estado:</strong> <span class="badge text-bg-secondary">{{ carga.get_estado_display }}</span></li>
+        <li><strong>Estado:</strong>
+            <span class="badge {% if carga.estado == 'validado' %}text-bg-success{% elif carga.estado == 'con_observaciones' %}text-bg-warning{% elif carga.estado == 'con_errores' %}text-bg-danger{% else %}text-bg-secondary{% endif %}">
+                {{ carga.get_estado_display }}
+            </span>
+        </li>
         <li><strong>Total de filas procesadas:</strong> {{ carga.total_registros }}</li>
         <li><strong>Registros válidos:</strong> {{ carga.registros_validos }}</li>
         <li><strong>Registros con error:</strong> {{ carga.registros_con_error }}</li>

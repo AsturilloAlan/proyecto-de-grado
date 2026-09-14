@@ -223,7 +223,7 @@ class HistorialCambioTests(TestCase):
 
 
 class CargaArchivoFormTests(TestCase):
-    """RF-01: solo se aceptan archivos .xlsx, .xls o .csv."""
+    """RF-01: solo se aceptan archivos .xlsx, .xls, .csv o .pdf."""
 
     def setUp(self):
         self.empresa = EmpresaAuditada.objects.create(nombre="Empresa X")
@@ -234,10 +234,17 @@ class CargaArchivoFormTests(TestCase):
     def test_extension_no_permitida_es_rechazada(self):
         form = CargaArchivoForm(
             data={"empresa": self.empresa.id, "gestion": self.gestion.id},
-            files={"archivo": SimpleUploadedFile("registros.pdf", b"contenido")},
+            files={"archivo": SimpleUploadedFile("registros.docx", b"contenido")},
         )
         self.assertFalse(form.is_valid())
         self.assertIn("archivo", form.errors)
+
+    def test_extension_pdf_es_aceptada(self):
+        form = CargaArchivoForm(
+            data={"empresa": self.empresa.id, "gestion": self.gestion.id},
+            files={"archivo": SimpleUploadedFile("libro_diario.pdf", b"%PDF-1.4 contenido")},
+        )
+        self.assertTrue(form.is_valid())
 
     def test_extension_csv_es_aceptada(self):
         form = CargaArchivoForm(
@@ -407,6 +414,25 @@ class ProcesarCargaTests(TestCase):
                 carga=carga, campo="fecha", tipo="aviso"
             ).exists()
         )
+
+    def test_carga_mayormente_valida_queda_con_observaciones_no_con_errores(self):
+        """Si la mayoría de las filas se guardó bien y solo una puntual se
+        rechazó, la carga no debe verse como un fracaso total: queda "con
+        observaciones" (revisar esas filas puntuales), y "con errores" se
+        reserva para cuando no se guardó nada en absoluto."""
+        csv = (
+            "fecha,cuenta,glosa,debe,haber\n"
+            "01/01/2023,1001,Pago proveedor,100,0\n"
+            "02/01/2023,2001,Cobro cliente,0,150\n"
+            "03/01/2023,1001,Fila sin monto,0,0\n"
+        )
+        carga = self._crear_carga(csv)
+        procesar_carga(carga)
+        carga.refresh_from_db()
+
+        self.assertEqual(carga.estado, "con_observaciones")
+        self.assertEqual(carga.registros_validos, 2)
+        self.assertEqual(carga.registros_con_error, 1)
 
 
 class GestionFormTests(TestCase):

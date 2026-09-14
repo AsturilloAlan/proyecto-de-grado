@@ -629,5 +629,14 @@ def procesar_carga(carga):
     carga.total_registros = total
     carga.registros_validos = validos
     carga.registros_con_error = con_error
-    carga.estado = "validado" if con_error == 0 else "con_errores"
+    if con_error == 0:
+        carga.estado = "validado"
+    elif validos > 0:
+        # Se guardó la mayoría (o todo menos un puñado) de las filas: no es
+        # un fracaso, es una carga que quedó bien pero con algo puntual para
+        # que el auditor revise (ver ESTADO_CHOICES en models.py).
+        carga.estado = "con_observaciones"
+    else:
+        # No se guardó ni una sola fila: ahí sí es un fracaso real.
+        carga.estado = "con_errores"
     carga.save()

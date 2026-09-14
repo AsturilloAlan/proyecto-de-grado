@@ -46,7 +46,7 @@
         </div>
         <div>
             <h1 class="text-guindo mb-1 h3">Cargar registros contables</h1>
-            <p class="text-secondary mb-0">Sube el archivo del libro mayor o libro diario (formato .xlsx, .xls o .csv).</p>
+            <p class="text-secondary mb-0">Sube el archivo del libro mayor o libro diario: Excel, CSV, o PDF (exportado desde tu sistema contable).</p>
         </div>
     </div>
 
@@ -117,8 +117,8 @@
                 <div class="dropzone-archivo" id="dropzone-archivo" role="button" tabindex="0" aria-label="Elegir o arrastrar archivo">
                     <div id="dropzone-vacio" class="d-flex flex-column align-items-center gap-1">
                         <i class="bi bi-cloud-arrow-up fs-2 text-guindo dropzone-icono-flotante"></i>
-                        <span class="fw-semibold">Arrastrá tu archivo acá o hacé clic para elegirlo</span>
-                        <span class="text-secondary small">.xlsx, .xls o .csv · máx. 20&nbsp;MB</span>
+                        <span class="fw-semibold">Arrastra tu archivo aquí o haz clic para elegirlo</span>
+                        <span class="text-secondary small">.xlsx, .xls, .csv o .pdf · máx. 20&nbsp;MB</span>
                     </div>
                     <div id="dropzone-elegido" class="d-none w-100 align-items-center gap-3 text-start">
                         <div class="dropzone-archivo-icono"><i class="bi bi-file-earmark-check" id="dropzone-icono-archivo"></i></div>
@@ -252,7 +252,7 @@
                         </td>
                         <td>{{ carga.usuario.username }}</td>
                         <td>
-                            <span class="badge {% if carga.estado == 'validado' %}text-bg-success{% elif carga.estado == 'con_errores' %}text-bg-danger{% else %}text-bg-secondary{% endif %}">
+                            <span class="badge {% if carga.estado == 'validado' %}text-bg-success{% elif carga.estado == 'con_observaciones' %}text-bg-warning{% elif carga.estado == 'con_errores' %}text-bg-danger{% else %}text-bg-secondary{% endif %}">
                                 {{ carga.get_estado_display }}
                             </span>
                         </td>
@@ -304,6 +304,7 @@
         function iconoParaArchivo(nombre) {
             var extension = nombre.split(".").pop().toLowerCase();
             if (extension === "csv" || extension === "xls" || extension === "xlsx") return "bi-file-earmark-spreadsheet";
+            if (extension === "pdf") return "bi-file-earmark-pdf";
             return "bi-file-earmark-check";
         }
 

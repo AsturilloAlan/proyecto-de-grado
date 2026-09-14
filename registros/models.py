@@ -118,6 +118,14 @@ class CargaArchivo(models.Model):
     ESTADO_CHOICES = [
         ("pendiente", "Pendiente"),
         ("validado", "Validado"),
+        # "Con observaciones": la carga sí se guardó (la mayoría de las filas
+        # quedaron bien), pero algunas puntuales se rechazaron y conviene
+        # revisarlas — distinto de "Con errores", reservado para cuando no
+        # se pudo guardar nada en absoluto (ver `procesar_carga`). Antes se
+        # usaba "Con errores" para ambos casos por igual, lo que hacía ver
+        # como un fracaso total una carga de miles de filas con solo una
+        # rechazada.
+        ("con_observaciones", "Con observaciones"),
         ("con_errores", "Con errores"),
     ]
 
