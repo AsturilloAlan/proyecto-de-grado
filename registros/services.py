@@ -301,6 +301,8 @@ def _procesar_pdf(carga):
         carga.save()
         return None
 
+    carga.formato_detectado = "diario_pdf"
+
     if not comprobantes:
         ErrorValidacion.objects.create(
             carga=carga,
@@ -445,6 +447,7 @@ def _procesar_hoja_calculo(carga):
         return None
 
     tiene_columna_cuenta = "cuenta" in mapeo
+    carga.formato_detectado = "diario_plano" if tiene_columna_cuenta else "mayor"
 
     total = 0
     filas_validas = []  # datos ya validados, listos para RegistroContable

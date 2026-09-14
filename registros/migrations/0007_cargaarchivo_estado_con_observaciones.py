@@ -17,7 +17,7 @@ class Migration(migrations.Migration):
                 choices=[
                     ('pendiente', 'Pendiente'),
                     ('validado', 'Validado'),
-                    ('con_observaciones', 'Con observaciones'),
+                    ('con_observaciones', 'Cargado con pendientes'),
                     ('con_errores', 'Con errores'),
                 ],
                 default='pendiente',

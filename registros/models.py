@@ -125,8 +125,21 @@ class CargaArchivo(models.Model):
         # usaba "Con errores" para ambos casos por igual, lo que hacía ver
         # como un fracaso total una carga de miles de filas con solo una
         # rechazada.
-        ("con_observaciones", "Con observaciones"),
+        ("con_observaciones", "Cargado con pendientes"),
         ("con_errores", "Con errores"),
+    ]
+
+    # A qué tipo de libro contable corresponde el archivo, detectado
+    # automáticamente según cómo vino estructurado (no lo elige quien
+    # sube el archivo): un PDF siempre es Libro Diario (es el único
+    # formato de PDF que se soporta); en Excel/CSV depende de si trae
+    # una columna "cuenta" por fila (tabla plana, estilo Libro Diario)
+    # o las transacciones agrupadas en bloques por cuenta (estilo Libro
+    # Mayor) — ver `_procesar_pdf`/`_procesar_hoja_calculo` en services.py.
+    FORMATO_CHOICES = [
+        ("diario_pdf", "Libro Diario (PDF)"),
+        ("diario_plano", "Libro Diario (Excel/CSV)"),
+        ("mayor", "Libro Mayor (Excel/CSV)"),
     ]
 
     archivo = models.FileField(upload_to="cargas/%Y/%m/")
@@ -142,6 +155,12 @@ class CargaArchivo(models.Model):
     fecha_carga = models.DateTimeField(auto_now_add=True)
     estado = models.CharField(
         max_length=20, choices=ESTADO_CHOICES, default="pendiente"
+    )
+    formato_detectado = models.CharField(
+        "Tipo de libro detectado",
+        max_length=20,
+        choices=FORMATO_CHOICES,
+        blank=True,
     )
     total_registros = models.PositiveIntegerField(default=0)
     registros_validos = models.PositiveIntegerField(default=0)

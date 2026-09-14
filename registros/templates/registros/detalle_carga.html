@@ -11,6 +11,9 @@
     <h1 class="text-guindo">Carga #{{ carga.id }}</h1>
     <ul class="list-unstyled">
         <li><strong>Empresa:</strong> {{ carga.empresa }}</li>
+        {% if carga.formato_detectado %}
+            <li><strong>Tipo de libro:</strong> {{ carga.get_formato_detectado_display }}</li>
+        {% endif %}
         <li><strong>Gestión:</strong> {{ carga.gestion }}</li>
         <li><strong>Cargado por:</strong> {{ carga.usuario.username }} — {{ carga.fecha_carga|date:"d/m/Y H:i" }}</li>
         <li><strong>Estado:</strong>

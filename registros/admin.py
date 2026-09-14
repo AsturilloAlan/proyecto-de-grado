@@ -36,6 +36,7 @@ class CargaArchivoAdmin(admin.ModelAdmin):
         "usuario",
         "fecha_carga",
         "estado",
+        "formato_detectado",
         "total_registros",
         "registros_validos",
         "registros_con_error",

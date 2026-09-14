@@ -311,6 +311,8 @@ class ProcesarCargaTests(TestCase):
         self.assertEqual(carga.registros_validos, 2)
         self.assertEqual(carga.registros_con_error, 0)
         self.assertEqual(RegistroContable.objects.filter(carga=carga).count(), 2)
+        # Trae columna "cuenta" por fila: se detecta como Libro Diario (tabla plana).
+        self.assertEqual(carga.formato_detectado, "diario_plano")
 
     def test_fila_sin_debe_ni_haber_se_marca_como_error(self):
         csv = "fecha,cuenta,glosa,debe,haber\n01/01/2023,1001,Sin monto,0,0\n"
@@ -371,6 +373,8 @@ class ProcesarCargaTests(TestCase):
         self.assertEqual(carga.estado, "validado")
         self.assertEqual(carga.total_registros, 3)
         self.assertEqual(carga.registros_validos, 3)
+        # Sin columna "cuenta" por fila, agrupado en bloques: es Libro Mayor.
+        self.assertEqual(carga.formato_detectado, "mayor")
         self.assertTrue(CuentaContable.objects.filter(codigo="1-1-1-01-01").exists())
         self.assertTrue(CuentaContable.objects.filter(codigo="2-1-2-01").exists())
         self.assertEqual(
