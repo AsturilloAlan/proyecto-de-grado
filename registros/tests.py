@@ -443,7 +443,10 @@ class ProcesarCargaTests(TestCase):
         carga.refresh_from_db()
 
         self.assertEqual(carga.registros_validos, 1)
-        self.assertEqual(carga.registros_con_aviso, 1)
+        # 2 avisos: la fecha fuera de gestión, más la cuenta "1001" que no
+        # existía en el catálogo y se creó automáticamente (setUp no crea
+        # ninguna CuentaContable de antemano).
+        self.assertEqual(carga.registros_con_aviso, 2)
         self.assertTrue(
             ErrorValidacion.objects.filter(
                 carga=carga, campo="fecha", tipo="aviso"
@@ -468,7 +471,9 @@ class ProcesarCargaTests(TestCase):
         self.assertEqual(carga.estado, "con_observaciones")
         self.assertEqual(carga.registros_validos, 2)
         self.assertEqual(carga.registros_con_error, 1)
-        self.assertEqual(carga.registros_con_aviso, 0)
+        # 2 avisos: las cuentas "1001" y "2001" no existían en el catálogo
+        # y se crearon automáticamente (setUp no crea ninguna de antemano).
+        self.assertEqual(carga.registros_con_aviso, 2)
 
 
 class CargaConfirmarValidacionViewTests(TestCase):
