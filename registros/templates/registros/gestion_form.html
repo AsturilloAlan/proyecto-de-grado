@@ -23,6 +23,28 @@
         {% csrf_token %}
         {{ form.non_field_errors }}
         <div class="p-3 rounded border mb-3">
+            {% if not gestion %}
+                <div class="mb-3">
+                    <label for="{{ form.empresa.id_for_label }}" class="form-label">{{ form.empresa.label }}</label>
+                    <div class="input-group selector-personalizado">
+                        <span class="input-group-text input-group-text-icono"><i class="bi bi-building"></i></span>
+                        <div class="select-oculto">{{ form.empresa }}</div>
+                        <button type="button" class="form-control selector-boton">
+                            <span class="selector-texto"></span>
+                            <i class="bi bi-chevron-down"></i>
+                        </button>
+                        <ul class="selector-lista d-none" role="listbox">
+                            <li class="selector-opcion" data-valor="" role="option">— Sin elegir (año calendario) —</li>
+                            {% for empresa_opcion in form.empresa.field.queryset %}
+                                <li class="selector-opcion" data-valor="{{ empresa_opcion.pk }}" role="option">{{ empresa_opcion.nombre }}</li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                    {% if form.empresa.help_text %}<div class="form-text">{{ form.empresa.help_text }}</div>{% endif %}
+                    {% for error in form.empresa.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+                </div>
+            {% endif %}
+
             <div class="mb-3">
                 <label for="{{ form.anio.id_for_label }}" class="form-label">{{ form.anio.label }}</label>
                 {{ form.anio }}
@@ -34,10 +56,14 @@
                     Fechas de inicio/fin distintas al año calendario (opcional)
                 </summary>
                 <p class="form-text">
-                    Por defecto se asume 01/01 al 31/12 de ese año. Solo cambiá esto
-                    si el cliente cierra en otra fecha (en Bolivia varía según su
-                    rubro, según el SIN: industriales 31/marzo, agropecuarias
-                    30/junio, mineras 30/septiembre, resto 31/diciembre).
+                    {% if gestion %}
+                        Corregí acá si el año o las fechas quedaron mal puestas.
+                    {% else %}
+                        Si elegiste una empresa arriba, ya se sugirieron según su
+                        categoría de cierre SIN. Sin empresa, se asume 01/01 al
+                        31/12 de ese año. Solo cambiá esto a mano si hace falta
+                        una excepción puntual.
+                    {% endif %}
                 </p>
                 <div class="row g-3 mt-1">
                     <div class="col-sm-6">

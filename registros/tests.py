@@ -618,6 +618,51 @@ class GestionFormTests(TestCase):
         )
         self.assertFalse(form.is_valid())
 
+    def test_con_empresa_industrial_autocompleta_segun_su_categoria(self):
+        """Antes esta pantalla no sabía para qué empresa era la gestión, así
+        que nunca podía sugerir fechas según su categoría SIN (solo pasaba
+        al crear la empresa). Ahora, si se elige una empresa acá, se
+        calculan igual que en `EmpresaAuditada.fechas_gestion_para`."""
+        empresa = EmpresaAuditada.objects.create(
+            nombre="Empresa Industrial", categoria_cierre="industrial"
+        )
+        form = GestionForm(
+            data={"anio": 2025, "empresa": empresa.pk, "fecha_inicio": "", "fecha_fin": ""}
+        )
+        self.assertTrue(form.is_valid())
+        gestion = form.save()
+        self.assertEqual(gestion.fecha_inicio, date(2024, 4, 1))
+        self.assertEqual(gestion.fecha_fin, date(2025, 3, 31))
+
+    def test_fechas_manuales_prevalecen_sobre_la_sugerencia_de_la_empresa(self):
+        """Elegir una empresa solo sugiere: si igual se escriben las fechas
+        a mano, esas son las que se respetan (excepción real puntual)."""
+        empresa = EmpresaAuditada.objects.create(
+            nombre="Empresa Minera", categoria_cierre="minera"
+        )
+        form = GestionForm(
+            data={
+                "anio": 2025,
+                "empresa": empresa.pk,
+                "fecha_inicio": "2025-01-01",
+                "fecha_fin": "2025-12-31",
+            }
+        )
+        self.assertTrue(form.is_valid())
+        gestion = form.save()
+        self.assertEqual(gestion.fecha_inicio, date(2025, 1, 1))
+        self.assertEqual(gestion.fecha_fin, date(2025, 12, 31))
+
+    def test_sin_empresa_sigue_usando_anio_calendario(self):
+        """Sin elegir empresa, el comportamiento de siempre no cambia."""
+        form = GestionForm(
+            data={"anio": 2025, "empresa": "", "fecha_inicio": "", "fecha_fin": ""}
+        )
+        self.assertTrue(form.is_valid())
+        gestion = form.save()
+        self.assertEqual(gestion.fecha_inicio, date(2025, 1, 1))
+        self.assertEqual(gestion.fecha_fin, date(2025, 12, 31))
+
 
 class GestionEditarViewTests(TestCase):
     """Corrección de errores humanos al registrar una gestión (RF-09,

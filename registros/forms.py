@@ -81,14 +81,37 @@ class EmpresaAuditadaForm(forms.ModelForm):
 class GestionForm(forms.ModelForm):
     """Alta de una gestión (año fiscal).
 
-    Uso simple (la mayoría de los casos): solo se escribe el año y listo,
-    se asume automáticamente el año calendario (01/01 - 31/12).
+    Uso simple (la mayoría de los casos): se elige la empresa y se escribe
+    el año — las fechas se calculan solas según la categoría de cierre
+    SIN de esa empresa (ver `EmpresaAuditada.fechas_gestion_para`), en vez
+    de asumir siempre el año calendario. Es la misma automatización que
+    ya existía al crear una empresa nueva, pero antes NO se aplicaba acá
+    (esta pantalla no sabía para qué empresa era la gestión), que era
+    justamente el hueco: cualquier gestión agregada después de la inicial
+    quedaba sin ninguna sugerencia de fechas.
 
-    Uso avanzado (opcional): si el cliente tiene un cierre distinto al
-    31 de diciembre (algo que en Bolivia depende de su rubro — el SIN
-    fija fechas distintas para industriales, agropecuarias, mineras,
-    etc.), se pueden editar las fechas de inicio/fin manualmente.
+    "Empresa" es un campo del FORMULARIO, no del modelo Gestion: Gestion
+    sigue siendo independiente de cualquier empresa en particular (varias
+    empresas con el mismo rubro pueden compartir una gestión con las
+    mismas fechas) — acá solo se usa para calcular la sugerencia, no se
+    guarda esa asociación.
+
+    Uso avanzado (opcional): igual se puede escribir o corregir las
+    fechas de inicio/fin a mano (ej. una excepción real de esa empresa),
+    tanto si se eligió empresa como si no.
     """
+
+    empresa = forms.ModelChoiceField(
+        queryset=EmpresaAuditada.objects.all(),
+        required=False,
+        label="Empresa (para sugerir las fechas según su categoría de cierre SIN)",
+        widget=forms.Select(attrs={"class": "form-select"}),
+        help_text=(
+            "Autocompleta fecha de inicio/fin según la categoría de cierre de "
+            "esa empresa. El resultado se puede corregir a mano igual. Si se "
+            "deja sin elegir, se usa el año calendario de siempre."
+        ),
+    )
 
     class Meta:
         model = Gestion
@@ -120,13 +143,24 @@ class GestionForm(forms.ModelForm):
         anio = limpio.get("anio")
         inicio = limpio.get("fecha_inicio")
         fin = limpio.get("fecha_fin")
-        # Si no se especifican fechas, se asume año calendario completo.
-        if anio and not inicio:
-            inicio = date(anio, 1, 1)
+        empresa = limpio.get("empresa")
+        # Si no se especificaron fechas a mano: con empresa elegida, se
+        # calculan según su categoría de cierre SIN; sin empresa, se cae
+        # al año calendario de siempre (comportamiento previo, sin cambios).
+        if anio and not inicio and not fin:
+            if empresa is not None:
+                inicio, fin = empresa.fechas_gestion_para(anio)
+            else:
+                inicio, fin = date(anio, 1, 1), date(anio, 12, 31)
             limpio["fecha_inicio"] = inicio
-        if anio and not fin:
-            fin = date(anio, 12, 31)
             limpio["fecha_fin"] = fin
+        else:
+            if anio and not inicio:
+                inicio = date(anio, 1, 1)
+                limpio["fecha_inicio"] = inicio
+            if anio and not fin:
+                fin = date(anio, 12, 31)
+                limpio["fecha_fin"] = fin
         if inicio and fin and fin <= inicio:
             raise forms.ValidationError(
                 "La fecha de fin debe ser posterior a la fecha de inicio."
