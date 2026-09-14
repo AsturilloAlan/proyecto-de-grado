@@ -1,7 +1,7 @@
 """
 Procesamiento y validación de archivos de registros contables (RF-01, RF-02).
 
-Soporta dos formatos de archivo:
+Soporta tres formatos de archivo:
 
 1. Tabla plana: cada fila trae su propia columna "cuenta" (código de la
    cuenta contable). Es el formato más simple, útil para pruebas o
@@ -17,7 +17,16 @@ Soporta dos formatos de archivo:
    subtotal intercaladas ("Total 01/2023", "TOTAL CUENTA 1-1-1-01-01")
    que no son transacciones y se deben ignorar.
 
-En ambos casos, las filas válidas se guardan en RegistroContable y las
+3. Libro Diario en PDF (ver `_procesar_pdf`): el formato real que se
+   recibió de un cliente que solo tiene el libro diario exportado en
+   PDF, no en Excel. No es un PDF escaneado (el texto se puede extraer
+   directo, sin OCR) — trae un comprobante contable por bloque, con su
+   tipo, fecha, número de documento, glosa, y las cuentas de ese
+   comprobante con su monto en Debe o Haber, seguido de un total de
+   control. Se aprovecha justamente ese total de control para validar
+   que el comprobante se leyó bien (ver `total_debe`/`total_haber`).
+
+En los tres casos, las filas válidas se guardan en RegistroContable y las
 filas con problemas se registran en ErrorValidacion en lugar de
 descartarse sin rastro, para que el auditor pueda revisarlas.
 """
@@ -26,6 +35,7 @@ import re
 import unicodedata
 
 import pandas as pd
+import pdfplumber
 
 from .models import CuentaContable, ErrorValidacion, RegistroContable
 
@@ -61,6 +71,22 @@ PATRON_CODIGO_CUENTA = re.compile(r"^([0-9][0-9\-\.]*)\s+(.+)$")
 
 # Filas de subtotal a ignorar: "Total 01/2023", "TOTAL CUENTA 1-1-1-01-01".
 PATRON_SUBTOTAL = re.compile(r"^\s*total\b", re.IGNORECASE)
+
+# --- Parseo del Libro Diario en PDF (ver docstring del módulo) ---
+# Cada comprobante en el PDF trae siempre estas líneas, en este orden:
+# "Tipo: X Fecha: DD/MM/AAAA", "Nro. Doc.: X T.C.: Y", "Razon Social:X
+# Cheque Nº:Y", "Glosa: X", el encabezado de la tabla de cuentas, una
+# línea por cada cuenta (con su monto en Debe o en Haber), y por último
+# "Total: <debe> <haber>" — ese total es un dato de control: si la suma
+# de los montos que se leyeron no coincide, algo se leyó mal.
+PATRON_PDF_TIPO_FECHA = re.compile(r"^Tipo:\s*(\S+)\s+Fecha:\s*(\d{2}/\d{2}/\d{4})")
+PATRON_PDF_NRO_DOC = re.compile(r"^Nro\.\s*Doc\.:\s*(\S+)")
+PATRON_PDF_GLOSA = re.compile(r"^Glosa:\s*(.*)$")
+PATRON_PDF_TOTAL = re.compile(r"^Total:\s*([\d,\.]+)\s+([\d,\.]+)\s*$")
+PATRON_PDF_CODIGO_CUENTA = re.compile(r"^[0-9][0-9\-\.]*$")
+PATRON_PDF_MONTO = re.compile(r"^-?[\d,]+\.\d{2}$")
+PATRON_PDF_HEADER_TABLA = re.compile(r"^CUENTA\s+NOMBRE\s+DE\s+CUENTA")
+TOLERANCIA_VERTICAL_LINEA_PDF = 3.0
 
 
 def _normalizar(texto):
@@ -144,8 +170,242 @@ def _texto_no_vacio_de_fila(fila):
     return " ".join(partes).strip()
 
 
-def procesar_carga(carga):
-    """Procesa el archivo de una CargaArchivo y guarda los resultados.
+def _agrupar_lineas_pdf(words):
+    """Agrupa las palabras que devuelve pdfplumber (cada una con su
+    posición x0/top) en líneas de texto, según su posición vertical.
+
+    Hace falta una tolerancia (en vez de agrupar por 'top' exacto) porque
+    dos palabras de la misma línea visual pueden traer un 'top' con una
+    fracción de diferencia por cómo se renderizó el PDF originalmente."""
+    lineas = []
+    for palabra in sorted(words, key=lambda w: (w["top"], w["x0"])):
+        if lineas and abs(palabra["top"] - lineas[-1]["top"]) <= TOLERANCIA_VERTICAL_LINEA_PDF:
+            lineas[-1]["palabras"].append(palabra)
+            lineas[-1]["top"] = (lineas[-1]["top"] + palabra["top"]) / 2
+        else:
+            lineas.append({"top": palabra["top"], "palabras": [palabra]})
+    for linea in lineas:
+        linea["palabras"].sort(key=lambda w: w["x0"])
+        linea["texto"] = " ".join(w["text"] for w in linea["palabras"])
+    return lineas
+
+
+def _extraer_comprobantes_pdf(ruta_archivo):
+    """Recorre todo el PDF y devuelve la lista de comprobantes
+    encontrados, cada uno como un diccionario:
+    {tipo, fecha (texto dd/mm/aaaa), nro_doc, glosa, cuentas: [(codigo,
+    nombre, debe, haber), ...], total_debe, total_haber}.
+
+    La posición horizontal (x0) de cada monto es lo que decide si es un
+    Debe o un Haber: la columna "DEBE Bs." queda más a la izquierda que
+    "HABER Bs." en el PDF, con una separación amplia y constante entre
+    ambas (se comprobó contra los 513 comprobantes de un Libro Diario
+    real: los 513 cuadraron con su total de control). El umbral está a
+    mitad de camino entre ambas columnas para no depender de un valor
+    exacto de píxel.
+    """
+    comprobantes = []
+    actual = None
+    # Posiciones observadas en un Libro Diario real (columna DEBE ~ x0 459,
+    # columna HABER ~ x0 514); el umbral queda a mitad de camino más un
+    # margen, porque los montos están alineados a la derecha dentro de su
+    # columna y los más cortos (ej. "12.67") empiezan más a la derecha que
+    # el propio encabezado de su columna.
+    umbral_debe_haber = (458.8 + 513.9) / 2 + 15
+
+    with pdfplumber.open(ruta_archivo) as pdf:
+        for palabras in (page.extract_words() for page in pdf.pages):
+            for linea in _agrupar_lineas_pdf(palabras):
+                texto = linea["texto"]
+
+                coincidencia = PATRON_PDF_TIPO_FECHA.match(texto)
+                if coincidencia:
+                    if actual is not None:
+                        comprobantes.append(actual)
+                    actual = {
+                        "tipo": coincidencia.group(1),
+                        "fecha": coincidencia.group(2),
+                        "nro_doc": "",
+                        "glosa": "",
+                        "cuentas": [],
+                        "total_debe": None,
+                        "total_haber": None,
+                    }
+                    continue
+
+                if actual is None:
+                    continue  # texto antes del primer comprobante (título de página, etc.)
+
+                coincidencia = PATRON_PDF_NRO_DOC.match(texto)
+                if coincidencia:
+                    actual["nro_doc"] = coincidencia.group(1)
+                    continue
+
+                coincidencia = PATRON_PDF_GLOSA.match(texto)
+                if coincidencia:
+                    actual["glosa"] = coincidencia.group(1).strip()
+                    continue
+
+                if PATRON_PDF_HEADER_TABLA.match(texto):
+                    continue
+
+                coincidencia = PATRON_PDF_TOTAL.match(texto)
+                if coincidencia:
+                    actual["total_debe"] = float(coincidencia.group(1).replace(",", ""))
+                    actual["total_haber"] = float(coincidencia.group(2).replace(",", ""))
+                    continue
+
+                primera_palabra = linea["palabras"][0]["text"] if linea["palabras"] else ""
+                if PATRON_PDF_CODIGO_CUENTA.match(primera_palabra):
+                    codigo = primera_palabra
+                    montos = [w for w in linea["palabras"][1:] if PATRON_PDF_MONTO.match(w["text"])]
+                    nombre = " ".join(
+                        w["text"] for w in linea["palabras"][1:] if w not in montos
+                    ).strip()
+                    debe = sum(
+                        float(w["text"].replace(",", "")) for w in montos if w["x0"] < umbral_debe_haber
+                    )
+                    haber = sum(
+                        float(w["text"].replace(",", "")) for w in montos if w["x0"] >= umbral_debe_haber
+                    )
+                    actual["cuentas"].append((codigo, nombre or codigo, debe, haber))
+                # cualquier otra línea (nombre de empresa, NIT, "Razon Social", etc.) se ignora
+
+    if actual is not None:
+        comprobantes.append(actual)
+    return comprobantes
+
+
+def _procesar_pdf(carga):
+    """Variante de `procesar_carga` para el Libro Diario en PDF (ver
+    docstring del módulo). Devuelve (filas_validas, errores_a_guardar,
+    total, nombre_por_codigo, primera_fila_por_codigo) — la misma forma
+    que espera el resto de `procesar_carga` para guardar los resultados,
+    de modo que esa parte (resolver/crear CuentaContable y el
+    bulk_create final) se reutiliza sin cambios entre todos los formatos.
+
+    Devuelve `None` si el archivo no se pudo procesar en absoluto (ya
+    quedó registrado el ErrorValidacion correspondiente).
+    """
+    try:
+        comprobantes = _extraer_comprobantes_pdf(carga.archivo.path)
+    except Exception as exc:  # PDF corrupto, protegido, escaneado sin texto, etc.
+        ErrorValidacion.objects.create(
+            carga=carga,
+            fila=0,
+            campo="archivo",
+            descripcion=f"No se pudo leer el archivo PDF: {exc}",
+        )
+        carga.estado = "con_errores"
+        carga.total_registros = 0
+        carga.save()
+        return None
+
+    if not comprobantes:
+        ErrorValidacion.objects.create(
+            carga=carga,
+            fila=0,
+            campo="archivo",
+            descripcion=(
+                "No se encontró ningún comprobante reconocible en el PDF (se esperaba "
+                "el formato de Libro Diario con bloques 'Tipo: ... Fecha: ...')."
+            ),
+        )
+        carga.estado = "con_errores"
+        carga.total_registros = 0
+        carga.save()
+        return None
+
+    total = 0
+    filas_validas = []
+    errores_a_guardar = []
+    nombre_por_codigo = {}
+    primera_fila_por_codigo = {}
+    numero_fila = 0  # no hay una fila de hoja de cálculo real: es un conteo secuencial
+
+    for indice_comprobante, comprobante in enumerate(comprobantes, start=1):
+        fecha = pd.to_datetime(comprobante["fecha"], errors="coerce", dayfirst=True)
+        suma_debe = sum(c[2] for c in comprobante["cuentas"])
+        suma_haber = sum(c[3] for c in comprobante["cuentas"])
+        descuadre = (
+            comprobante["total_debe"] is None
+            or abs(suma_debe - comprobante["total_debe"]) >= 0.01
+            or abs(suma_haber - comprobante["total_haber"]) >= 0.01
+        )
+
+        for codigo_cuenta, nombre_cuenta, debe, haber in comprobante["cuentas"]:
+            numero_fila += 1
+            total += 1
+            errores_fila = []
+
+            if pd.isna(fecha):
+                errores_fila.append(("fecha", f"Fecha inválida: '{comprobante['fecha']}'"))
+            if debe == 0 and haber == 0:
+                errores_fila.append(("debe/haber", "La fila no tiene monto en Debe ni en Haber"))
+            if debe < 0 or haber < 0:
+                errores_fila.append(("debe/haber", "Debe y Haber no pueden ser negativos"))
+            if descuadre:
+                errores_fila.append(
+                    (
+                        "comprobante",
+                        f"El comprobante Nº {comprobante['nro_doc']} no cuadra: la suma "
+                        f"leída (Debe {suma_debe:,.2f} / Haber {suma_haber:,.2f}) no coincide "
+                        f"con el total impreso en el PDF — revisar ese comprobante en el "
+                        f"documento original antes de confiar en estas filas.",
+                    )
+                )
+
+            if errores_fila:
+                for campo, descripcion in errores_fila:
+                    errores_a_guardar.append(
+                        ErrorValidacion(
+                            carga=carga, fila=numero_fila, campo=campo, descripcion=descripcion
+                        )
+                    )
+                continue
+
+            fecha_transaccion = fecha.date()
+            if not (carga.gestion.fecha_inicio <= fecha_transaccion <= carga.gestion.fecha_fin):
+                errores_a_guardar.append(
+                    ErrorValidacion(
+                        carga=carga,
+                        fila=numero_fila,
+                        campo="fecha",
+                        tipo="aviso",
+                        descripcion=(
+                            f"La fecha {fecha_transaccion:%d/%m/%Y} está fuera del período de "
+                            f"la gestión {carga.gestion.anio} "
+                            f"({carga.gestion.fecha_inicio:%d/%m/%Y} - "
+                            f"{carga.gestion.fecha_fin:%d/%m/%Y}); verificar que corresponda a "
+                            "esta gestión."
+                        ),
+                    )
+                )
+
+            nombre_por_codigo.setdefault(codigo_cuenta, nombre_cuenta or codigo_cuenta)
+            primera_fila_por_codigo.setdefault(codigo_cuenta, numero_fila)
+            filas_validas.append(
+                {
+                    "codigo_cuenta": codigo_cuenta,
+                    "fecha": fecha.date(),
+                    "comprobante": comprobante["nro_doc"],
+                    "glosa": comprobante["glosa"],
+                    "debe": debe,
+                    "haber": haber,
+                    "fila_origen": numero_fila,
+                }
+            )
+
+    return filas_validas, errores_a_guardar, total, nombre_por_codigo, primera_fila_por_codigo
+
+
+def _procesar_hoja_calculo(carga):
+    """Variante de `procesar_carga` para Excel/CSV (tabla plana o Libro
+    Mayor agrupado por cuenta — ver docstring del módulo). Devuelve
+    (filas_validas, errores_a_guardar, total, nombre_por_codigo,
+    primera_fila_por_codigo), igual que `_procesar_pdf`, o `None` si el
+    archivo no se pudo procesar (ya se registró el error fatal
+    correspondiente).
 
     Para archivos grandes (un libro mayor real puede tener más de 20 mil
     filas), guardar de a una fila a la vez es demasiado lento — se
@@ -166,7 +426,7 @@ def procesar_carga(carga):
         carga.estado = "con_errores"
         carga.total_registros = 0
         carga.save()
-        return
+        return None
 
     fila_encabezado, mapeo = _ubicar_encabezado(df)
     if fila_encabezado is None:
@@ -182,7 +442,7 @@ def procesar_carga(carga):
         carga.estado = "con_errores"
         carga.total_registros = 0
         carga.save()
-        return
+        return None
 
     tiene_columna_cuenta = "cuenta" in mapeo
 
@@ -289,6 +549,29 @@ def procesar_carga(carga):
                 "fila_origen": numero_fila,
             }
         )
+
+    return filas_validas, errores_a_guardar, total, nombre_por_codigo, primera_fila_por_codigo
+
+
+def procesar_carga(carga):
+    """Procesa el archivo de una CargaArchivo y guarda los resultados.
+
+    Punto de entrada único: decide qué parser usar según la extensión
+    (PDF del Libro Diario, o Excel/CSV — ver docstring del módulo) y
+    después comparte la misma lógica para resolver/crear las cuentas
+    contables y guardar todo en bloque, sin importar de qué formato
+    vinieron las filas.
+    """
+    nombre = carga.archivo.name.lower()
+    if nombre.endswith(".pdf"):
+        resultado = _procesar_pdf(carga)
+    else:
+        resultado = _procesar_hoja_calculo(carga)
+
+    if resultado is None:
+        return  # ya se guardó el error fatal correspondiente
+
+    filas_validas, errores_a_guardar, total, nombre_por_codigo, primera_fila_por_codigo = resultado
 
     # Cuentas contables: se resuelven todas de una vez (una consulta y,
     # si hace falta, un bulk_create), en vez de una consulta por fila.

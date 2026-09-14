@@ -8,7 +8,7 @@ from .models import CargaArchivo, EmpresaAuditada, Gestion
 
 PATRON_TELEFONO = re.compile(r"^[0-9+()\s-]{6,20}$")
 
-EXTENSIONES_PERMITIDAS = [".xlsx", ".xls", ".csv"]
+EXTENSIONES_PERMITIDAS = [".xlsx", ".xls", ".csv", ".pdf"]
 TAMANO_MAXIMO_MB = 20
 TAMANO_MAXIMO_BYTES = TAMANO_MAXIMO_MB * 1024 * 1024
 
@@ -148,7 +148,7 @@ class CargaArchivoForm(forms.ModelForm):
         labels = {
             "empresa": "Empresa auditada",
             "gestion": "Gestión",
-            "archivo": "Archivo de registros contables (libro mayor / diario)",
+            "archivo": "Archivo de registros contables (libro mayor / diario, Excel o PDF)",
         }
         widgets = {
             "empresa": forms.Select(attrs={"class": "form-select"}),
@@ -161,7 +161,8 @@ class CargaArchivoForm(forms.ModelForm):
         extension = os.path.splitext(archivo.name)[1].lower()
         if extension not in EXTENSIONES_PERMITIDAS:
             raise forms.ValidationError(
-                "Formato no soportado. Sube un archivo .xlsx, .xls o .csv."
+                "Formato no soportado. Sube un archivo .xlsx, .xls, .csv o .pdf "
+                "(Libro Diario exportado en PDF)."
             )
         if archivo.size > TAMANO_MAXIMO_BYTES:
             raise forms.ValidationError(
