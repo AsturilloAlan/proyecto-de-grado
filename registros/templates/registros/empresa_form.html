@@ -50,7 +50,19 @@
                 </div>
                 <div class="col-md-4">
                     <label for="{{ form.categoria_cierre.id_for_label }}" class="form-label">{{ form.categoria_cierre.label }}</label>
-                    {{ form.categoria_cierre }}
+                    <div class="input-group selector-personalizado">
+                        <span class="input-group-text input-group-text-icono"><i class="bi bi-calendar-check"></i></span>
+                        <div class="select-oculto">{{ form.categoria_cierre }}</div>
+                        <button type="button" class="form-control selector-boton">
+                            <span class="selector-texto"></span>
+                            <i class="bi bi-chevron-down"></i>
+                        </button>
+                        <ul class="selector-lista d-none" role="listbox">
+                            {% for valor, etiqueta in form.categoria_cierre.field.choices %}
+                                <li class="selector-opcion" data-valor="{{ valor }}" role="option">{{ etiqueta }}</li>
+                            {% endfor %}
+                        </ul>
+                    </div>
                     {% if form.categoria_cierre.help_text %}<div class="form-text">{{ form.categoria_cierre.help_text }}</div>{% endif %}
                     {% for error in form.categoria_cierre.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
                 </div>

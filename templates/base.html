@@ -427,6 +427,44 @@
             border-color: rgba(231,184,205,.25);
             color: #e7b8cd;
         }
+
+        /* Dropdown personalizado: reemplaza el <select> nativo en
+           cualquier página, cuyo panel desplegable no se puede controlar
+           del todo por CSS (se veía mal en modo oscuro: fondo blanco fijo
+           del sistema operativo/navegador, sin importar el tema del
+           sitio). El <select> real sigue ahí, oculto, para que el
+           formulario funcione igual; el botón y la lista son propios. */
+        .select-oculto {
+            position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+            overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0;
+        }
+        .selector-personalizado { position: relative; }
+        .selector-boton {
+            display: flex; align-items: center; justify-content: space-between; gap: .5rem;
+            cursor: pointer; width: 100%; text-align: left;
+        }
+        .selector-texto { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .selector-boton .bi-chevron-down { transition: transform .2s ease; color: var(--guindo-oscuro); flex-shrink: 0; }
+        [data-bs-theme="dark"] .selector-boton .bi-chevron-down { color: #e7b8cd; }
+        .selector-abierto .bi-chevron-down { transform: rotate(180deg); }
+        .selector-lista {
+            position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 1050;
+            background: #fff; border: 1px solid rgba(110,27,63,.15); border-radius: .6rem;
+            box-shadow: 0 12px 32px rgba(74,17,41,.18); max-height: 240px; overflow-y: auto;
+            padding: .35rem; margin: 0; list-style: none;
+            animation: selector-desplegar .15s ease both;
+        }
+        @keyframes selector-desplegar {
+            from { opacity: 0; transform: translateY(-4px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        @media (prefers-reduced-motion: reduce) { .selector-lista { animation: none; } }
+        [data-bs-theme="dark"] .selector-lista { background: #241a2e; border-color: rgba(231,184,205,.2); }
+        .selector-opcion { padding: .5rem .75rem; border-radius: .4rem; cursor: pointer; font-size: .95rem; color: var(--bs-body-color); }
+        .selector-opcion:hover { background: rgba(110,27,63,.08); }
+        [data-bs-theme="dark"] .selector-opcion:hover { background: rgba(255,255,255,.06); }
+        .selector-opcion-activa { background: rgba(110,27,63,.12); font-weight: 600; color: var(--guindo-oscuro); }
+        [data-bs-theme="dark"] .selector-opcion-activa { background: rgba(231,184,205,.15); color: #e7b8cd; }
     </style>
     {% block extra_head %}{% endblock %}
 </head>
@@ -704,6 +742,72 @@
                     var instancia = bootstrap.Alert.getOrCreateInstance(alerta);
                     if (instancia) instancia.close();
                 }, urgente ? 9000 : 4500);
+            });
+        })();
+    </script>
+    <script>
+        (function () {
+            // Dropdown personalizado: reemplaza la apariencia del <select>
+            // nativo (cuyo panel desplegable no combina bien con el modo
+            // oscuro) por un botón + lista propios, en cualquier página que
+            // use el marcado ".selector-personalizado". El <select> real
+            // sigue ahí oculto y sigue siendo la fuente de verdad para el
+            // envío del formulario.
+            document.querySelectorAll(".selector-personalizado").forEach(function (contenedor) {
+                var nativo = contenedor.querySelector("select");
+                var boton = contenedor.querySelector(".selector-boton");
+                var texto = contenedor.querySelector(".selector-texto");
+                var lista = contenedor.querySelector(".selector-lista");
+                if (!nativo || !boton || !texto || !lista) return;
+
+                var opciones = Array.prototype.slice.call(lista.querySelectorAll(".selector-opcion"));
+
+                function marcarActiva() {
+                    opciones.forEach(function (opcionEl) {
+                        var esActiva = opcionEl.getAttribute("data-valor") === nativo.value;
+                        opcionEl.classList.toggle("selector-opcion-activa", esActiva);
+                    });
+                }
+
+                function sincronizarTexto() {
+                    var opcion = nativo.options[nativo.selectedIndex];
+                    texto.textContent = opcion ? opcion.text.trim() : "";
+                    marcarActiva();
+                }
+                sincronizarTexto();
+
+                function abrir() {
+                    lista.classList.remove("d-none");
+                    contenedor.classList.add("selector-abierto");
+                }
+                function cerrar() {
+                    lista.classList.add("d-none");
+                    contenedor.classList.remove("selector-abierto");
+                }
+
+                boton.addEventListener("click", function (e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (lista.classList.contains("d-none")) abrir(); else cerrar();
+                });
+
+                opciones.forEach(function (opcionEl) {
+                    opcionEl.addEventListener("click", function () {
+                        nativo.value = opcionEl.getAttribute("data-valor");
+                        nativo.dispatchEvent(new Event("change", { bubbles: true }));
+                        sincronizarTexto();
+                        cerrar();
+                        boton.focus();
+                    });
+                });
+
+                boton.addEventListener("keydown", function (e) {
+                    if (e.key === "Escape") cerrar();
+                });
+
+                document.addEventListener("click", function (e) {
+                    if (!contenedor.contains(e.target)) cerrar();
+                });
             });
         })();
     </script>
