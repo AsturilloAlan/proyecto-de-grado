@@ -12,7 +12,7 @@
                 {% if gestion %}
                     Corregí el año o las fechas y guardá.
                 {% else %}
-                    Escribí el año y guardá — el resto es opcional.
+                    Escribe el año y guarda; el resto es opcional.
                 {% endif %}
             </p>
         </div>
@@ -34,7 +34,7 @@
                             <i class="bi bi-chevron-down"></i>
                         </button>
                         <ul class="selector-lista d-none" role="listbox">
-                            <li class="selector-opcion" data-valor="" role="option">— Sin elegir (año calendario) —</li>
+                            <li class="selector-opcion" data-valor="" role="option">Sin elegir (año calendario)</li>
                             {% for empresa_opcion in form.empresa.field.queryset %}
                                 <li class="selector-opcion" data-valor="{{ empresa_opcion.pk }}" role="option">{{ empresa_opcion.nombre }}</li>
                             {% endfor %}

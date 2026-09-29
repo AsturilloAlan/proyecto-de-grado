@@ -1,36 +1,18 @@
-"""
-Pruebas automatizadas de la app usuarios.
+"""Pruebas automatizadas de la app usuarios."""
+from datetime import timedelta
 
-Cubren:
-- RF-07 (autenticación y control de acceso por roles).
-- RNF-03 (seguridad de sesión: expiración por inactividad / cierre del
-  navegador, cookies HttpOnly).
-- El comportamiento de redirección tras el login (siempre al inicio,
-  ignorando `?next=`) y la validación de rol con redirección + mensaje
-  en vez de un error 403 "crudo".
-
-Se ejecutan con:
-    python manage.py test usuarios
-"""
 from django.conf import settings
 from django.contrib.auth.models import Group, User
 from django.core import mail
 from django.test import TestCase
 from django.urls import reverse
+from django.utils import timezone
 
 from .models import CodigoVerificacion
 
 
 class LoginTests(TestCase):
-    """RF-07: inicio de sesión.
-
-    Desde que se agregó la verificación en dos pasos (2FA por correo,
-    RNF-03), un login válido ya NO deja al usuario autenticado de
-    inmediato: primero redirige a `verificar_codigo`, y solo tras
-    ingresar el código correcto se completa el login. Por eso estos
-    tests usan el helper `_iniciar_sesion_completa` para simular el
-    flujo completo cuando necesitan terminar autenticados.
-    """
+    """RF-07: inicio de sesión."""
 
     def setUp(self):
         self.usuario = User.objects.create_user(
@@ -88,6 +70,10 @@ class LoginTests(TestCase):
             reverse("login"), {"username": "auditor1", "password": "Clave-Segura123"}
         )
         codigo_original = self._codigo_pendiente_de(self.usuario)
+        # Hay una espera mínima entre reenvíos: se simula que ya pasó.
+        CodigoVerificacion.objects.filter(usuario=self.usuario).update(
+            creado=timezone.now() - timedelta(minutes=2)
+        )
         self.client.post(reverse("verificar_codigo"), {"reenviar": "1"})
         respuesta = self.client.post(
             reverse("verificar_codigo"), {"codigo": codigo_original}
@@ -104,10 +90,11 @@ class LoginTests(TestCase):
         self.assertRedirects(respuesta, reverse("login"))
 
     def test_login_ignora_next_y_siempre_va_a_inicio(self):
-        """Si el usuario llegó al login porque intentó abrir una URL
-        protegida sin sesión (lo que agrega `?next=...`), al completar
-        el login (usuario + contraseña + código) debe aterrizar en el
-        inicio de todos modos, y no en esa URL intermedia."""
+        """Si el usuario llegó al login porque intentó abrir una URL protegida sin
+        sesión (lo que agrega `?next=...`), al completar el login (usuario +
+        contraseña + código) debe aterrizar en el inicio de todos modos, y no en
+        esa URL intermedia.
+        """
         url_con_next = reverse("login") + "?next=/registros/empresas/"
         self.client.post(
             url_con_next, {"username": "auditor1", "password": "Clave-Segura123"}
@@ -124,10 +111,9 @@ class LoginTests(TestCase):
         self.assertFalse(respuesta.context["user"].is_authenticated)
 
     def test_usuario_con_espacios_alrededor_se_normaliza(self):
-        """Django recorta los espacios del campo usuario (UsernameField
-        con strip=True) antes de autenticar, tanto al loguear como al
-        crear cuentas. No es una falla de seguridad: nunca puede existir
-        " auditor1" como cuenta distinta de "auditor1"."""
+        """Django recorta los espacios del campo usuario (UsernameField con
+        strip=True) antes de autenticar, tanto al loguear como al crear cuentas.
+        """
         respuesta = self.client.post(
             reverse("login"),
             {"username": "  auditor1  ", "password": "Clave-Segura123"},
@@ -195,9 +181,10 @@ class BloqueoPorIntentosTests(TestCase):
 
 
 class GestionUsuariosTests(TestCase):
-    """Panel de gestión de usuarios (solo Administrador), agregado a
-    pedido de la tutora para que la Socia Principal no dependa de
-    /admin/ de Django para altas/bajas de cuentas."""
+    """Panel de gestión de usuarios (solo Administrador), agregado a pedido de la
+    tutora para que la Socia Principal no dependa de /admin/ de Django para
+    altas/bajas de cuentas.
+    """
 
     def setUp(self):
         Group.objects.get_or_create(name="Administrador")
@@ -252,6 +239,31 @@ class GestionUsuariosTests(TestCase):
         )
         self.assertRedirects(respuesta, reverse("usuarios_lista"))
 
+    def test_no_se_puede_crear_usuario_con_correo_ya_registrado(self):
+        self.client.login(username="admin2", password="Clave-Segura123")
+        respuesta = self.client.post(
+            reverse("usuario_crear"),
+            {
+                "username": "otro_mas",
+                "email": "auditor5@sts.com",  # ya es el correo de self.auditor
+                "rol": "Auditor",
+                "password1": "OtraClave-456",
+                "password2": "OtraClave-456",
+            },
+        )
+        self.assertEqual(respuesta.status_code, 200)  # no redirige: el form no es válido
+        self.assertFalse(User.objects.filter(username="otro_mas").exists())
+
+    def test_no_se_puede_editar_usuario_con_correo_de_otra_cuenta(self):
+        self.client.login(username="admin2", password="Clave-Segura123")
+        respuesta = self.client.post(
+            reverse("usuario_editar", args=[self.auditor.id]),
+            {"email": "admin2@sts.com", "is_active": "on", "rol": "Auditor"},
+        )
+        self.assertEqual(respuesta.status_code, 200)
+        self.auditor.refresh_from_db()
+        self.assertEqual(self.auditor.email, "auditor5@sts.com")
+
 
 class RolRequeridoTests(TestCase):
     """RF-07: acceso restringido por rol a las vistas de Administrador."""
@@ -304,9 +316,10 @@ class SeguridadDeSesionTests(TestCase):
 
 
 class PerfilTests(TestCase):
-    """Perfil de usuario: la página no debe fallar aunque el usuario
-    todavía no tenga un PerfilUsuario creado, y cambiar la contraseña
-    debe exigir la contraseña actual."""
+    """Perfil de usuario: la página no debe fallar aunque el usuario todavía no tenga
+    un PerfilUsuario creado, y cambiar la contraseña debe exigir la contraseña
+    actual.
+    """
 
     def setUp(self):
         self.usuario = User.objects.create_user(
@@ -346,6 +359,48 @@ class PerfilTests(TestCase):
             self.client.login(username="auditor3", password="OtraClave-456")
         )
 
+    def test_cambiar_clave_notifica_por_correo_y_registra_historial_sin_guardar_la_clave(self):
+        from registros.models import HistorialCambio
+
+        self.usuario.email = "auditor3@sts.com"
+        self.usuario.save()
+
+        respuesta = self.client.post(
+            reverse("cambiar_clave"),
+            {
+                "old_password": "Clave-Segura123",
+                "new_password1": "OtraClave-456",
+                "new_password2": "OtraClave-456",
+            },
+        )
+        self.assertRedirects(respuesta, reverse("cambiar_clave_hecho"))
+
+        # Aviso por correo al dueño de la cuenta.
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(mail.outbox[0].to, ["auditor3@sts.com"])
+        self.assertIn("contraseña", mail.outbox[0].subject.lower())
+
+        # Constancia en el historial de auditoría, sin guardar la clave real.
+        entrada = HistorialCambio.objects.get(
+            modelo="User", objeto_id=self.usuario.pk, campo="password"
+        )
+        self.assertNotIn("OtraClave-456", entrada.valor_nuevo)
+        self.assertNotIn("Clave-Segura123", entrada.valor_anterior)
+
+    def test_cambiar_clave_sin_correo_no_falla_aunque_no_se_pueda_avisar(self):
+        # self.usuario no tiene email (ver setUp): el cambio debe seguir
+        # funcionando igual, solo sin enviar el correo de aviso.
+        respuesta = self.client.post(
+            reverse("cambiar_clave"),
+            {
+                "old_password": "Clave-Segura123",
+                "new_password1": "OtraClave-456",
+                "new_password2": "OtraClave-456",
+            },
+        )
+        self.assertRedirects(respuesta, reverse("cambiar_clave_hecho"))
+        self.assertEqual(len(mail.outbox), 0)
+
     def test_elegir_avatar_predefinido(self):
         respuesta = self.client.post(
             reverse("perfil"), {"accion": "avatar", "avatar_preset": "azul"}
@@ -356,8 +411,101 @@ class PerfilTests(TestCase):
 
     def test_editar_correo_desde_perfil(self):
         respuesta = self.client.post(
-            reverse("perfil"), {"accion": "datos", "email": "auditor3@sts.com"}
+            reverse("perfil"),
+            {"accion": "datos", "email": "auditor3@sts.com", "clave_actual": "Clave-Segura123"},
         )
         self.assertRedirects(respuesta, reverse("perfil"))
         self.usuario.refresh_from_db()
         self.assertEqual(self.usuario.email, "auditor3@sts.com")
+
+    def test_no_se_puede_editar_correo_a_uno_ya_usado_por_otra_cuenta(self):
+        User.objects.create_user(
+            username="otro_usuario", password="Clave-Segura123", email="ocupado@sts.com"
+        )
+        respuesta = self.client.post(
+            reverse("perfil"), {"accion": "datos", "email": "ocupado@sts.com"}
+        )
+        self.assertEqual(respuesta.status_code, 200)  # no redirige: el form no es válido
+        self.usuario.refresh_from_db()
+        self.assertNotEqual(self.usuario.email, "ocupado@sts.com")
+
+
+class Revision2FAYCorreoTests(TestCase):
+    """Hallazgos H03, H13 y H14 del informe de revisión externa."""
+
+    def setUp(self):
+        self.usuario = User.objects.create_user(
+            username="tecnico", password="Clave-Segura123", email="tecnico@sts.com",
+            is_staff=True, is_superuser=True,
+        )
+
+    def test_admin_login_no_permite_entrar_sin_segundo_factor(self):
+        respuesta = self.client.post(
+            "/admin/login/", {"username": "tecnico", "password": "Clave-Segura123"}
+        )
+        self.assertFalse(respuesta.wsgi_request.user.is_authenticated)
+        respuesta = self.client.get("/admin/")
+        self.assertEqual(respuesta.status_code, 302)
+        self.assertIn(reverse("login"), respuesta["Location"])
+
+    def test_reenvio_inmediato_se_rechaza(self):
+        self.client.post(reverse("login"), {"username": "tecnico", "password": "Clave-Segura123"})
+        self.client.post(reverse("verificar_codigo"), {"reenviar": "1"})
+        self.assertEqual(CodigoVerificacion.objects.filter(usuario=self.usuario).count(), 1)
+
+    def test_demasiados_fallos_cierran_el_paso_de_verificacion(self):
+        self.client.post(reverse("login"), {"username": "tecnico", "password": "Clave-Segura123"})
+        for _ in range(10):
+            respuesta = self.client.post(reverse("verificar_codigo"), {"codigo": "000000"})
+        self.assertRedirects(respuesta, reverse("login"))
+        self.assertNotIn("sesion_2fa_pendiente", self.client.session)
+
+    def test_codigo_no_numerico_no_rompe_la_pagina(self):
+        self.client.post(reverse("login"), {"username": "tecnico", "password": "Clave-Segura123"})
+        respuesta = self.client.post(reverse("verificar_codigo"), {"codigo": "ñññññ1"})
+        self.assertEqual(respuesta.status_code, 200)
+
+    def test_correo_vacio_no_es_valido_en_perfil(self):
+        from .forms import DatosCuentaForm
+        form = DatosCuentaForm(
+            {"email": "", "clave_actual": "Clave-Segura123"}, instance=self.usuario
+        )
+        self.assertFalse(form.is_valid())
+        self.assertIn("email", form.errors)
+
+    def test_cambiar_correo_exige_contrasena_y_avisa_al_anterior(self):
+        self.client.login(username="tecnico", password="Clave-Segura123")
+        respuesta = self.client.post(
+            reverse("perfil"),
+            {"accion": "datos", "email": "nuevo@sts.com", "clave_actual": "incorrecta"},
+        )
+        self.assertEqual(respuesta.status_code, 200)
+        self.usuario.refresh_from_db()
+        self.assertEqual(self.usuario.email, "tecnico@sts.com")
+
+        self.client.post(
+            reverse("perfil"),
+            {"accion": "datos", "email": "nuevo@sts.com", "clave_actual": "Clave-Segura123"},
+        )
+        self.usuario.refresh_from_db()
+        self.assertEqual(self.usuario.email, "nuevo@sts.com")
+        self.assertTrue(any("tecnico@sts.com" in m.to for m in mail.outbox))
+
+
+class BloqueoLoginContadorTests(TestCase):
+    def setUp(self):
+        User.objects.create_user(username="auditor9", password="Clave-Segura123", email="a9@sts.com")
+
+    def test_al_bloquearse_muestra_el_contador(self):
+        for _ in range(5):
+            respuesta = self.client.post(
+                reverse("login"), {"username": "auditor9", "password": "incorrecta"}, follow=True
+            )
+        self.assertGreater(respuesta.context["segundos_bloqueo"], 0)
+        self.assertContains(respuesta, 'id="panel-bloqueo"')
+        self.assertContains(respuesta, 'class="bloqueado"')
+
+    def test_sin_bloqueo_no_hay_contador(self):
+        respuesta = self.client.get(reverse("login"))
+        self.assertNotIn("segundos_bloqueo", respuesta.context)
+        self.assertNotContains(respuesta, 'id="panel-bloqueo"')

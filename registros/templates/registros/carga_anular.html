@@ -14,18 +14,16 @@
 
     <div class="alert alert-warning mt-3">
         <i class="bi bi-exclamation-triangle"></i>
-        Esta carga <strong>no se borra ni se puede editar</strong>: va a quedar marcada
-        como "Anulada", visible en el historial con tu usuario, la fecha y el motivo
-        que escribas abajo. Es la forma correcta de corregir un error al elegir la
-        empresa o la gestión (ej. cargaste con la gestión 2025 en vez de 2022) — después
-        de anular, subís el archivo de nuevo desde "Cargar registros" con los datos
-        correctos.
+        Esta carga <strong>no se borra ni se puede editar</strong>: queda marcada como
+        "Anulada", con tu usuario, fecha y el motivo que escribas abajo. Úsalo si elegiste
+        mal la empresa o la gestión. Después de anular, sube el archivo de nuevo desde
+        "Cargar registros".
     </div>
 
     <ul class="list-unstyled">
         <li><strong>Empresa:</strong> {{ carga.empresa }}</li>
         <li><strong>Gestión:</strong> {{ carga.gestion }}</li>
-        <li><strong>Cargado por:</strong> {{ carga.usuario.username }} — {{ carga.fecha_carga|date:"d/m/Y H:i" }}</li>
+        <li><strong>Cargado por:</strong> {{ carga.usuario.username }} · {{ carga.fecha_carga|date:"d/m/Y H:i" }}</li>
         <li><strong>Registros guardados:</strong> {{ carga.registros_validos }}</li>
     </ul>
 

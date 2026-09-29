@@ -6,8 +6,7 @@
 {% block mensajes_globales %}{% endblock %}
 {% block extra_head %}
 <style>
-    /* --- Entrada escalonada: cada bloque aparece con una fracción de
-       segundo de diferencia, en vez de todo de golpe. --- */
+    /* Entrada escalonada. */
     @keyframes fluido-in {
         from { opacity: 0; transform: translateY(10px); }
         to { opacity: 1; transform: translateY(0); }
@@ -15,11 +14,7 @@
     .fluido-in { animation: fluido-in .5s cubic-bezier(.2,.8,.2,1) both; }
     @media (prefers-reduced-motion: reduce) { .fluido-in { animation: none; } }
 
-    /* En celular la columna izquierda (chip/titular) se oculta y solo
-       queda la tarjeta sola — sin el centrado de acá se queda pegada
-       arriba, dejando un hueco enorme y vacío abajo en pantallas altas.
-       Solo aplica a esta página (:has apunta a la tarjeta editorial), no
-       toca el <main> de las demás vistas. */
+    /* En celular la tarjeta se centra verticalmente. */
     @media (max-width: 767.98px) {
         main.container:has(.tarjeta-editorial) {
             display: flex;
@@ -29,8 +24,7 @@
         .tarjeta-editorial { margin-top: 0 !important; }
     }
 
-    /* --- Logo (solo celular): crossfade suave entre versión clara y
-       oscura en vez del cambio instantáneo. --- */
+    /* Logo en celular, con cambio suave entre tema claro y oscuro. */
     .logo-login-caja { position: relative; height: 44px; }
     .logo-login-caja img {
         position: absolute; inset: 0; margin: auto;
@@ -39,7 +33,7 @@
     }
     @media (prefers-reduced-motion: reduce) { .logo-login-caja img { transition: none; } }
 
-    /* --- Campos con etiqueta flotante (componente real de Bootstrap). --- */
+    /* Campos con etiqueta flotante. */
     .form-floating > .form-control { height: calc(3.5rem + 2px); }
     .form-floating > label { transition: opacity .2s ease, transform .2s cubic-bezier(.4,0,.2,1); }
     .form-floating > .form-control:focus ~ label,
@@ -52,28 +46,16 @@
     #icono-mostrar-clave { display: inline-block; transition: transform .3s ease; }
     #icono-mostrar-clave.girar { transform: rotateY(180deg); }
 
-    /* Django devuelve los errores del formulario como <ul>, con el
-       margen/relleno por defecto del navegador — de ahí el espacio
-       vacío abajo del mensaje de error. Se quita. */
+    /* Errores del formulario sin márgenes de lista. */
     .alert ul { list-style: none; margin: 0; padding: 0; }
     .alert ul li + li { margin-top: .25rem; }
 
-    /* --- Diseño editorial: la tarjeta general pierde su fondo/borde de
-       "card" (eso lo lleva ahora solo la tarjeta de vidrio de la derecha),
-       y detrás de todo va el nombre de la marca en tipografía enorme y
-       muy tenue — un fondo con identidad en vez de espacio vacío. --- */
+    /* Diseño editorial con la marca de fondo. */
     .tarjeta-editorial {
         background: transparent !important; border: none !important;
         box-shadow: none !important; backdrop-filter: none !important;
         -webkit-backdrop-filter: none !important;
     }
-    /* Sin overflow:hidden aquí: recortaba tanto la marca de agua como el
-       contenido de verdad (el <div> no compensa el margen negativo del
-       .row de Bootstrap, así que el texto quedaba mordido a la
-       izquierda) y también la sombra de la tarjeta, en un borde duro y
-       cuadrado. El scroll horizontal ya está bloqueado a nivel de
-       página (ver <body> más arriba), así que no hace falta repetirlo
-       aquí. */
     .zona-editorial { position: relative; }
     .marca-fondo-login {
         position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
@@ -106,9 +88,7 @@
     }
     [data-bs-theme="dark"] .icono-ml-caja { background: rgba(231,184,205,.12); color: #e7b8cd; }
 
-    /* Sombra en capas (contacto + ambiente muy difuminado, con spread
-       negativo) en vez de una sola sombra de bloque: así el borde se
-       desvanece de verdad en vez de recortarse en un rectángulo. */
+    /* Sombra en capas. */
     .tarjeta-vidrio {
         background: rgba(255,255,255,.88); border: 1px solid rgba(110,27,63,.1);
         border-radius: 20px; padding: 2rem; backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
@@ -124,6 +104,28 @@
             0 15px 35px -10px rgba(0,0,0,.35),
             0 45px 90px -30px rgba(0,0,0,.45);
     }
+    /* Bloqueo temporal por intentos fallidos. */
+    .panel-bloqueo {
+        display: flex; align-items: center; gap: 1rem;
+        padding: 1rem 1.1rem; margin-bottom: 1rem; border-radius: 14px;
+        background: rgba(220,53,69,.07); border: 1px solid rgba(220,53,69,.22);
+    }
+    [data-bs-theme="dark"] .panel-bloqueo { background: rgba(220,53,69,.12); border-color: rgba(234,134,143,.3); }
+    .anillo-bloqueo { position: relative; width: 64px; height: 64px; flex-shrink: 0; }
+    .anillo-bloqueo svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+    .anillo-bloqueo circle { fill: none; stroke-width: 5; }
+    .anillo-bloqueo .fondo { stroke: rgba(220,53,69,.15); }
+    .anillo-bloqueo .avance { stroke: var(--bs-danger); stroke-linecap: round; transition: stroke-dashoffset 1s linear; }
+    .anillo-bloqueo .icono {
+        position: absolute; inset: 0; display: grid; place-items: center;
+        color: var(--bs-danger); font-size: 1.2rem;
+    }
+    .reloj-bloqueo {
+        font-variant-numeric: tabular-nums; font-weight: 700; font-size: 1.6rem;
+        line-height: 1; color: var(--bs-danger); letter-spacing: .02em;
+    }
+    [data-bs-theme="dark"] .reloj-bloqueo, [data-bs-theme="dark"] .anillo-bloqueo .icono { color: #ea868f; }
+    form.bloqueado { opacity: .45; pointer-events: none; filter: grayscale(.3); transition: opacity .3s ease; }
 </style>
 {% endblock %}
 {% block content %}
@@ -152,17 +154,37 @@
                         <p class="text-secondary small mb-0">Sistema de Apoyo a la Auditoría Externa</p>
                     </div>
 
+                    {% if segundos_bloqueo %}
+                        <div class="panel-bloqueo fluido-in" id="panel-bloqueo" role="status" aria-live="polite"
+                             data-restante="{{ segundos_bloqueo }}" data-total="{{ segundos_bloqueo_total }}">
+                            <div class="anillo-bloqueo">
+                                <svg viewBox="0 0 64 64" aria-hidden="true">
+                                    <circle class="fondo" cx="32" cy="32" r="28"></circle>
+                                    <circle class="avance" cx="32" cy="32" r="28" id="anillo-avance"></circle>
+                                </svg>
+                                <span class="icono"><i class="bi bi-lock-fill"></i></span>
+                            </div>
+                            <div>
+                                <div class="small fw-semibold mb-1">Acceso bloqueado temporalmente</div>
+                                <div class="reloj-bloqueo" id="reloj-bloqueo">--:--</div>
+                                <div class="small text-secondary mt-1">Demasiados intentos fallidos. Podrás volver a intentar cuando termine el contador.</div>
+                            </div>
+                        </div>
+                    {% endif %}
+
                     {% if messages %}
                         {% for message in messages %}
-                            <div class="alert {% if message.tags == 'error' %}alert-danger{% elif message.tags == 'warning' %}alert-warning{% elif message.tags == 'success' %}alert-success{% else %}alert-info{% endif %} alert-dismissible fade show alert-autocierre py-2 d-flex align-items-start gap-2 fluido-in mb-3" role="alert">
-                                <i class="bi {% if message.tags == 'error' %}bi-exclamation-triangle-fill{% elif message.tags == 'warning' %}bi-exclamation-circle-fill{% else %}bi-info-circle-fill{% endif %} mt-1"></i>
+                            {% if 'bloqueo' in message.tags and segundos_bloqueo %}{% else %}
+                            <div class="alert {% if 'error' in message.tags %}alert-danger{% elif 'warning' in message.tags %}alert-warning{% elif 'success' in message.tags %}alert-success{% else %}alert-info{% endif %} alert-dismissible fade show alert-autocierre py-2 d-flex align-items-start gap-2 fluido-in mb-3" role="alert">
+                                <i class="bi {% if 'error' in message.tags %}bi-exclamation-triangle-fill{% elif 'warning' in message.tags %}bi-exclamation-circle-fill{% else %}bi-info-circle-fill{% endif %} mt-1"></i>
                                 <div>{{ message }}</div>
                                 <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Cerrar" style="font-size: .65rem;"></button>
                             </div>
+                            {% endif %}
                         {% endfor %}
                     {% endif %}
 
-                    <form method="post" autocomplete="off" novalidate>
+                    <form method="post" autocomplete="off" novalidate id="form-login"{% if segundos_bloqueo %} class="bloqueado" aria-disabled="true"{% endif %}>
                         {% csrf_token %}
                         {% if form.non_field_errors %}
                             <div class="alert alert-danger alert-dismissible fade show alert-autocierre py-2 d-flex align-items-start gap-2 fluido-in">
@@ -242,6 +264,38 @@
                 }, 150);
                 botonMostrar.setAttribute("aria-label", mostrando ? "Mostrar contraseña" : "Ocultar contraseña");
             });
+        }
+
+        // Cuenta regresiva del bloqueo por intentos fallidos.
+        var panel = document.getElementById("panel-bloqueo");
+        if (panel) {
+            var formulario = document.getElementById("form-login");
+            var reloj = document.getElementById("reloj-bloqueo");
+            var anillo = document.getElementById("anillo-avance");
+            var total = parseInt(panel.dataset.total, 10) || 1;
+            var fin = Date.now() + (parseInt(panel.dataset.restante, 10) || 0) * 1000;
+            var perimetro = 2 * Math.PI * 28;
+            anillo.style.strokeDasharray = perimetro;
+            var controles = formulario.querySelectorAll("input:not([type=hidden]), button");
+            controles.forEach(function (c) { c.disabled = true; });
+
+            var tic = function () {
+                var restante = Math.max(0, Math.round((fin - Date.now()) / 1000));
+                var min = Math.floor(restante / 60);
+                var seg = restante % 60;
+                reloj.textContent = String(min).padStart(2, "0") + ":" + String(seg).padStart(2, "0");
+                anillo.style.strokeDashoffset = perimetro * (1 - restante / total);
+                if (restante <= 0) {
+                    clearInterval(intervalo);
+                    panel.remove();
+                    formulario.classList.remove("bloqueado");
+                    formulario.removeAttribute("aria-disabled");
+                    controles.forEach(function (c) { c.disabled = false; });
+                    if (campoUsuario) campoUsuario.focus();
+                }
+            };
+            var intervalo = setInterval(tic, 1000);
+            tic();
         }
 
         if (campoClave && avisoMayus) {

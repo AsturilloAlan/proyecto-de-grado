@@ -1,9 +1,4 @@
-"""
-Modelo de datos para la carga y validación de registros contables
-(RF-01, RF-02). Diseñado en tercera forma normal: cada tabla depende
-únicamente de su propia clave, sin datos repetidos ni dependencias
-transitivas entre atributos.
-"""
+"""Modelo de datos para la carga y validación de registros contables (RF-01, RF-02)."""
 from datetime import date
 
 from django.conf import settings
@@ -11,26 +6,15 @@ from django.db import models
 
 
 class EmpresaAuditada(models.Model):
-    """Empresa cuyos registros contables se analizan.
+    """Empresa cuyos registros contables se analizan."""
 
-    Se modela como entidad propia (en vez de un campo de texto repetido
-    en cada carga) para permitir trazabilidad y, en el futuro, extender
-    el sistema a más de una empresa auditada.
-    """
-
-    # Categoría de cierre de gestión según el Servicio de Impuestos
-    # Nacionales (SIN, Bolivia): el cierre del año fiscal no es siempre
-    # el 31 de diciembre — depende del rubro de la empresa. Se usa para
-    # sugerir automáticamente las fechas al crear una gestión (ver
-    # `fechas_gestion_para`), sin obligar a escribirlas a mano cada vez.
-    # Es independiente del campo "rubro" (texto libre, descriptivo) de
-    # abajo: este campo es estructurado a propósito, justamente para
-    # poder calcular fechas con él.
+    # Categoría de cierre de gestión según el SIN: el año fiscal no siempre cierra el 31
+    # de diciembre.
     CATEGORIA_CIERRE_CHOICES = [
-        ("general", "Comercio, servicios, bancos y seguros — cierra 31 de diciembre"),
-        ("industrial", "Industrial o petrolera — cierra 31 de marzo"),
-        ("agropecuaria", "Agropecuaria o agroindustrial — cierra 30 de junio"),
-        ("minera", "Minera — cierra 30 de septiembre"),
+        ("general", "Comercio, servicios, bancos y seguros (cierre 31 de diciembre)"),
+        ("industrial", "Industrial o petrolera (cierre 31 de marzo)"),
+        ("agropecuaria", "Agropecuaria o agroindustrial (cierre 30 de junio)"),
+        ("minera", "Minera (cierre 30 de septiembre)"),
     ]
 
     nombre = models.CharField(max_length=200)
@@ -48,10 +32,10 @@ class EmpresaAuditada(models.Model):
         choices=CATEGORIA_CIERRE_CHOICES,
         default="general",
         help_text="Define en qué mes cierra el año fiscal de esta empresa. Se usa "
-        "solo para sugerir las fechas al crear una nueva gestión — siempre "
+        "solo para sugerir las fechas al crear una nueva gestión; siempre "
         "se pueden ajustar a mano si hay una excepción real.",
     )
-    contacto_nombre = models.CharField("Nombre del contacto", max_length=150, blank=True)
+    contacto_nombre = models.CharField("Nombre del representante legal", max_length=150, blank=True)
     contacto_email = models.EmailField("Correo del contacto", blank=True)
     contacto_telefono = models.CharField("Teléfono del contacto", max_length=30, blank=True)
     fecha_registro = models.DateTimeField("Fecha de registro", auto_now_add=True)
@@ -65,12 +49,9 @@ class EmpresaAuditada(models.Model):
         return self.nombre
 
     def fechas_gestion_para(self, anio):
-        """Calcula (fecha_inicio, fecha_fin) de la gestión `anio` según la
-        categoría de cierre de esta empresa. Para las categorías con cierre
-        distinto al 31/12, la gestión "anio" es la que TERMINA en ese año
-        (ej. industrial, gestión 2024: 01/04/2023 - 31/03/2024) — así se
-        nombra habitualmente en Bolivia, igual que la gestión "general" ya
-        se nombra por el año en que transcurre."""
+        """Calcula (fecha_inicio, fecha_fin) de la gestión `anio` según la categoría
+        de cierre de esta empresa.
+        """
         if self.categoria_cierre == "industrial":
             return date(anio - 1, 4, 1), date(anio, 3, 31)
         if self.categoria_cierre == "agropecuaria":
@@ -81,25 +62,7 @@ class EmpresaAuditada(models.Model):
 
 
 class Gestion(models.Model):
-    """Periodo fiscal analizado (ej. 2022, 2023).
-
-    En Bolivia el cierre de la gestión fiscal no siempre coincide con el
-    año calendario: varía según la actividad económica de la empresa,
-    conforme la Resolución Normativa de Directorio vigente del Servicio
-    de Impuestos Nacionales (SIN): 31 de marzo para industriales y
-    petroleras, 30 de junio para agropecuarias/agroindustriales, 30 de
-    septiembre para mineras, y 31 de diciembre para bancos, seguros,
-    comercio y servicios. Por eso se guardan las fechas reales de inicio
-    y fin de cada gestión (decididas por quien la registra, según el
-    rubro del cliente) en vez de asumir siempre el año calendario.
-
-    El año NO es único a propósito: como distintas empresas clientes
-    pueden tener distinto rubro (y por lo tanto distinto cierre), puede
-    existir más de una "gestión 2024" con rangos de fechas distintos
-    (ej. una para clientes industriales, otra para clientes de
-    servicios). Lo que sí no puede repetirse es la combinación exacta de
-    año + mismas fechas, para evitar duplicados sin sentido.
-    """
+    """Periodo fiscal analizado."""
 
     anio = models.PositiveIntegerField("Año")
     fecha_inicio = models.DateField("Fecha de inicio de la gestión")
@@ -121,11 +84,7 @@ class Gestion(models.Model):
 
 
 class CuentaContable(models.Model):
-    """Catálogo de cuentas del libro mayor.
-
-    Se separa de RegistroContable para no repetir el nombre y tipo de
-    cuenta en cada transacción (evita anomalías de actualización).
-    """
+    """Catálogo de cuentas del libro mayor."""
 
     TIPO_CHOICES = [
         ("activo", "Activo"),
@@ -149,44 +108,21 @@ class CuentaContable(models.Model):
 
 
 class CargaArchivo(models.Model):
-    """Representa un lote de importación de registros contables (RF-01).
-
-    Agrupa los registros de un mismo archivo cargado, para trazabilidad
-    (quién lo subió, cuándo, de qué empresa/gestión) y para poder
-    reportar el resultado de la validación (RF-02) a nivel de lote.
-    """
+    """Representa un lote de importación de registros contables (RF-01)."""
 
     ESTADO_CHOICES = [
         ("pendiente", "Pendiente"),
         ("validado", "Validado"),
-        # "Con observaciones": la carga sí se guardó (la mayoría de las filas
-        # quedaron bien), pero algunas puntuales se rechazaron y conviene
-        # revisarlas — distinto de "Con errores", reservado para cuando no
-        # se pudo guardar nada en absoluto (ver `procesar_carga`). Antes se
-        # usaba "Con errores" para ambos casos por igual, lo que hacía ver
-        # como un fracaso total una carga de miles de filas con solo una
-        # rechazada.
+        # Cargado con pendientes: se guardaron filas, pero hay rechazos o avisos por
+        # revisar.
         ("con_observaciones", "Cargado con pendientes"),
         ("con_errores", "Con errores"),
-        # Vía sancionada para corregir un error humano al elegir la empresa
-        # o la gestión al cargar (ej. gestión 2025 en vez de 2022): en un
-        # sistema de auditoría no tiene sentido "editar" en silencio una
-        # carga ya procesada (los avisos de fecha ya se calcularon contra
-        # la gestión original, y quedarían desactualizados). En cambio, se
-        # anula (con motivo obligatorio, quién y cuándo — ver
-        # `carga_anular` en views.py) y se sube de nuevo el archivo con los
-        # datos correctos: la carga anulada NUNCA se borra ni se oculta,
-        # queda como constancia de que existió y por qué se descartó.
+        # Anulada: la carga no se edita ni se borra; se anula con motivo y se vuelve a
+        # subir.
         ("anulada", "Anulada"),
     ]
 
-    # A qué tipo de libro contable corresponde el archivo, detectado
-    # automáticamente según cómo vino estructurado (no lo elige quien
-    # sube el archivo): un PDF siempre es Libro Diario (es el único
-    # formato de PDF que se soporta); en Excel/CSV depende de si trae
-    # una columna "cuenta" por fila (tabla plana, estilo Libro Diario)
-    # o las transacciones agrupadas en bloques por cuenta (estilo Libro
-    # Mayor) — ver `_procesar_pdf`/`_procesar_hoja_calculo` en services.py.
+    # Tipo de libro detectado según la estructura del archivo.
     FORMATO_CHOICES = [
         ("diario_pdf", "Libro Diario (PDF)"),
         ("diario_plano", "Libro Diario (Excel/CSV)"),
@@ -216,21 +152,10 @@ class CargaArchivo(models.Model):
     total_registros = models.PositiveIntegerField(default=0)
     registros_validos = models.PositiveIntegerField(default=0)
     registros_con_error = models.PositiveIntegerField(default=0)
-    # Filas que SÍ se guardaron pero generaron un ErrorValidacion tipo
-    # "aviso" (no rechaza la fila, solo la señala para revisión — ver
-    # ErrorValidacion). Se guarda aparte de registros_con_error porque son
-    # cosas distintas: error = fila rechazada, aviso = fila guardada con
-    # algo puntual a revisar. Antes solo se mostraba el conteo de errores;
-    # esto permite mostrar los tres números (válidos/avisos/errores) sin
-    # tener que contar los ErrorValidacion en cada request.
+    # Filas que SÍ se guardaron pero generaron un ErrorValidacion tipo "aviso".
     registros_con_aviso = models.PositiveIntegerField(default=0)
 
-    # Cuando una carga queda "con_observaciones", el auditor o
-    # administrador puede revisarla y darla por válida definitivamente
-    # (ver vista `carga_confirmar_validacion`) en vez de que quede
-    # marcada como pendiente para siempre. Se deja constancia de quién y
-    # cuándo, porque es información sensible (RF de auditoría): no basta
-    # con que el estado cambie solo, sin rastro de quién lo aprobó.
+    # Quién confirmó la carga y cuándo.
     revisado_por = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.PROTECT,
@@ -240,12 +165,7 @@ class CargaArchivo(models.Model):
     )
     fecha_revision = models.DateTimeField(null=True, blank=True)
 
-    # Anulación (ver ESTADO_CHOICES["anulada"] arriba): quién, cuándo y por
-    # qué se descartó esta carga. `motivo_anulacion` es obligatorio a nivel
-    # de formulario (no de base de datos, para no romper cargas viejas sin
-    # anular) — es lo que reemplaza a un simple "borrar y listo": deja
-    # constancia legible del motivo, en vez de solo un registro genérico
-    # de que "algo cambió".
+    # Anulación: quién, cuándo y por qué se descartó esta carga.
     anulado_por = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.PROTECT,
@@ -264,14 +184,61 @@ class CargaArchivo(models.Model):
     def __str__(self):
         return f"Carga #{self.pk} - {self.empresa} ({self.gestion})"
 
+    # Dos lecturas del estado, calculadas a partir de `estado` y los contadores:
+    # si el archivo entró completo (importación) y en qué punto va el auditor (revisión).
+    ETIQUETAS_IMPORTACION = {
+        "procesando": "Procesando",
+        "completa": "Completa",
+        "parcial": "Parcial",
+        "fallida": "Fallida",
+    }
+    ETIQUETAS_REVISION = {
+        "en_revision": "En revisión",
+        "por_confirmar": "Por confirmar",
+        "validada": "Validada",
+        "anulada": "Anulada",
+        "no_aplica": "Sin datos para revisar",
+    }
+
+    @property
+    def estado_importacion(self):
+        if self.estado == "pendiente":
+            return "procesando"
+        if self.registros_validos == 0:
+            return "fallida"
+        if self.registros_con_error:
+            return "parcial"
+        return "completa"
+
+    @property
+    def estado_importacion_display(self):
+        return self.ETIQUETAS_IMPORTACION[self.estado_importacion]
+
+    @property
+    def avisos_pendientes(self):
+        # Las vistas de listado lo anotan en la consulta para no contar carga por carga.
+        valor = getattr(self, "avisos_pendientes_anotado", None)
+        if valor is None:
+            valor = self.errores.filter(tipo="aviso", revisado=False).count()
+        return valor
+
+    @property
+    def estado_revision_carga(self):
+        if self.estado == "anulada":
+            return "anulada"
+        if self.estado == "validado":
+            return "validada"
+        if self.estado_importacion in ("procesando", "fallida"):
+            return "no_aplica"
+        return "en_revision" if self.avisos_pendientes else "por_confirmar"
+
+    @property
+    def estado_revision_carga_display(self):
+        return self.ETIQUETAS_REVISION[self.estado_revision_carga]
+
 
 class RegistroContable(models.Model):
-    """Transacción individual de libro diario / libro mayor.
-
-    Cada registro referencia su cuenta y su carga de origen en lugar de
-    duplicar esa información, y guarda la fila original del archivo
-    para poder rastrear cualquier registro hasta su fuente.
-    """
+    """Transacción individual de libro diario / libro mayor."""
 
     carga = models.ForeignKey(
         CargaArchivo, on_delete=models.CASCADE, related_name="registros"
@@ -284,6 +251,15 @@ class RegistroContable(models.Model):
     glosa = models.CharField(max_length=300, blank=True)
     debe = models.DecimalField(max_digits=14, decimal_places=2, default=0)
     haber = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+    saldo = models.DecimalField(
+        max_digits=14, decimal_places=2, null=True, blank=True,
+        help_text=(
+            "Saldo tal como venía en el archivo original (columna 'Saldo' del "
+            "Libro Mayor), guardado como referencia. No se calcula ni se "
+            "valida; el sistema no conoce la naturaleza deudora/acreedora "
+            "de cada cuenta, así que no intenta recalcularlo."
+        ),
+    )
     fila_origen = models.PositiveIntegerField(
         help_text="Número de fila en el archivo original, para trazabilidad."
     )
@@ -302,14 +278,7 @@ class RegistroContable(models.Model):
 
 
 class HistorialCambio(models.Model):
-    """Pista de auditoría: deja constancia de cada creación o edición sobre
-    información sensible del sistema (por ahora, empresas auditadas).
-
-    No se sobrescribe nunca — cada cambio agrega una fila nueva, campo por
-    campo, para poder reconstruir después quién modificó qué, cuándo y con
-    qué valor anterior. Es un control interno básico esperable en un
-    sistema de apoyo a auditoría.
-    """
+    """Pista de auditoría: cada creación o edición de información sensible."""
 
     ACCION_CHOICES = [
         ("creacion", "Creación"),
@@ -346,20 +315,23 @@ class HistorialCambio(models.Model):
 
 
 class ErrorValidacion(models.Model):
-    """Inconsistencia o aviso detectado durante la validación de una carga
-    (RF-02).
-
-    Permite dejar constancia de qué filas del archivo original fallaron
-    y por qué, en vez de descartarlas sin rastro. También se usa para
-    avisos informativos que no rechazan la fila (ej. una cuenta contable
-    que no existía y se creó automáticamente) — el campo `tipo` distingue
-    ambos casos para no mostrarlos igual en la interfaz.
-    """
+    """Inconsistencia o aviso detectado durante la validación de una carga (RF-02)."""
 
     TIPO_CHOICES = [
         ("error", "Error"),
         ("aviso", "Aviso"),
     ]
+
+    # Decisión del auditor sobre un aviso: válido (falso positivo) u observado
+    # (hallazgo).
+    ESTADO_REVISION_CHOICES = [
+        ("pendiente", "Pendiente"),
+        ("valido", "Válido (falso positivo)"),
+        ("observado", "Observado (hallazgo confirmado)"),
+    ]
+    estado_revision = models.CharField(
+        max_length=10, choices=ESTADO_REVISION_CHOICES, default="pendiente"
+    )
 
     carga = models.ForeignKey(
         CargaArchivo, on_delete=models.CASCADE, related_name="errores"
@@ -368,6 +340,19 @@ class ErrorValidacion(models.Model):
     campo = models.CharField(max_length=100, blank=True)
     descripcion = models.CharField(max_length=300)
     tipo = models.CharField(max_length=10, choices=TIPO_CHOICES, default="error")
+
+    # Solo aplica a tipo="aviso".
+    revisado = models.BooleanField(default=False)
+    revisado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="avisos_revisados",
+        null=True,
+        blank=True,
+    )
+    fecha_revision = models.DateTimeField(null=True, blank=True)
+    # Justificación opcional de por qué se dan por válidos los avisos seleccionados.
+    comentario_revision = models.TextField(blank=True)
 
     class Meta:
         verbose_name = "Error de Validación"

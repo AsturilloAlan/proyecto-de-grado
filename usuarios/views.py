@@ -1,11 +1,17 @@
+import logging
+import time
+
+from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth import login as auth_login
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import Group, User
 from django.contrib.auth.views import LoginView, PasswordChangeView
 from django.core.cache import cache
+from django.core.mail import send_mail
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse_lazy
+from django.utils import timezone
 
 from .autenticacion_2fa import CLAVE_SESION_USUARIO_PENDIENTE, enviar_codigo, validar_codigo
 from .decorators import rol_requerido
@@ -19,8 +25,9 @@ from .forms import (
 )
 from .models import PRESETS_AVATAR, PerfilUsuario
 
-# --- Bloqueo por intentos fallidos de login (RNF-03, protección básica
-# contra fuerza bruta) ---
+logger = logging.getLogger(__name__)
+
+# Bloqueo por intentos fallidos de login (RNF-03).
 MAXIMO_INTENTOS_LOGIN = 5
 MINUTOS_BLOQUEO_LOGIN = 15
 
@@ -29,25 +36,16 @@ def _clave_intentos_login(username):
     return f"login_intentos_{username.strip().lower()}"
 
 
+def _clave_bloqueo_login(username):
+    return f"login_bloqueo_{username.strip().lower()}"
+
+
+CLAVE_SESION_BLOQUEO = "login_bloqueo_hasta"
+MENSAJE_BLOQUEO = "Demasiados intentos fallidos. Espera a que termine el contador para volver a intentar."
+
+
 class LoginSiempreInicioView(LoginView):
-    """Login que siempre redirige al inicio tras autenticarse, con dos
-    capas extra de seguridad (RNF-03):
-
-    1. Bloqueo temporal por intentos fallidos: tras varios intentos
-       seguidos con la misma cuenta, se bloquea unos minutos, para
-       dificultar un ataque de fuerza bruta contra la contraseña.
-    2. Verificación en dos pasos (2FA) por correo: si el usuario y la
-       contraseña son correctos, no se completa el login de inmediato —
-       se envía un código de 6 dígitos al correo registrado, y recién
-       tras ingresarlo correctamente (vista `verificar_codigo`) se
-       inicia la sesión de verdad.
-
-    Django, por defecto, respeta el parámetro `?next=` que agrega
-    `login_required` cuando un usuario sin sesión intenta entrar a una
-    URL protegida (por ejemplo, editar una empresa) — al loguearse,
-    lo manda directo ahí. Aquí lo ignoramos a propósito: siempre se
-    aterriza en el inicio, que es más predecible para el usuario.
-    """
+    """Login con bloqueo por intentos fallidos y segundo factor por correo."""
 
     def dispatch(self, request, *args, **kwargs):
         if request.method == "POST":
@@ -56,17 +54,24 @@ class LoginSiempreInicioView(LoginView):
                 clave = _clave_intentos_login(username)
                 intentos = cache.get(clave, 0)
                 if intentos >= MAXIMO_INTENTOS_LOGIN:
-                    # No se repite el nombre de usuario en el mensaje: no
-                    # aporta nada útil y, si alguien prueba usuarios al
-                    # azar, es mejor no confirmarle que ese texto fue
-                    # aceptado tal cual.
-                    messages.error(
-                        request,
-                        f"Demasiados intentos fallidos. Espera {MINUTOS_BLOQUEO_LOGIN} "
-                        f"minutos e intenta de nuevo.",
+                    hasta = cache.get(_clave_bloqueo_login(username)) or (
+                        time.time() + MINUTOS_BLOQUEO_LOGIN * 60
                     )
+                    request.session[CLAVE_SESION_BLOQUEO] = hasta
+                    messages.error(request, MENSAJE_BLOQUEO, extra_tags="bloqueo")
                     return redirect("login")
         return super().dispatch(request, *args, **kwargs)
+
+    def get_context_data(self, **kwargs):
+        contexto = super().get_context_data(**kwargs)
+        hasta = self.request.session.get(CLAVE_SESION_BLOQUEO)
+        restante = int(hasta - time.time()) if hasta else 0
+        if restante > 0:
+            contexto["segundos_bloqueo"] = restante
+            contexto["segundos_bloqueo_total"] = MINUTOS_BLOQUEO_LOGIN * 60
+        elif hasta:
+            self.request.session.pop(CLAVE_SESION_BLOQUEO, None)
+        return contexto
 
     def form_invalid(self, form):
         username = form.data.get("username", "")
@@ -75,8 +80,14 @@ class LoginSiempreInicioView(LoginView):
             intentos = cache.get(clave, 0) + 1
             cache.set(clave, intentos, timeout=MINUTOS_BLOQUEO_LOGIN * 60)
 
-            # Aviso previo al bloqueo: recién en los últimos intentos, para
-            # no generar ruido con cada simple error de tipeo.
+            if intentos >= MAXIMO_INTENTOS_LOGIN:
+                hasta = time.time() + MINUTOS_BLOQUEO_LOGIN * 60
+                cache.set(_clave_bloqueo_login(username), hasta, timeout=MINUTOS_BLOQUEO_LOGIN * 60)
+                self.request.session[CLAVE_SESION_BLOQUEO] = hasta
+                messages.error(self.request, MENSAJE_BLOQUEO, extra_tags="bloqueo")
+                return redirect("login")
+
+            # Aviso en los dos últimos intentos antes del bloqueo.
             intentos_restantes = MAXIMO_INTENTOS_LOGIN - intentos
             if 0 < intentos_restantes <= 2:
                 if intentos_restantes == 1:
@@ -91,12 +102,12 @@ class LoginSiempreInicioView(LoginView):
         return super().form_invalid(form)
 
     def form_valid(self, form):
-        # Usuario y contraseña correctos: se resetea el contador de
-        # intentos fallidos, pero AÚN NO se inicia sesión — falta el
-        # segundo factor (código por correo).
+        # Credenciales correctas: falta el segundo factor.
         username = form.data.get("username", "")
         if username:
             cache.delete(_clave_intentos_login(username))
+            cache.delete(_clave_bloqueo_login(username))
+        self.request.session.pop(CLAVE_SESION_BLOQUEO, None)
 
         usuario = form.get_user()
 
@@ -108,18 +119,52 @@ class LoginSiempreInicioView(LoginView):
             )
             return redirect("login")
 
-        # Se guarda el backend con el que se autenticó (lo fija
-        # `authenticate()` dentro del form) para poder llamar a
-        # `login()` directamente más adelante, sin volver a pedir
-        # usuario/contraseña.
         self.request.session[CLAVE_SESION_USUARIO_PENDIENTE] = usuario.pk
         self.request.session["sesion_2fa_backend"] = usuario.backend
-        enviar_codigo(usuario)
+        self.request.session[CLAVE_SESION_INICIO_2FA] = time.time()
+        self.request.session[CLAVE_SESION_FALLOS_2FA] = 0
+        self.request.session[CLAVE_SESION_REENVIOS_2FA] = 0
+        if not _enviar_codigo_seguro(self.request, usuario):
+            _limpiar_sesion_2fa(self.request)
+            return redirect("login")
         messages.info(
             self.request,
             f"Te enviamos un código de verificación a {usuario.email}.",
         )
         return redirect("verificar_codigo")
+
+
+# --- Endurecimiento del segundo paso (2FA) ---
+CLAVE_SESION_INICIO_2FA = "sesion_2fa_inicio"
+CLAVE_SESION_FALLOS_2FA = "sesion_2fa_fallos"
+CLAVE_SESION_REENVIOS_2FA = "sesion_2fa_reenvios"
+MINUTOS_VALIDEZ_PASO_2FA = 15  # tiempo máximo entre la contraseña y el código
+MAXIMO_FALLOS_2FA = 10  # fallos totales, sumando todos los códigos reenviados
+MAXIMO_REENVIOS_2FA = 3
+SEGUNDOS_ESPERA_REENVIO = 60
+
+
+def _limpiar_sesion_2fa(request):
+    for clave in (
+        CLAVE_SESION_USUARIO_PENDIENTE, "sesion_2fa_backend", CLAVE_SESION_INICIO_2FA,
+        CLAVE_SESION_FALLOS_2FA, CLAVE_SESION_REENVIOS_2FA,
+    ):
+        request.session.pop(clave, None)
+
+
+def _enviar_codigo_seguro(request, usuario):
+    """Envía el código 2FA; si el correo falla muestra un mensaje y no inicia sesión."""
+    try:
+        enviar_codigo(usuario)
+        return True
+    except Exception:
+        logger.exception("No se pudo enviar el código 2FA al usuario %s", usuario.pk)
+        messages.error(
+            request,
+            "No se pudo enviar el código de verificación por correo. Intenta de nuevo "
+            "en unos minutos; si el problema sigue, avisa al administrador del sistema.",
+        )
+        return False
 
 
 def _destino_tras_login(usuario):
@@ -129,21 +174,41 @@ def _destino_tras_login(usuario):
 
 
 def verificar_codigo(request):
-    """Segundo paso del login: pide el código de 6 dígitos enviado por
-    correo. No usa `@login_required` porque el usuario TODAVÍA no tiene
-    sesión iniciada — se identifica por el id guardado temporalmente en
-    `request.session` durante `LoginSiempreInicioView.form_valid`."""
+    """Segundo paso del login: pide el código de 6 dígitos enviado por correo."""
     usuario_id = request.session.get(CLAVE_SESION_USUARIO_PENDIENTE)
     if not usuario_id:
         messages.error(request, "Tu sesión de verificación expiró. Inicia sesión de nuevo.")
         return redirect("login")
 
-    usuario = get_object_or_404(User, pk=usuario_id)
+    usuario = User.objects.filter(pk=usuario_id).first()
+    inicio = request.session.get(CLAVE_SESION_INICIO_2FA, 0)
+    if (
+        usuario is None
+        or not usuario.is_active
+        or time.time() - inicio > MINUTOS_VALIDEZ_PASO_2FA * 60
+    ):
+        # Paso pendiente vencido, o la cuenta se desactivó mientras tanto.
+        _limpiar_sesion_2fa(request)
+        messages.error(request, "Tu sesión de verificación expiró. Inicia sesión de nuevo.")
+        return redirect("login")
 
     if request.method == "POST":
         if "reenviar" in request.POST:
-            enviar_codigo(usuario)
-            messages.info(request, f"Te enviamos un nuevo código a {usuario.email}.")
+            reenvios = request.session.get(CLAVE_SESION_REENVIOS_2FA, 0)
+            ultimo = usuario.codigos_verificacion.order_by("-creado").first()
+            if reenvios >= MAXIMO_REENVIOS_2FA:
+                messages.error(
+                    request,
+                    "Alcanzaste el máximo de reenvíos. Inicia sesión de nuevo para recibir otro código.",
+                )
+            elif ultimo and (timezone.now() - ultimo.creado).total_seconds() < SEGUNDOS_ESPERA_REENVIO:
+                messages.warning(
+                    request,
+                    f"Espera {SEGUNDOS_ESPERA_REENVIO} segundos entre reenvíos del código.",
+                )
+            elif _enviar_codigo_seguro(request, usuario):
+                request.session[CLAVE_SESION_REENVIOS_2FA] = reenvios + 1
+                messages.info(request, f"Te enviamos un nuevo código a {usuario.email}.")
             return redirect("verificar_codigo")
 
         form = CodigoVerificacionForm(request.POST)
@@ -153,10 +218,20 @@ def verificar_codigo(request):
                 usuario.backend = request.session.get(
                     "sesion_2fa_backend", "django.contrib.auth.backends.ModelBackend"
                 )
-                del request.session[CLAVE_SESION_USUARIO_PENDIENTE]
-                request.session.pop("sesion_2fa_backend", None)
+                _limpiar_sesion_2fa(request)
                 auth_login(request, usuario)
                 return redirect(_destino_tras_login(usuario))
+            # El límite de fallos es para todo el paso; reenviar el código no lo
+            # reinicia.
+            fallos = request.session.get(CLAVE_SESION_FALLOS_2FA, 0) + 1
+            request.session[CLAVE_SESION_FALLOS_2FA] = fallos
+            if fallos >= MAXIMO_FALLOS_2FA:
+                _limpiar_sesion_2fa(request)
+                messages.error(
+                    request,
+                    "Demasiados códigos incorrectos. Inicia sesión de nuevo.",
+                )
+                return redirect("login")
             messages.error(request, error)
     else:
         form = CodigoVerificacionForm()
@@ -170,20 +245,20 @@ def verificar_codigo(request):
 
 @login_required
 def home(request):
-    """Página principal tras iniciar sesión: funciona como panel/dashboard.
-
-    `es_administrador` ya llega por el context processor `navegacion`;
-    aquí solo se agregan los datos propios del panel (conteos y últimas
-    cargas), evitando repetir la app `registros` en esta app para no
-    generar un import circular entre apps.
-    """
+    """Página principal tras iniciar sesión: funciona como panel/dashboard."""
     from registros.models import CargaArchivo, EmpresaAuditada  # import local: evita acoplar usuarios <-> registros a nivel de módulo
 
     total_empresas = EmpresaAuditada.objects.count()
     cargas = CargaArchivo.objects.select_related("empresa", "gestion", "usuario")
     total_cargas = cargas.count()
-    cargas_con_errores = cargas.filter(estado="con_errores").count()
-    ultimas_cargas = cargas.order_by("-fecha_carga")[:5]
+    from registros.estados import anotar_avisos_pendientes, filtrar_por_revision
+
+    # Cargas que esperan trabajo del auditor (avisos pendientes o confirmación).
+    cargas_por_revisar = (
+        filtrar_por_revision(anotar_avisos_pendientes(cargas), "en_revision").count()
+        + filtrar_por_revision(anotar_avisos_pendientes(cargas), "por_confirmar").count()
+    )
+    ultimas_cargas = anotar_avisos_pendientes(cargas).order_by("-fecha_carga")[:5]
 
     return render(
         request,
@@ -191,29 +266,52 @@ def home(request):
         {
             "total_empresas": total_empresas,
             "total_cargas": total_cargas,
-            "cargas_con_errores": cargas_con_errores,
+            "cargas_por_revisar": cargas_por_revisar,
             "ultimas_cargas": ultimas_cargas,
         },
     )
 
 
+def _registrar_y_avisar_cambio_correo(usuario, correo_anterior, autor):
+    """Registra el cambio de correo y avisa a la dirección anterior."""
+    from registros.models import HistorialCambio  # import local, ver `home`
+
+    HistorialCambio.objects.create(
+        modelo="User",
+        objeto_id=usuario.pk,
+        objeto_descripcion=str(usuario),
+        accion="edicion",
+        campo="email",
+        valor_anterior=correo_anterior or "",
+        valor_nuevo=usuario.email,
+        usuario=autor,
+    )
+    if correo_anterior:
+        send_mail(
+            subject="Se cambió el correo de tu cuenta - ST&S Auditores",
+            message=(
+                f"Hola {usuario.first_name or usuario.username},\n\n"
+                "El correo asociado a tu cuenta del sistema de apoyo a la auditoría "
+                f"se cambió a {usuario.email}. Los códigos de verificación llegarán "
+                "ahora a esa dirección.\n\n"
+                "Si no hiciste este cambio, contacta de inmediato al administrador del sistema."
+            ),
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=[correo_anterior],
+            fail_silently=True,
+        )
+
+
 @login_required
 def perfil(request):
-    """Perfil del usuario autenticado: datos de la cuenta y foto/avatar.
-
-    Dos formularios independientes en la misma página, cada uno con su
-    propio botón (`name="accion"` distingue cuál se envió) para que
-    guardar el correo no exija volver a tocar el avatar, y viceversa.
-    """
+    """Perfil del usuario autenticado: datos de la cuenta y foto/avatar."""
     perfil_usuario, _creado = PerfilUsuario.objects.get_or_create(usuario=request.user)
 
     if request.method == "POST" and request.POST.get("accion") == "avatar":
         form_avatar = PerfilForm(request.POST, request.FILES, instance=perfil_usuario)
         form_datos = DatosCuentaForm(instance=request.user)
         if form_avatar.is_valid():
-            # Elegir un avatar predefinido limpia la foto subida, y
-            # subir una foto limpia el preset elegido: son alternativas,
-            # no se combinan.
+            # Foto subida y avatar predefinido son alternativos.
             if form_avatar.cleaned_data.get("avatar_preset") and not request.FILES.get("avatar"):
                 perfil_usuario.avatar.delete(save=False)
             elif request.FILES.get("avatar"):
@@ -222,10 +320,13 @@ def perfil(request):
             messages.success(request, "Avatar actualizado correctamente.")
             return redirect("perfil")
     elif request.method == "POST" and request.POST.get("accion") == "datos":
+        correo_anterior = request.user.email
         form_datos = DatosCuentaForm(request.POST, instance=request.user)
         form_avatar = PerfilForm(instance=perfil_usuario)
         if form_datos.is_valid():
-            form_datos.save()
+            usuario = form_datos.save()
+            if usuario.email.lower() != (correo_anterior or "").lower():
+                _registrar_y_avisar_cambio_correo(usuario, correo_anterior, request.user)
             messages.success(request, "Correo actualizado correctamente.")
             return redirect("perfil")
     else:
@@ -244,12 +345,45 @@ def perfil(request):
 
 
 class CambiarClaveView(PasswordChangeView):
-    """Cambio de contraseña del usuario autenticado, con el mismo estilo
-    Bootstrap del resto del sistema."""
+    """Cambio de contraseña; avisa por correo y queda en el historial."""
 
     form_class = CambiarClaveForm
     template_name = "usuarios/cambiar_clave.html"
     success_url = reverse_lazy("cambiar_clave_hecho")
+
+    def form_valid(self, form):
+        respuesta = super().form_valid(form)
+        self._registrar_y_notificar_cambio()
+        return respuesta
+
+    def _registrar_y_notificar_cambio(self):
+        from registros.models import HistorialCambio  # import local: evita acoplar usuarios <-> registros a nivel de módulo
+
+        usuario = self.request.user
+        HistorialCambio.objects.create(
+            modelo="User",
+            objeto_id=usuario.pk,
+            objeto_descripcion=str(usuario),
+            accion="edicion",
+            campo="password",
+            valor_anterior="",
+            valor_nuevo="(cambiada por el usuario)",
+            usuario=usuario,
+        )
+        if usuario.email:
+            send_mail(
+                subject="Tu contraseña fue cambiada - ST&S Auditores",
+                message=(
+                    f"Hola {usuario.first_name or usuario.username},\n\n"
+                    "Tu contraseña del sistema de apoyo a la auditoría acaba de "
+                    "cambiar. Si fuiste tú, no hace falta que hagas nada más.\n\n"
+                    "Si NO fuiste tú quien la cambió, contacta de inmediato al "
+                    "administrador del sistema."
+                ),
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                recipient_list=[usuario.email],
+                fail_silently=True,
+            )
 
 
 @login_required
@@ -263,13 +397,8 @@ def _rol_de(usuario):
 
 @rol_requerido("Administrador")
 def usuarios_lista(request):
-    """Panel de gestión de usuarios, dentro de la propia app (no en
-    /admin/ de Django), para que la Socia Principal pueda dar de alta
-    o editar cuentas sin depender del panel técnico."""
-    # Se excluye la propia cuenta y a cualquier superusuario: el
-    # superusuario es la cuenta técnica de administración de Django
-    # (por encima de los roles de negocio), no un "Auditor" ni
-    # "Administrador" que la Socia Principal deba gestionar aquí.
+    """Gestión de usuarios para el rol Administrador."""
+    # Se excluyen la propia cuenta y los superusuarios.
     usuarios_qs = (
         User.objects.exclude(pk=request.user.pk)
         .exclude(is_superuser=True)

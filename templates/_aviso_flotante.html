@@ -1,0 +1,9 @@
+<div class="aviso-flotante {{ clase }}" role="{% if clase == 'error' %}alert{% else %}status{% endif %}">
+    <span class="aviso-icono"><i class="bi {{ icono }}"></i></span>
+    <div>
+        <div class="aviso-titulo">{{ titulo }}</div>
+        <div class="aviso-texto">{{ message }}</div>
+    </div>
+    <button type="button" class="btn-close" aria-label="Cerrar"></button>
+    <span class="aviso-barra" style="animation-duration: {{ duracion }}ms;"></span>
+</div>

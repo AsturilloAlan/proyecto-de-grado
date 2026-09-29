@@ -49,8 +49,17 @@ Luego abre `http://127.0.0.1:8000/` e inicia sesión con el usuario creado en el
 
 ## Estado actual
 
-- [x] Esqueleto del proyecto (Iteración 1, en curso)
-- [x] Autenticación de usuarios (login/logout)
-- [ ] Carga y validación de registros contables
-- [ ] Detección de anomalías (Isolation Forest)
-- [ ] Reportes y visualización
+- [x] Autenticación con roles, bloqueo por intentos y verificación en dos pasos por correo
+- [x] Gestión de empresas clientes y gestiones, con historial de cambios
+- [x] Carga y validación de registros contables (Excel, CSV y PDF del Libro Diario)
+- [x] Revisión de avisos por el auditor (válido u observado) y reporte de observaciones
+- [x] Prototipo de variables y de los tres algoritmos (`analisis/prototipo_modelos.py`), fuera del sistema web
+- [ ] Evaluación y elección del algoritmo
+- [ ] Integración del modelo en el sistema web
+- [ ] Visualización y exportación de resultados del análisis
+
+## Comandos útiles
+
+- `python manage.py test usuarios registros`: corre las pruebas automatizadas.
+- `python manage.py revisar_base_datos`: busca tablas o migraciones que ya no corresponden al código (solo informa).
+- `python manage.py borrar_datos_prueba`: borra cargas, empresas y gestiones de prueba sin tocar usuarios (pide `--confirmar`).

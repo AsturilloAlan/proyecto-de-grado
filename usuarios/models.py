@@ -1,14 +1,7 @@
+"""Perfil de usuario: datos adicionales que Django no guarda en su modelo `User` por
+defecto (aquí, la foto de perfil/avatar).
 """
-Perfil de usuario: datos adicionales que Django no guarda en su modelo
-`User` por defecto (aquí, la foto de perfil/avatar).
-
-Se modela como una tabla aparte (relación 1 a 1 con `User`) en vez de
-extender directamente el modelo de usuario de Django, para no tocar el
-sistema de autenticación ya construido (RF-07) — cumple con no repetir
-datos: el usuario, contraseña, permisos y grupos siguen viviendo solo en
-`auth_user`.
-"""
-import random
+import secrets
 from datetime import timedelta
 
 from django.conf import settings
@@ -63,11 +56,10 @@ MAXIMO_INTENTOS_CODIGO = 5
 
 
 class CodigoVerificacion(models.Model):
-    """Código de un solo uso para la verificación en dos pasos (2FA) al
-    iniciar sesión: tras validar usuario/contraseña, se genera un código
-    de 6 dígitos, se envía por correo, y debe ingresarse antes de
-    completar el login. Expira a los pocos minutos y se invalida tras
-    varios intentos fallidos, para no dejarlo abierto indefinidamente."""
+    """Código de un solo uso para la verificación en dos pasos (2FA) al iniciar
+    sesión: tras validar usuario/contraseña, se genera un código de 6 dígitos, se
+    envía por correo, y debe ingresarse antes de completar el login.
+    """
 
     usuario = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -97,5 +89,7 @@ class CodigoVerificacion(models.Model):
     def generar_para(cls, usuario):
         """Invalida códigos anteriores no usados del usuario y crea uno nuevo."""
         cls.objects.filter(usuario=usuario, usado=False).update(usado=True)
-        codigo = f"{random.randint(0, 999999):06d}"
+        # `secrets` (generador criptográfico) y no `random`, que no está
+        # pensado para producir secretos.
+        codigo = f"{secrets.randbelow(1_000_000):06d}"
         return cls.objects.create(usuario=usuario, codigo=codigo)

@@ -11,13 +11,14 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 load_dotenv(BASE_DIR / ".env")
 
-# ADVERTENCIA DE SEGURIDAD: esta clave es solo para desarrollo.
-# Antes de desplegar en producción, moverla a una variable de entorno.
-SECRET_KEY = "django-insecure-dev-key-cambiar-en-produccion"
+# Clave, modo depuración y hosts se leen del entorno (.env, ver .env.example).
+SECRET_KEY = os.environ.get("SECRET_KEY", "django-insecure-dev-key-cambiar-en-produccion")
 
-DEBUG = True
+DEBUG = os.environ.get("DEBUG", "True") == "True"
 
-ALLOWED_HOSTS = ["localhost", "127.0.0.1"]
+ALLOWED_HOSTS = [
+    h.strip() for h in os.environ.get("ALLOWED_HOSTS", "localhost,127.0.0.1").split(",") if h.strip()
+]
 
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -65,9 +66,7 @@ TEMPLATES = [
 
 WSGI_APPLICATION = "config.wsgi.application"
 
-# Base de datos: MySQL Server (instalación estándar con MySQL Workbench,
-# ya no XAMPP). Crea la base "auditoria_db" en MySQL Workbench antes de
-# correr las migraciones (ver instrucciones en el README).
+# Base de datos: MySQL Server.
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.mysql",
@@ -108,42 +107,20 @@ LOGIN_URL = "login"
 LOGIN_REDIRECT_URL = "home"
 LOGOUT_REDIRECT_URL = "login"
 
-# Seguridad de sesión: al tratarse de información contable/financiera
-# sensible (RNF-03), la sesión se cierra al cerrar el navegador y expira
-# tras 30 minutos de inactividad, en vez de quedar abierta indefinidamente.
+# La sesión expira al cerrar el navegador o tras 30 minutos de inactividad.
 SESSION_EXPIRE_AT_BROWSER_CLOSE = True
 SESSION_COOKIE_AGE = 60 * 30  # 30 minutos
 SESSION_COOKIE_HTTPONLY = True
 CSRF_COOKIE_HTTPONLY = True
 
-# Cookies solo por HTTPS: si el sitio se sirve bajo HTTPS (producción),
-# las cookies de sesión y CSRF no deben viajar nunca en texto plano por
-# HTTP, porque alguien en la misma red podría leerlas. En desarrollo
-# local se sigue usando HTTP (http://127.0.0.1:8000), así que esto se
-# activa con una variable de entorno (USAR_HTTPS=True en el .env) en vez
-# de forzarlo siempre — si se forzara y no hubiera HTTPS real, el
-# navegador directamente descartaría las cookies y nadie podría loguearse.
+# Cookies seguras solo si el sitio se sirve por HTTPS (USAR_HTTPS=True).
 USAR_HTTPS = os.environ.get("USAR_HTTPS", "False") == "True"
 SESSION_COOKIE_SECURE = USAR_HTTPS
 CSRF_COOKIE_SECURE = USAR_HTTPS
-# SameSite=Lax: la cookie no se envía en peticiones disparadas desde un
-# sitio externo (ej. un <img> o un formulario en otra página apuntando a
-# este sistema), lo que agrega una capa extra contra CSRF además del
-# token de CSRF que ya usa Django.
 SESSION_COOKIE_SAMESITE = "Lax"
 CSRF_COOKIE_SAMESITE = "Lax"
 
-# Envío de correo (RNF-03: verificación en dos pasos / 2FA por correo al
-# iniciar sesión). Usa variables de entorno para no dejar la contraseña
-# de la cuenta de correo escrita en el código. Para configurarlo:
-#   1. Crea (o usa) una cuenta de Gmail para el sistema.
-#   2. Activa la verificación en dos pasos de esa cuenta de Google.
-#   3. Genera una "contraseña de aplicación" (myaccount.google.com/apppasswords).
-#   4. Define en tu máquina las variables de entorno EMAIL_HOST_USER y
-#      EMAIL_HOST_PASSWORD con esos datos (nunca las escribas aquí).
-# Si no se configuran, EMAIL_BACKEND cae a la consola (los códigos se
-# imprimen en la terminal donde corre `runserver`) para poder probar el
-# flujo de 2FA sin depender de un correo real.
+# Envío de correo.
 if os.environ.get("EMAIL_HOST_USER") and os.environ.get("EMAIL_HOST_PASSWORD"):
     EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
 else:
@@ -158,11 +135,7 @@ DEFAULT_FROM_EMAIL = os.environ.get(
     "DEFAULT_FROM_EMAIL", EMAIL_HOST_USER or "sistema@sts-auditores.local"
 )
 
-# Caché en memoria del proceso: se usa para el bloqueo temporal por
-# intentos fallidos de login (RNF-03) y para los códigos de verificación
-# 2FA. Alcanza para el volumen de esta firma (2 usuarias); en un
-# despliegue con varios procesos/servidores convendría cambiar a un
-# backend compartido (ej. Redis).
+# Caché en memoria: bloqueo de login. Con varios procesos conviene Redis.
 CACHES = {
     "default": {
         "BACKEND": "django.core.cache.backends.locmem.LocMemCache",

@@ -44,6 +44,12 @@
                         {{ form_datos.email }}
                         {% for error in form_datos.email.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
                     </div>
+                    <div class="mb-3">
+                        <label for="{{ form_datos.clave_actual.id_for_label }}" class="form-label">{{ form_datos.clave_actual.label }}</label>
+                        {{ form_datos.clave_actual }}
+                        <div class="form-text">{{ form_datos.clave_actual.help_text }}</div>
+                        {% for error in form_datos.clave_actual.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+                    </div>
                     <button class="btn btn-guindo" type="submit">
                         <i class="bi bi-check-lg"></i> Guardar correo
                     </button>

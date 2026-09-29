@@ -1,0 +1,225 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Reporte de observaciones · Carga #{{ carga.id }}{% endblock %}
+{% block content %}
+    <style>
+        /* Paleta del reporte por tema; al imprimir siempre se usa la clara. */
+        .reporte {
+            --rep-tinta: var(--guindo-oscuro);
+            --rep-acento: var(--guindo);
+            --rep-suave: rgba(110,27,63,.05);
+            --rep-borde: rgba(110,27,63,.16);
+            --rep-secundario: #7a6f76;
+            --rep-cabecera: var(--guindo-oscuro);
+            --rep-cebra: rgba(110,27,63,.035);
+            --rep-firma: #333;
+        }
+        [data-bs-theme="dark"] .reporte {
+            --rep-tinta: #f1e3ea;
+            --rep-acento: #e7b8cd;
+            --rep-suave: rgba(231,184,205,.06);
+            --rep-borde: rgba(231,184,205,.18);
+            --rep-secundario: #b9adc0;
+            --rep-cabecera: #5a1d38;
+            --rep-cebra: rgba(231,184,205,.04);
+            --rep-firma: #b9adc0;
+        }
+
+        .reporte-membrete {
+            display: flex; align-items: center; justify-content: space-between; gap: 1.5rem;
+            padding-bottom: 1rem; margin-bottom: 1.5rem;
+            border-bottom: 3px solid var(--rep-acento);
+        }
+        .reporte-logo { position: relative; width: 150px; height: 52px; flex-shrink: 0; }
+        .reporte-logo img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; object-position: left center; }
+        .reporte-membrete .razon-social {
+            font-family: Georgia, "Times New Roman", serif; font-weight: 700; font-size: 1.05rem;
+            color: var(--rep-tinta); letter-spacing: .02em;
+        }
+        .reporte-membrete .lema { font-size: .75rem; color: var(--rep-secundario); letter-spacing: .05em; text-transform: uppercase; }
+        .reporte-membrete .encabezado-derecha { text-align: end; }
+        .reporte-membrete .etiqueta-documento {
+            display: inline-block; padding: .2rem .65rem; border-radius: 999px;
+            border: 1px solid var(--rep-borde); color: var(--rep-tinta);
+            font-size: .72rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+        }
+        .reporte-titulo { color: var(--rep-tinta); font-family: Georgia, "Times New Roman", serif; font-weight: 700; }
+        .reporte-intro { color: var(--rep-secundario); max-width: 70ch; }
+
+        .reporte-datos {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem 1.5rem;
+            margin: 0 0 1.75rem; padding: 1.1rem 1.35rem;
+            background: var(--rep-suave); border: 1px solid var(--rep-borde); border-radius: .75rem;
+        }
+        .reporte-datos dt {
+            font-size: .7rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+            color: var(--rep-secundario); margin-bottom: .15rem;
+        }
+        .reporte-datos dd { margin: 0; color: var(--bs-body-color); }
+        .reporte-datos .dato-destacado { font-size: 1.5rem; font-weight: 700; color: var(--rep-acento); line-height: 1.1; }
+
+        .reporte-tabla { border-color: var(--rep-borde); }
+        .reporte-tabla thead th {
+            background: var(--rep-cabecera); color: #fff !important; border-color: var(--rep-cabecera);
+            font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; white-space: nowrap;
+        }
+        .reporte-tabla td { border-color: var(--rep-borde); vertical-align: top; }
+        .reporte-tabla tbody tr:nth-child(even) td { background: var(--rep-cebra); }
+
+        .firma-bloque { margin-top: 4.5rem; break-inside: avoid; }
+        .firma-linea { border-top: 1px solid var(--rep-firma); margin-top: 3.5rem; padding-top: .4rem; width: 85%; }
+        .firma-linea .cargo { font-size: .8rem; color: var(--rep-secundario); }
+        .reporte-pie {
+            margin-top: 3rem; padding-top: .75rem; border-top: 1px solid var(--rep-borde);
+            font-size: .75rem; color: var(--rep-secundario); text-align: center;
+        }
+
+        @media print {
+            @page { margin: 14mm 12mm; }
+            .no-print, .navbar-guindo, .footer-app { display: none !important; }
+            html, body, main.container { background: #fff !important; }
+            * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            .card-principal {
+                background: #fff !important; box-shadow: none !important; border: none !important;
+                backdrop-filter: none !important; animation: none !important;
+            }
+            .card-principal > .card-body { padding: 0 !important; }
+            .reporte, [data-bs-theme="dark"] .reporte {
+                --rep-tinta: #4A1129; --rep-acento: #6E1B3F; --rep-suave: #f8f2f5;
+                --rep-borde: #d9c9d1; --rep-secundario: #555; --rep-cabecera: #4A1129;
+                --rep-cebra: #faf6f8; --rep-firma: #333;
+                color: #000;
+            }
+            .reporte .reporte-datos dd, .reporte td { color: #000 !important; }
+            .reporte .logo-tema-claro { opacity: 1 !important; }
+            .reporte .logo-tema-oscuro { opacity: 0 !important; }
+            .reporte .alert { background: #fff !important; color: #000 !important; }
+            .reporte-tabla thead { display: table-header-group; }
+            .reporte-tabla tr { break-inside: avoid; }
+        }
+    </style>
+
+    <nav aria-label="breadcrumb" class="no-print">
+        <ol class="breadcrumb small mb-3">
+            <li class="breadcrumb-item"><a href="{% url 'home' %}"><i class="bi bi-house"></i> Inicio</a></li>
+            <li class="breadcrumb-item"><a href="{% url 'registros:detalle_carga' carga.id %}">Carga #{{ carga.id }}</a></li>
+            <li class="breadcrumb-item active" aria-current="page">Reporte de observaciones</li>
+        </ol>
+    </nav>
+
+    <div class="d-flex justify-content-end no-print mb-3">
+        <button type="button" class="btn btn-sm btn-guindo" onclick="window.print()">
+            <i class="bi bi-printer"></i> Imprimir / guardar como PDF
+        </button>
+    </div>
+
+    <article class="reporte">
+    <div class="reporte-membrete">
+        <div class="d-flex align-items-center gap-3">
+            <span class="reporte-logo">
+                <img src="{% static 'img/logo-sts-claro.png' %}" alt="ST&amp;S Auditores y Consultores" class="logo-tema-claro">
+                <img src="{% static 'img/logo-sts-oscuro.png' %}" alt="" class="logo-tema-oscuro">
+            </span>
+            <div>
+                <div class="razon-social">ST&amp;S AUDITORES Y CONSULTORES S.R.L.</div>
+                <div class="lema">Auditoría externa e informática forense</div>
+            </div>
+        </div>
+        <div class="encabezado-derecha">
+            <span class="etiqueta-documento">Papel de trabajo</span>
+            <div class="small mt-1" style="color: var(--rep-secundario);">Carga N.º {{ carga.id }}</div>
+        </div>
+    </div>
+
+    {% if carga.estado == 'anulada' %}
+        <div class="alert alert-dark">
+            <strong>CARGA ANULADA.</strong> Este reporte corresponde a una carga anulada el
+            {{ carga.fecha_anulacion|date:"d/m/Y" }} por {{ carga.anulado_por.username }}.
+            Motivo: {{ carga.motivo_anulacion }}. No tiene validez como papel de trabajo.
+        </div>
+    {% elif avisos_pendientes %}
+        <div class="alert alert-warning">
+            <strong>Revisión en curso.</strong> Quedan {{ avisos_pendientes }} de {{ avisos_total }}
+            avisos sin revisar, por lo que este reporte es un borrador y puede cambiar.
+        </div>
+    {% endif %}
+
+    <h1 class="reporte-titulo h3">Reporte de transacciones observadas</h1>
+    <p class="reporte-intro mb-4">
+        Este documento detalla las transacciones que, tras la revisión del auditor, quedaron
+        clasificadas como <strong>observadas</strong>, es decir, como hallazgos confirmados. No se
+        incluyen los avisos que el auditor descartó por considerarlos falsos positivos ("válido").
+    </p>
+
+    <dl class="reporte-datos">
+        <div><dt>Empresa auditada</dt><dd>{{ carga.empresa }}</dd></div>
+        <div><dt>Gestión</dt><dd>{{ carga.gestion }}</dd></div>
+        <div><dt>Origen de los datos</dt><dd>{{ carga.get_formato_detectado_display|default:"Sin dato" }}</dd></div>
+        <div><dt>Reporte generado</dt><dd>{{ fecha_generacion|date:"d/m/Y H:i" }} por {{ generado_por.username }}</dd></div>
+        <div><dt>Total de observaciones</dt><dd class="dato-destacado">{{ filas_reporte|length }}</dd></div>
+        <div>
+            <dt>Cobertura de la revisión</dt>
+            <dd>{{ avisos_total }} avisos generados, {{ avisos_pendientes }} pendientes. Importación {{ carga.estado_importacion_display|lower }}, revisión {{ carga.estado_revision_carga_display|lower }}.</dd>
+        </div>
+    </dl>
+
+    {% if filas_reporte %}
+        <div class="table-responsive">
+            <table class="table table-sm table-bordered align-middle reporte-tabla">
+                <thead>
+                    <tr>
+                        <th>Fila</th>
+                        <th>Comprobante</th>
+                        <th>Cuenta</th>
+                        <th>Grupo</th>
+                        <th>Descripción del hallazgo</th>
+                        <th>Justificación del auditor</th>
+                        <th>Revisado por</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in filas_reporte %}
+                    <tr class="reporte-fila-hallazgo">
+                        <td class="text-nowrap">{{ item.observacion.fila }}</td>
+                        <td class="text-nowrap">{{ item.registro.numero_comprobante|default:"Sin dato" }}</td>
+                        <td>{% if item.registro %}<span class="fw-semibold">{{ item.registro.cuenta.codigo }}</span><br>{{ item.registro.cuenta.nombre }}{% else %}Sin dato{% endif %}</td>
+                        <td class="text-nowrap">{% if item.registro %}{{ item.registro.cuenta.get_tipo_display }}{% else %}Sin dato{% endif %}</td>
+                        <td>{{ item.observacion.descripcion }}</td>
+                        <td>{{ item.observacion.comentario_revision }}</td>
+                        <td class="text-nowrap">
+                            {{ item.observacion.revisado_por.username }}<br>
+                            <span class="small" style="color: var(--rep-secundario);">{{ item.observacion.fecha_revision|date:"d/m/Y H:i" }}</span>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% else %}
+        <div class="alert alert-info">
+            <i class="bi bi-info-circle-fill"></i> Todavía no hay transacciones marcadas como "observado" en esta carga.
+            {% if avisos_pendientes %}Esto no significa que la revisión haya terminado: quedan avisos pendientes.{% endif %}
+        </div>
+    {% endif %}
+
+    <div class="row firma-bloque">
+        <div class="col-md-6">
+            <div class="firma-linea">
+                Firma del Auditor
+                <div class="cargo">ST&amp;S Auditores y Consultores S.R.L.</div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="firma-linea">
+                Firma del Representante Legal / Contador de la empresa
+                <div class="cargo">{{ carga.empresa }}</div>
+            </div>
+        </div>
+    </div>
+
+    <p class="reporte-pie">
+        Documento generado automáticamente por el sistema de apoyo a la auditoría externa de
+        ST&amp;S Auditores y Consultores S.R.L. Uso interno, sujeto a revisión profesional.
+    </p>
+    </article>
+{% endblock %}

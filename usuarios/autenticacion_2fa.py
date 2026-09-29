@@ -1,22 +1,11 @@
-"""Verificación en dos pasos (2FA) por correo, al iniciar sesión.
+"""Verificación en dos pasos (2FA) por correo, al iniciar sesión."""
+import hmac
 
-Flujo:
-1. El usuario ingresa usuario/contraseña en el login normal.
-2. Si son correctos, en vez de completar el login de inmediato, se
-   genera un código de 6 dígitos (`CodigoVerificacion`), se envía por
-   correo, y se guarda en la sesión el id del usuario "pendiente de
-   verificar" (`sesion_2fa_pendiente`).
-3. El usuario ingresa el código en `verificar_codigo`; si coincide, no
-   expiró y no se agotaron los intentos, recién ahí se completa el
-   login con `django.contrib.auth.login`.
-
-Este módulo concentra la lógica de generar/enviar/validar el código
-para no mezclarla con las vistas.
-"""
-from django.core.mail import send_mail
 from django.conf import settings
+from django.core.mail import send_mail
+from django.db.models import F
 
-from .models import CodigoVerificacion
+from .models import MAXIMO_INTENTOS_CODIGO, CodigoVerificacion
 
 CLAVE_SESION_USUARIO_PENDIENTE = "sesion_2fa_pendiente"
 
@@ -57,11 +46,17 @@ def validar_codigo(usuario, codigo_ingresado):
     if ultimo.bloqueado_por_intentos():
         return False, "Se agotaron los intentos para este código. Solicita uno nuevo."
 
-    if ultimo.codigo != codigo_ingresado.strip():
-        ultimo.intentos += 1
-        ultimo.save(update_fields=["intentos"])
+    if not hmac.compare_digest(ultimo.codigo.encode(), codigo_ingresado.strip().encode()):
+        # Incremento atómico en la base (F()): dos intentos simultáneos no
+        # pueden "pisarse" y perder un fallo del contador.
+        CodigoVerificacion.objects.filter(pk=ultimo.pk).update(intentos=F("intentos") + 1)
         return False, "El código ingresado no es correcto."
 
-    ultimo.usado = True
-    ultimo.save(update_fields=["usado"])
+    # Consumo atómico: solo uno de dos envíos simultáneos del mismo código
+    # puede marcarlo como usado; el otro recibe 0 filas actualizadas.
+    consumido = CodigoVerificacion.objects.filter(
+        pk=ultimo.pk, usado=False, intentos__lt=MAXIMO_INTENTOS_CODIGO
+    ).update(usado=True)
+    if not consumido:
+        return False, "El código ya no es válido. Solicita uno nuevo."
     return True, None

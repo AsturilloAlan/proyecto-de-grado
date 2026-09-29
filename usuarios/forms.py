@@ -1,10 +1,4 @@
-"""Formularios de la app usuarios.
-
-`LoginForm` extiende el `AuthenticationForm` de Django únicamente para
-aplicar las clases de Bootstrap a los campos (diseño), sin tocar la
-lógica de validación de credenciales que ya provee Django. Lo mismo hace
-`CambiarClaveForm` con `PasswordChangeForm`.
-"""
+"""Formularios de la app usuarios."""
 from django import forms
 from django.contrib.auth.forms import AuthenticationForm, PasswordChangeForm, UserCreationForm
 from django.contrib.auth.models import Group, User
@@ -13,6 +7,14 @@ from django.forms import PasswordInput, TextInput
 from .models import PerfilUsuario
 
 ROLES_DISPONIBLES = [("Auditor", "Auditor"), ("Administrador", "Administrador")]
+
+
+def _validar_email_unico(email, instancia):
+    """El correo recibe el código 2FA, por eso no puede repetirse entre cuentas."""
+    email = email.strip()
+    if email and User.objects.filter(email__iexact=email).exclude(pk=instancia.pk).exists():
+        raise forms.ValidationError("Ya existe una cuenta registrada con ese correo.")
+    return email
 
 
 class LoginForm(AuthenticationForm):
@@ -33,10 +35,14 @@ class CambiarClaveForm(PasswordChangeForm):
             campo.widget.attrs["class"] = "form-control"
 
 
+TAMANO_MAXIMO_AVATAR_MB = 5
+TAMANO_MAXIMO_AVATAR_BYTES = TAMANO_MAXIMO_AVATAR_MB * 1024 * 1024
+
+
 class PerfilForm(forms.ModelForm):
-    """Foto de perfil: subir una imagen propia, o elegir uno de los
-    avatares predefinidos (campo `avatar_preset`, seteado por JS al
-    hacer clic en una de las opciones de la galería)."""
+    """Foto de perfil: subir una imagen propia, o elegir uno de los avatares
+    predefinidos.
+    """
 
     class Meta:
         model = PerfilUsuario
@@ -47,10 +53,25 @@ class PerfilForm(forms.ModelForm):
             "avatar_preset": forms.HiddenInput(),
         }
 
+    def clean_avatar(self):
+        # Límite de tamaño de la imagen.
+        avatar = self.cleaned_data.get("avatar")
+        if avatar and hasattr(avatar, "size") and avatar.size > TAMANO_MAXIMO_AVATAR_BYTES:
+            raise forms.ValidationError(
+                f"La imagen pesa demasiado (máximo {TAMANO_MAXIMO_AVATAR_MB} MB)."
+            )
+        return avatar
+
 
 class DatosCuentaForm(forms.ModelForm):
-    """Datos básicos de la cuenta (correo) editables desde el perfil.
-    El nombre de usuario y la contraseña no se tocan aquí."""
+    """Datos básicos de la cuenta (correo) editables desde el perfil."""
+
+    clave_actual = forms.CharField(
+        label="Contraseña actual",
+        strip=False,
+        widget=forms.PasswordInput(attrs={"class": "form-control", "autocomplete": "current-password"}),
+        help_text="Necesaria para confirmar el cambio de correo.",
+    )
 
     class Meta:
         model = User
@@ -59,6 +80,19 @@ class DatosCuentaForm(forms.ModelForm):
         widgets = {
             "email": forms.EmailInput(attrs={"class": "form-control"}),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["email"].required = True
+
+    def clean_email(self):
+        return _validar_email_unico(self.cleaned_data["email"], self.instance)
+
+    def clean_clave_actual(self):
+        clave = self.cleaned_data.get("clave_actual", "")
+        if not self.instance.check_password(clave):
+            raise forms.ValidationError("La contraseña no es correcta.")
+        return clave
 
 
 class CodigoVerificacionForm(forms.Form):
@@ -81,10 +115,9 @@ class CodigoVerificacionForm(forms.Form):
 
 
 class UsuarioCrearForm(UserCreationForm):
-    """Crear una cuenta nueva desde el panel de usuarios (solo
-    Administrador), asignándole un rol de una vez. Reutiliza
-    `UserCreationForm` de Django para no reinventar la validación de
-    contraseñas (mismos validadores que ya aplican en todo el sistema)."""
+    """Crear una cuenta nueva desde el panel de usuarios (solo Administrador),
+    asignándole un rol de una vez.
+    """
 
     email = forms.EmailField(
         label="Correo electrónico",
@@ -106,6 +139,9 @@ class UsuarioCrearForm(UserCreationForm):
         for nombre_campo in ("username", "password1", "password2"):
             self.fields[nombre_campo].widget.attrs["class"] = "form-control"
 
+    def clean_email(self):
+        return _validar_email_unico(self.cleaned_data["email"], self.instance)
+
     def save(self, commit=True):
         usuario = super().save(commit=commit)
         if commit:
@@ -115,10 +151,9 @@ class UsuarioCrearForm(UserCreationForm):
 
 
 class UsuarioEditarForm(forms.ModelForm):
-    """Editar una cuenta existente desde el panel de usuarios: correo,
-    si está activa, y su rol. El nombre de usuario y la contraseña se
-    manejan aparte (username en /admin/, contraseña la cambia cada
-    quien desde su propio perfil)."""
+    """Editar una cuenta existente desde el panel de usuarios: correo, si está
+    activa, y su rol.
+    """
 
     rol = forms.ChoiceField(
         label="Rol",
@@ -134,3 +169,11 @@ class UsuarioEditarForm(forms.ModelForm):
             "email": forms.EmailInput(attrs={"class": "form-control"}),
             "is_active": forms.CheckboxInput(attrs={"class": "form-check-input"}),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Sin correo la cuenta no puede completar el 2FA al iniciar sesión.
+        self.fields["email"].required = True
+
+    def clean_email(self):
+        return _validar_email_unico(self.cleaned_data["email"], self.instance)

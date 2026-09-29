@@ -1,8 +1,5 @@
-"""
-Registro de la pista de auditoría (HistorialCambio) sobre modificaciones a
-información sensible. Se usa desde las vistas: antes de guardar una edición,
-se capturan los valores actuales; después de guardar, se comparan campo por
-campo y se registra cada diferencia.
+"""Registro de la pista de auditoría (HistorialCambio) sobre modificaciones a
+información sensible.
 """
 from .models import HistorialCambio
 
@@ -19,12 +16,9 @@ def registrar_creacion(instancia, usuario):
 
 
 def registrar_edicion(instancia, valores_anteriores, usuario, campos):
-    """Compara valores_anteriores (capturados antes de guardar) contra los
-    valores actuales de la instancia (ya guardada) y crea una fila de
-    HistorialCambio por cada campo que realmente cambió.
-
-    No crea nada si no hubo ningún cambio real (evita ruido en el
-    historial cuando el usuario guarda sin modificar nada).
+    """Compara valores_anteriores (capturados antes de guardar) contra los valores
+    actuales de la instancia (ya guardada) y crea una fila de HistorialCambio por
+    cada campo que realmente cambió.
     """
     cambios = []
     for campo in campos:

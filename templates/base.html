@@ -12,8 +12,7 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
     <script>
-        /* Aplica el tema guardado ANTES de pintar la página, para evitar
-           el parpadeo de claro→oscuro (o viceversa) al cargar. */
+        /* Aplica el tema guardado antes de pintar, sin parpadeo. */
         (function () {
             var guardado = localStorage.getItem("tema");
             var prefiereOscuro = window.matchMedia("(prefers-color-scheme: dark)").matches;
@@ -29,16 +28,12 @@
             --bs-primary: var(--guindo);
         }
         html { min-height: 100%; background: var(--lavanda-claro); overflow-x: hidden; }
-        /* Salvaguarda: si algo se desborda del ancho de pantalla en
-           celular, que no habilite scroll horizontal de toda la página. */
+        /* Sin scroll horizontal en móvil. */
         body { overflow-x: hidden; }
         body, .btn, .form-control, .form-select {
             font-family: "Plus Jakarta Sans", "Segoe UI", -apple-system, sans-serif;
         }
-        /* Logo con variante para fondo claro/oscuro (se usa donde el logo
-           queda sobre una superficie que sí cambia con el tema, como la
-           tarjeta del login — el navbar no, porque su fondo guindo es
-           siempre el mismo con cualquier tema). */
+        /* Logo con variante para fondo claro/oscuro. */
         .logo-tema-claro, .logo-tema-oscuro { transition: opacity .35s ease; }
         .logo-tema-oscuro { opacity: 0; }
         [data-bs-theme="dark"] .logo-tema-oscuro { opacity: 1; }
@@ -47,37 +42,54 @@
             .logo-tema-claro, .logo-tema-oscuro { transition: none; }
         }
 
-        /* El logo ya usa una serif clásica ("ST&S AUDITORES...") — los
-           títulos usan una serif afín (Lora) en vez de la misma sans de
-           los botones/inputs, para que se sienta parte de la misma
-           marca en vez de una tipografía de sistema genérica. */
+        /* Títulos en serif (Lora), afín al logo. */
         h1, h2, h3, h4, h5, h6, .navbar-brand, .fs-4 {
             font-family: "Lora", Georgia, "Times New Roman", serif;
             font-weight: 700;
             letter-spacing: -.01em;
         }
-        /* Scrollbar afinado, en tono guindo, en vez del gris por defecto. */
+        /* Scrollbar en tono guindo. */
         ::-webkit-scrollbar { width: 10px; height: 10px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: rgba(110,27,63,.3); border-radius: 8px; }
         ::-webkit-scrollbar-thumb:hover { background: rgba(110,27,63,.5); }
         [data-bs-theme="dark"] ::-webkit-scrollbar-thumb { background: rgba(231,184,205,.22); }
         [data-bs-theme="dark"] ::-webkit-scrollbar-thumb:hover { background: rgba(231,184,205,.4); }
-        /* En pantallas grandes, el .container de Bootstrap se queda muy
-           angosto (max 1320px) y deja franjas vacías enormes a los
-           costados. Se amplía un poco para aprovechar mejor el ancho. */
+        /* Contenedor más ancho en pantallas grandes. */
         @media (min-width: 1400px) {
             .navbar-guindo > .container, main.container { max-width: 1600px; }
         }
         html[data-bs-theme="dark"] { background: #17111a; }
         body {
             min-height: 100vh;
+            display: flex;
+            flex-direction: column;
             background:
                 radial-gradient(circle at 15% 0%, rgba(110,27,63,.08), rgba(110,27,63,.03) 25%, transparent 50%),
                 radial-gradient(circle at 85% 100%, rgba(110,27,63,.08), rgba(110,27,63,.03) 25%, transparent 50%),
                 var(--lavanda-claro);
             transition: background-color .2s ease;
         }
+        main.container { flex: 1 0 auto; }
+        .footer-app {
+            flex-shrink: 0;
+            border-top: 1px solid rgba(110,27,63,.1);
+        }
+        [data-bs-theme="dark"] .footer-app { border-top-color: rgba(255,255,255,.08); }
+        .logo-footer-caja { position: relative; height: 26px; width: 100px; }
+        .logo-footer-caja img {
+            position: absolute; inset: 0; margin: auto;
+            max-height: 26px; max-width: 100px; height: auto; width: auto;
+            object-fit: contain; opacity: .8; transition: opacity .35s ease;
+        }
+        .footer-caption {
+            font-size: .72rem;
+            text-transform: uppercase;
+            letter-spacing: .08em;
+            color: var(--guindo-oscuro);
+            opacity: .55;
+        }
+        [data-bs-theme="dark"] .footer-caption { color: #e7b8cd; opacity: .5; }
         [data-bs-theme="dark"] body {
             background:
                 radial-gradient(circle at 15% 0%, rgba(231,184,205,.05), rgba(231,184,205,.02) 25%, transparent 50%),
@@ -87,15 +99,9 @@
         [data-bs-theme="dark"] .card-principal { background: rgba(36,26,46,.75); }
         [data-bs-theme="dark"] .text-secondary { color: #b9adc0 !important; }
 
-        /* Navbar minimalista, con el mismo lenguaje en claro y oscuro:
-           fondo tipo "vidrio" en vez de la barra guindo sólida, texto en
-           el tono guindo/rosa de cada tema, y el link activo marcado con
-           una línea abajo en vez de un fondo relleno. */
+        /* Navbar translúcido; el link activo se marca con una línea. */
         .navbar-guindo {
-            /* Sin backdrop-filter a propósito: crea un contexto de
-               apilamiento nuevo en el <nav> que atrapa el menú
-               desplegable del usuario adentro, y el contenido de la
-               página termina pintándose encima (bug real, ya visto). */
+            /* Sin backdrop-filter: atraparía el menú desplegable. */
             background: rgba(255,255,255,.92);
             box-shadow: none;
             border-bottom: 1px solid rgba(110,27,63,.12);
@@ -125,12 +131,7 @@
         }
         [data-bs-theme="dark"] .navbar-guindo .nav-link.active::after { background: #e7b8cd; }
 
-        /* El menú (Inicio / Cargar registros / ...) quedaba descentrado:
-           con space-between entre 3 bloques de ancho distinto (logo,
-           menú, acciones), el del medio no cae justo al centro de la
-           barra. Se centra de verdad, superpuesto, independiente del
-           ancho de los otros dos bloques. Solo desde md, que es cuando
-           el menú deja de estar colapsado en hamburguesa. */
+        /* Menú centrado en la barra. */
         @media (min-width: 768px) {
             .navbar-guindo > .container { position: relative; }
             .navbar-guindo .navbar-collapse {
@@ -208,10 +209,7 @@
         [data-bs-theme="dark"] .text-guindo { color: #e7b8cd; }
         .form-control, .form-select { transition: border-color .15s ease, box-shadow .2s ease; }
         .form-control:focus, .form-select:focus { border-color: var(--guindo); box-shadow: 0 0 0 .25rem rgba(110,27,63,.15); }
-        /* En modo oscuro, Bootstrap pone un azul/gris genérico en los
-           inputs que no combina con la paleta guindo (se notaba feo en el
-           login y en cualquier formulario). Se homologa al tono de la
-           tarjeta, con acento guindo claro en vez de azul. */
+        /* Campos de formulario en modo oscuro. */
         [data-bs-theme="dark"] .form-control,
         [data-bs-theme="dark"] .form-select {
             background-color: rgba(255,255,255,.06);
@@ -227,17 +225,8 @@
             color: #fff;
         }
         [data-bs-theme="dark"] .input-group-text { background-color: rgba(255,255,255,.06); border-color: rgba(231,184,205,.25); color: #e7b8cd; }
-        /* OJO: no forzar color-scheme:dark en los <select> — el navegador
-           intenta pintar de oscuro el panel desplegable nativo, pero lo
-           hace de forma inconsistente (algunas opciones quedan con texto
-           invisible, como se vio en Cargar registros). El campo cerrado
-           ya se ve oscuro por el color de fondo de arriba; el panel
-           desplegable se deja con el estilo claro por defecto del
-           navegador, que sí es legible siempre. */
 
-        /* Encabezados de tabla: un tinte sutil en vez de blanco/negro
-           plano, con las etiquetas en mayúsculas pequeñas — se ve más
-           "producto" y menos hoja de cálculo. */
+        /* Encabezados de tabla. */
         .table > thead > tr > th {
             background: rgba(110,27,63,.05);
             text-transform: uppercase;
@@ -264,10 +253,7 @@
         .dropdown-item { transition: background-color .15s ease, padding-left .15s ease; border-radius: .4rem; }
         .dropdown-item:hover { padding-left: 1.1rem; }
 
-        /* Breadcrumb: ruta jerárquica (Inicio > Módulo > Página actual) para
-           pantallas a las que se puede llegar desde más de un lugar, donde
-           un solo botón "volver" no alcanza para representar bien de dónde
-           viene el usuario. */
+        /* Breadcrumb. */
         .breadcrumb { background: transparent; padding: 0; margin-bottom: 0; }
         .breadcrumb-item + .breadcrumb-item::before { color: var(--bs-secondary-color); }
         .breadcrumb-item.active { color: var(--bs-secondary-color); }
@@ -281,8 +267,7 @@
         .alert { animation: aparecer-alerta .2s ease; }
         @keyframes aparecer-alerta { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
 
-        /* La tarjeta principal entra con un leve deslizamiento: da esa
-           sensación de "ágil" en vez de aparecer de golpe. */
+        /* Entrada de la tarjeta principal. */
         @keyframes entrar-tarjeta { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
         .card-principal { animation: entrar-tarjeta .35s cubic-bezier(.2,.8,.3,1) both; }
 
@@ -302,8 +287,7 @@
             .card-principal, .table tbody tr { animation: none; }
         }
 
-        /* Tarjetas de estadística (dashboard): se sienten "vivas" al pasar
-           el mouse, no solo un recuadro estático. */
+        /* Tarjetas de estadística. */
         .tarjeta-stat {
             transition: transform .2s ease, box-shadow .2s ease, border-color .2s ease;
         }
@@ -314,8 +298,7 @@
         }
         [data-bs-theme="dark"] .tarjeta-stat:hover { box-shadow: 0 10px 24px rgba(0,0,0,.35); }
 
-        /* Estado vacío reutilizable: icono + mensaje, en vez de un simple
-           párrafo gris que se siente a medio hacer. */
+        /* Estado vacío. */
         .estado-vacio { text-align: center; padding: 2.75rem 1rem; }
         .estado-vacio .estado-vacio-icono {
             width: 64px; height: 64px; margin: 0 auto 1rem;
@@ -329,8 +312,7 @@
         .estado-vacio h3 { font-size: 1.05rem; margin-bottom: .35rem; }
         .estado-vacio p { max-width: 420px; margin: 0 auto; }
 
-        /* Spinner inline para botones que quedan "procesando" (da feedback
-           inmediato en cargas de archivo, que pueden tardar). */
+        /* Spinner inline para botones que quedan "procesando". */
         .btn.cargando { pointer-events: none; opacity: .85; }
         .spinner-inline {
             width: .9rem; height: .9rem; display: inline-block;
@@ -341,10 +323,7 @@
         .btn-outline-guindo .spinner-inline { border-color: rgba(110,27,63,.35); border-top-color: var(--guindo); }
         @keyframes girar-spinner { to { transform: rotate(360deg); } }
 
-        /* Zona de arrastrar-y-soltar para subir archivos: reemplaza el
-           <input type="file"> por defecto (feo, distinto en cada
-           navegador) por algo más "producto". El input real sigue ahí,
-           solo se oculta de forma accesible (no display:none). */
+        /* Zona para arrastrar y soltar archivos. */
         .dropzone-archivo {
             display: flex; flex-direction: column; align-items: center; justify-content: center;
             text-align: center; gap: .35rem;
@@ -367,14 +346,12 @@
             position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
             overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0;
         }
-        /* Ícono de la nube "respira" un poco: invita a interactuar en vez
-           de quedarse estático. */
+        /* Animación del ícono de subida. */
         @keyframes flotar-icono { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
         .dropzone-icono-flotante { display: inline-block; animation: flotar-icono 2.4s ease-in-out infinite; }
         @media (prefers-reduced-motion: reduce) { .dropzone-icono-flotante { animation: none; } }
 
-        /* Ficha del archivo ya elegido (reemplaza el texto de "arrastrá tu
-           archivo" una vez que hay uno seleccionado). */
+        /* Ficha del archivo ya elegido. */
         .dropzone-archivo-icono {
             width: 42px; height: 42px; border-radius: .6rem;
             background: rgba(110,27,63,.1); color: var(--guindo-oscuro);
@@ -383,9 +360,7 @@
         }
         [data-bs-theme="dark"] .dropzone-archivo-icono { background: rgba(231,184,205,.15); color: #e7b8cd; }
 
-        /* Barra de progreso indeterminada: acompaña al botón mientras
-           "cargando" está activo, puramente decorativa (no mide el avance
-           real), pero refuerza la sensación de rapidez/feedback. */
+        /* Barra de progreso indeterminada (decorativa). */
         .barra-progreso-indeterminada { display: none; height: 4px; border-radius: 4px; overflow: hidden; background: rgba(110,27,63,.12); margin-top: .75rem; position: relative; }
         [data-bs-theme="dark"] .barra-progreso-indeterminada { background: rgba(231,184,205,.15); }
         .barra-progreso-indeterminada.activa { display: block; }
@@ -397,10 +372,7 @@
         [data-bs-theme="dark"] .barra-progreso-indeterminada.activa::after { background: linear-gradient(90deg, transparent, #e7b8cd, transparent); }
         @keyframes deslizar-progreso { from { left: -40%; } to { left: 100%; } }
 
-        /* Ficha de ícono para prefijos de input (Empresa/Gestión, buscador,
-           etc.): un tamaño fijo con fondo tintado, para que dos íconos
-           distintos siempre se vean parejos entre sí, sin depender de
-           cuánta tinta tenga cada glifo. */
+        /* Ícono de prefijo de input con tamaño fijo. */
         .input-group-text-icono {
             width: 2.6rem;
             display: flex; align-items: center; justify-content: center;
@@ -414,9 +386,7 @@
             color: #e7b8cd;
         }
 
-        /* Alerta "de marca" (guindo), para avisos que no son error/éxito
-           genéricos de Bootstrap y quedaban con el amarillo de fábrica,
-           fuera de la paleta. */
+        /* Alerta con colores de la marca. */
         .alert-guindo-suave {
             background: rgba(110,27,63,.06);
             border: 1px solid rgba(110,27,63,.18);
@@ -428,12 +398,7 @@
             color: #e7b8cd;
         }
 
-        /* Dropdown personalizado: reemplaza el <select> nativo en
-           cualquier página, cuyo panel desplegable no se puede controlar
-           del todo por CSS (se veía mal en modo oscuro: fondo blanco fijo
-           del sistema operativo/navegador, sin importar el tema del
-           sitio). El <select> real sigue ahí, oculto, para que el
-           formulario funcione igual; el botón y la lista son propios. */
+        /* Selector personalizado sobre el <select> nativo. */
         .select-oculto {
             position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
             overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0;
@@ -465,17 +430,188 @@
         [data-bs-theme="dark"] .selector-opcion:hover { background: rgba(255,255,255,.06); }
         .selector-opcion-activa { background: rgba(110,27,63,.12); font-weight: 600; color: var(--guindo-oscuro); }
         [data-bs-theme="dark"] .selector-opcion-activa { background: rgba(231,184,205,.15); color: #e7b8cd; }
+
+        /* --- Retroalimentación de formularios, sitewide --- */
+
+        /* Asterisco en campos obligatorios. */
+        label.form-label:has(+ input[required])::after,
+        label.form-label:has(+ select[required])::after,
+        label.form-label:has(+ textarea[required])::after,
+        label.form-label:has(+ .selector-personalizado select[required])::after,
+        label.form-label:has(+ .input-group input[required])::after {
+            content: " *";
+            color: var(--bs-danger);
+        }
+
+        /* Resalta el campo que tiene un error de validación. */
+        .form-control:has(~ .text-danger.small.mt-1),
+        .form-select:has(~ .text-danger.small.mt-1),
+        .selector-personalizado:has(~ .text-danger.small.mt-1) .selector-boton,
+        .input-group:has(~ .text-danger.small.mt-1) .form-control {
+            border-color: var(--bs-danger) !important;
+            animation: campo-error-sacudida .4s ease-in-out both;
+        }
+        .form-control:has(~ .text-danger.small.mt-1):focus,
+        .form-select:has(~ .text-danger.small.mt-1):focus,
+        .input-group:has(~ .text-danger.small.mt-1) .form-control:focus {
+            box-shadow: 0 0 0 .25rem rgba(220,53,69,.15);
+        }
+        @keyframes campo-error-sacudida {
+            10%, 90% { transform: translateX(-1px); }
+            20%, 80% { transform: translateX(2px); }
+            30%, 50%, 70% { transform: translateX(-3px); }
+            40%, 60% { transform: translateX(3px); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .form-control:has(~ .text-danger.small.mt-1),
+            .form-select:has(~ .text-danger.small.mt-1),
+            .selector-personalizado:has(~ .text-danger.small.mt-1) .selector-boton,
+            .input-group:has(~ .text-danger.small.mt-1) .form-control {
+                animation: none;
+            }
+        }
+
+        /* Controles nativos con el color de marca. */
+        input[type="checkbox"], input[type="radio"], input[type="range"] {
+            accent-color: var(--guindo);
+        }
+        [data-bs-theme="dark"] input[type="checkbox"],
+        [data-bs-theme="dark"] input[type="radio"],
+        [data-bs-theme="dark"] input[type="range"] {
+            accent-color: #e7b8cd;
+        }
+
+        /* Resalte temporal de la fila buscada. */
+        .table tbody tr.fila-resaltada { animation: fila-resaltada-destello 2.5s ease-out; }
+        @keyframes fila-resaltada-destello {
+            0% { background-color: rgba(110,27,63,.35); }
+            100% { background-color: transparent; }
+        }
+        [data-bs-theme="dark"] .table tbody tr.fila-resaltada { animation-name: fila-resaltada-destello-oscuro; }
+        @keyframes fila-resaltada-destello-oscuro {
+            0% { background-color: rgba(231,184,205,.3); }
+            100% { background-color: transparent; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .table tbody tr.fila-resaltada { animation: none; background-color: rgba(110,27,63,.18); }
+        }
+
+        /* Botón para mostrar u ocultar contraseña. */
+        .boton-mostrar-clave-auto i.girar { animation: girar-icono-clave .3s ease; }
+        @keyframes girar-icono-clave { from { transform: rotate(0deg) scale(.7); opacity: .4; } to { transform: rotate(360deg) scale(1); opacity: 1; } }
+
+        /* Alertas en línea: fondo suave con acento lateral. */
+        .alert {
+            --alerta-acento: var(--bs-secondary);
+            border: 1px solid color-mix(in srgb, var(--alerta-acento) 22%, transparent);
+            border-left: 4px solid var(--alerta-acento);
+            border-radius: .75rem;
+            background: color-mix(in srgb, var(--alerta-acento) 8%, var(--bs-body-bg));
+            color: var(--bs-body-color);
+            padding: .85rem 1.1rem;
+            box-shadow: 0 1px 2px rgba(0,0,0,.03);
+        }
+        .alert > .bi:first-child { color: var(--alerta-acento); margin-right: .35rem; }
+        .alert-success { --alerta-acento: #198754; }
+        .alert-danger  { --alerta-acento: #dc3545; }
+        .alert-warning { --alerta-acento: #d99a06; }
+        .alert-info    { --alerta-acento: #0d8aa8; }
+        .alert-dark    { --alerta-acento: #5b5463; }
+        .alert-guindo-suave { --alerta-acento: var(--guindo); }
+        [data-bs-theme="dark"] .alert { background: color-mix(in srgb, var(--alerta-acento) 14%, #1e1624); }
+        [data-bs-theme="dark"] .alert-success { --alerta-acento: #4ec48a; }
+        [data-bs-theme="dark"] .alert-danger  { --alerta-acento: #ef7d88; }
+        [data-bs-theme="dark"] .alert-warning { --alerta-acento: #f0c14b; }
+        [data-bs-theme="dark"] .alert-info    { --alerta-acento: #5cc7df; }
+        [data-bs-theme="dark"] .alert-dark    { --alerta-acento: #a89fb1; }
+        [data-bs-theme="dark"] .alert-guindo-suave { --alerta-acento: #e7b8cd; }
+        .alert a { color: inherit; font-weight: 600; }
+
+        /* Estado de una carga: importación y revisión. */
+        .estado-carga { display: inline-flex; flex-wrap: wrap; gap: .35rem; vertical-align: middle; }
+        .estado-carga-compacto { flex-direction: column; align-items: flex-start; gap: .25rem; }
+        .chip-estado {
+            --chip: #6c757d;
+            display: inline-flex; align-items: center; gap: .35rem;
+            padding: .22rem .6rem; border-radius: 999px;
+            font-size: .78rem; font-weight: 600; line-height: 1.3; white-space: nowrap;
+            color: color-mix(in srgb, var(--chip) 85%, #000);
+            background: color-mix(in srgb, var(--chip) 12%, transparent);
+            border: 1px solid color-mix(in srgb, var(--chip) 30%, transparent);
+        }
+        .chip-estado .chip-etiqueta {
+            font-weight: 500; opacity: .75; padding-right: .35rem; margin-right: .05rem;
+            border-right: 1px solid color-mix(in srgb, var(--chip) 35%, transparent);
+        }
+        .chip-completa, .chip-validada { --chip: #198754; }
+        .chip-parcial, .chip-en_revision { --chip: #c27c00; }
+        .chip-fallida { --chip: #dc3545; }
+        .chip-por_confirmar { --chip: var(--guindo); }
+        .chip-anulada, .chip-procesando { --chip: #5b5463; }
+        [data-bs-theme="dark"] .chip-estado { color: color-mix(in srgb, var(--chip) 60%, #fff); }
+        [data-bs-theme="dark"] .chip-completa, [data-bs-theme="dark"] .chip-validada { --chip: #4ec48a; }
+        [data-bs-theme="dark"] .chip-parcial, [data-bs-theme="dark"] .chip-en_revision { --chip: #f0c14b; }
+        [data-bs-theme="dark"] .chip-fallida { --chip: #ef7d88; }
+        [data-bs-theme="dark"] .chip-por_confirmar { --chip: #e7b8cd; }
+        [data-bs-theme="dark"] .chip-anulada, [data-bs-theme="dark"] .chip-procesando { --chip: #a89fb1; }
+
+        /* Notificaciones flotantes (mensajes del sistema). */
+        .zona-avisos {
+            position: fixed; top: 5.25rem; right: 1.25rem; z-index: 1090;
+            display: flex; flex-direction: column; gap: .6rem;
+            width: min(380px, calc(100vw - 2rem));
+            pointer-events: none;
+        }
+        .aviso-flotante {
+            --aviso-acento: #0d8aa8;
+            pointer-events: auto;
+            position: relative; overflow: hidden;
+            display: grid; grid-template-columns: auto 1fr auto; gap: .75rem; align-items: start;
+            padding: .85rem .9rem .95rem;
+            border-radius: .9rem;
+            background: var(--bs-body-bg);
+            border: 1px solid color-mix(in srgb, var(--aviso-acento) 25%, transparent);
+            box-shadow: 0 12px 32px -8px rgba(40,10,25,.25), 0 2px 6px rgba(40,10,25,.08);
+            animation: aviso-entrar .35s cubic-bezier(.2,.9,.3,1.2) both;
+        }
+        [data-bs-theme="dark"] .aviso-flotante { background: #251b2e; box-shadow: 0 14px 34px -8px rgba(0,0,0,.6); }
+        .aviso-flotante.saliendo { animation: aviso-salir .25s ease forwards; }
+        .aviso-flotante .aviso-icono {
+            width: 34px; height: 34px; border-radius: 50%;
+            display: grid; place-items: center; font-size: 1rem;
+            color: var(--aviso-acento);
+            background: color-mix(in srgb, var(--aviso-acento) 14%, transparent);
+        }
+        .aviso-flotante .aviso-titulo { font-weight: 700; font-size: .85rem; margin-bottom: .1rem; }
+        .aviso-flotante .aviso-texto { font-size: .88rem; line-height: 1.4; color: var(--bs-secondary-color); }
+        [data-bs-theme="dark"] .aviso-flotante .aviso-texto { color: #cfc4d6; }
+        .aviso-flotante .btn-close { font-size: .6rem; margin-top: .2rem; }
+        .aviso-flotante .aviso-barra {
+            position: absolute; left: 0; bottom: 0; height: 3px; width: 100%;
+            background: var(--aviso-acento); transform-origin: left;
+            animation: aviso-tiempo linear forwards;
+        }
+        .aviso-flotante:hover .aviso-barra { animation-play-state: paused; }
+        .aviso-flotante.exito { --aviso-acento: #198754; }
+        .aviso-flotante.error { --aviso-acento: #dc3545; }
+        .aviso-flotante.advertencia { --aviso-acento: #d99a06; }
+        [data-bs-theme="dark"] .aviso-flotante.exito { --aviso-acento: #4ec48a; }
+        [data-bs-theme="dark"] .aviso-flotante.error { --aviso-acento: #ef7d88; }
+        [data-bs-theme="dark"] .aviso-flotante.advertencia { --aviso-acento: #f0c14b; }
+        [data-bs-theme="dark"] .aviso-flotante.info { --aviso-acento: #5cc7df; }
+        @keyframes aviso-entrar { from { opacity: 0; transform: translateX(24px) scale(.97); } to { opacity: 1; transform: none; } }
+        @keyframes aviso-salir { to { opacity: 0; transform: translateX(24px); } }
+        @keyframes aviso-tiempo { from { transform: scaleX(1); } to { transform: scaleX(0); } }
+        @media (max-width: 575.98px) { .zona-avisos { top: auto; bottom: 1rem; right: 1rem; } }
+        @media (prefers-reduced-motion: reduce) {
+            .aviso-flotante, .aviso-flotante.saliendo { animation: none; }
+        }
     </style>
     {% block extra_head %}{% endblock %}
 </head>
 <body>
     {% if not user.is_authenticated %}
-        <!-- Sin sesión iniciada (login, verificación de código): la barra
-             completa color guindo con el logo es redundante, porque el
-             logo ya aparece en la propia tarjeta de la página. En vez de
-             dejarlo vacío, se pone un identificador mínimo (no el logo
-             grande) y la hora del sistema — algo que se siente parte de
-             una herramienta real, no un adorno. -->
+        <!-- Encabezado mínimo para páginas sin sesión. -->
         <div class="d-flex justify-content-between align-items-center px-4 py-3">
             <div class="d-flex align-items-center gap-2">
                 <span class="rounded-circle d-inline-flex align-items-center justify-content-center flex-shrink-0"
@@ -553,6 +689,9 @@
                                 </span>
                             {% endif %}
                             <span class="d-none d-sm-inline">{{ user.username }}</span>
+                            <span class="badge rounded-pill bg-secondary-subtle text-secondary-emphasis fw-normal d-none d-md-inline">
+                                {% if es_administrador %}Administrador{% else %}Auditor{% endif %}
+                            </span>
                         </button>
                         <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="menuUsuario">
                             <li>
@@ -582,12 +721,19 @@
     <main class="container mb-5">
         {% block mensajes_globales %}
         {% if messages %}
-            {% for message in messages %}
-                <div class="alert {% if message.tags == 'error' %}alert-danger{% elif message.tags == 'success' %}alert-success{% elif message.tags == 'warning' %}alert-warning{% else %}alert-info{% endif %} alert-dismissible fade show alert-autocierre" role="alert">
-                    {{ message }}
-                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Cerrar"></button>
-                </div>
-            {% endfor %}
+            <div class="zona-avisos" aria-live="polite">
+                {% for message in messages %}
+                    {% if 'error' in message.tags %}
+                        {% with clase="error" icono="bi-x-octagon-fill" titulo="No se pudo completar" duracion=9000 %}{% include "_aviso_flotante.html" %}{% endwith %}
+                    {% elif 'warning' in message.tags %}
+                        {% with clase="advertencia" icono="bi-exclamation-triangle-fill" titulo="Atención" duracion=9000 %}{% include "_aviso_flotante.html" %}{% endwith %}
+                    {% elif 'success' in message.tags %}
+                        {% with clase="exito" icono="bi-check-circle-fill" titulo="Listo" duracion=5000 %}{% include "_aviso_flotante.html" %}{% endwith %}
+                    {% else %}
+                        {% with clase="info" icono="bi-info-circle-fill" titulo="Información" duracion=6000 %}{% include "_aviso_flotante.html" %}{% endwith %}
+                    {% endif %}
+                {% endfor %}
+            </div>
         {% endif %}
         {% endblock %}
 
@@ -604,6 +750,14 @@
             </div>
         </div>
     </main>
+
+    <footer class="footer-app text-center py-4">
+        <span class="logo-footer-caja d-inline-block mb-2">
+            <img src="{% static 'img/logo-sts-claro.png' %}" alt="ST&amp;S Auditores y Consultores" class="logo-tema-claro">
+            <img src="{% static 'img/logo-sts-oscuro.png' %}" alt="ST&amp;S Auditores y Consultores" class="logo-tema-oscuro">
+        </span>
+        <p class="footer-caption mb-0">Sistema de Auditoría &middot; &copy; {% now "Y" %}</p>
+    </footer>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
@@ -624,11 +778,7 @@
                 actualizarIcono(nuevo);
             });
 
-            // Al navegar "atrás/adelante" con el navegador, Chrome a veces
-            // restaura la página desde su caché interna (bfcache) sin
-            // volver a ejecutar el script del <head> que fija el tema
-            // guardado, dejando el tema desactualizado. Se vuelve a
-            // aplicar explícitamente cada vez que la página se muestra así.
+            // Reaplica el tema al volver con atrás/adelante (bfcache).
             window.addEventListener("pageshow", function (evento) {
                 if (evento.persisted) {
                     var guardado = localStorage.getItem("tema");
@@ -642,9 +792,7 @@
     </script>
     <script>
         (function () {
-            // Reloj del encabezado en las páginas sin sesión (login, código
-            // de verificación). Solo existe ese elemento ahí, así que en el
-            // resto de páginas esta función simplemente no hace nada.
+            // Reloj del encabezado sin sesión.
             var reloj = document.getElementById("reloj-sistema");
             if (!reloj) return;
             function actualizarReloj() {
@@ -659,9 +807,7 @@
     </script>
     <script>
         (function () {
-            // Frase rotativa del encabezado sin sesión: en vez de un texto
-            // fijo ("Sistema en línea"), va nombrando lo que el sistema
-            // realmente hace, una idea a la vez, con un fundido suave.
+            // Frase rotativa del encabezado sin sesión.
             var elemento = document.getElementById("frase-rotativa");
             if (!elemento) return;
             var frases = [
@@ -691,8 +837,7 @@
     </script>
     <script>
         (function () {
-            // Números de estadísticas (dashboard): cuentan de 0 al valor real
-            // en vez de aparecer estáticos. Se marcan con data-contar="N".
+            // Contador animado en las estadísticas (data-contar).
             document.querySelectorAll("[data-contar]").forEach(function (elemento) {
                 var final = parseInt(elemento.getAttribute("data-contar"), 10) || 0;
                 var duracion = 700;
@@ -710,10 +855,7 @@
                 window.requestAnimationFrame(paso);
             });
 
-            // Botones marcados con data-cargando-texto: al enviar el
-            // formulario muestran un spinner + texto ("Procesando...") en
-            // vez de quedarse igual mientras el usuario no sabe si pasó
-            // algo. Útil sobre todo en la carga de archivos.
+            // Spinner en botones con data-cargando-texto al enviar.
             document.querySelectorAll("form").forEach(function (formulario) {
                 formulario.addEventListener("submit", function () {
                     var boton = formulario.querySelector("[data-cargando-texto]");
@@ -721,21 +863,23 @@
                     boton.classList.add("cargando");
                     boton.innerHTML = '<span class="spinner-inline"></span> ' + boton.getAttribute("data-cargando-texto");
 
-                    // Si el formulario tiene una barra de progreso decorativa
-                    // (.barra-progreso-indeterminada), se activa junto con el
-                    // spinner del botón — no mide el avance real (eso
-                    // requeriría cambiar cómo se envía el formulario), pero
-                    // da esa sensación de "está pasando algo, ya casi".
+                    // Activa la barra de progreso decorativa, si existe.
                     var barra = formulario.querySelector(".barra-progreso-indeterminada");
                     if (barra) barra.classList.add("activa");
                 });
             });
 
-            // Todos los mensajes se cierran solos. Los de error/advertencia
-            // se quedan más tiempo (9s) para dar tiempo a leerlos con
-            // calma; los de éxito/información, menos (4.5s). Se reusa el
-            // propio componente Alert de Bootstrap, así la animación de
-            // cierre es la misma que al tocar la "×".
+            // Notificaciones flotantes: se cierran solas al terminar la barra; el hover la pausa.
+            document.querySelectorAll(".aviso-flotante").forEach(function (aviso) {
+                var cerrar = function () {
+                    aviso.classList.add("saliendo");
+                    aviso.addEventListener("animationend", function () { aviso.remove(); }, { once: true });
+                };
+                aviso.querySelector(".btn-close").addEventListener("click", cerrar);
+                aviso.querySelector(".aviso-barra").addEventListener("animationend", cerrar);
+            });
+
+            // Las alertas marcadas con alert-autocierre se cierran solas.
             document.querySelectorAll(".alert-autocierre").forEach(function (alerta) {
                 var urgente = alerta.classList.contains("alert-danger") || alerta.classList.contains("alert-warning");
                 setTimeout(function () {
@@ -747,12 +891,7 @@
     </script>
     <script>
         (function () {
-            // Dropdown personalizado: reemplaza la apariencia del <select>
-            // nativo (cuyo panel desplegable no combina bien con el modo
-            // oscuro) por un botón + lista propios, en cualquier página que
-            // use el marcado ".selector-personalizado". El <select> real
-            // sigue ahí oculto y sigue siendo la fuente de verdad para el
-            // envío del formulario.
+            // Selector personalizado (.selector-personalizado).
             document.querySelectorAll(".selector-personalizado").forEach(function (contenedor) {
                 var nativo = contenedor.querySelector("select");
                 var boton = contenedor.querySelector(".selector-boton");
@@ -807,6 +946,36 @@
 
                 document.addEventListener("click", function (e) {
                     if (!contenedor.contains(e.target)) cerrar();
+                });
+            });
+        })();
+    </script>
+    <script>
+        (function () {
+            // Botón de mostrar contraseña en todos los campos de clave.
+            document.querySelectorAll('input[type="password"]').forEach(function (campo) {
+                if (campo.closest(".input-group")) return;
+
+                var envoltorio = document.createElement("div");
+                envoltorio.className = "input-group";
+                campo.parentNode.insertBefore(envoltorio, campo);
+                envoltorio.appendChild(campo);
+
+                var boton = document.createElement("button");
+                boton.type = "button";
+                boton.className = "btn btn-outline-guindo boton-mostrar-clave-auto";
+                boton.tabIndex = -1;
+                boton.setAttribute("aria-label", "Mostrar contraseña");
+                boton.innerHTML = '<i class="bi bi-eye"></i>';
+                envoltorio.appendChild(boton);
+
+                boton.addEventListener("click", function () {
+                    var mostrando = campo.type === "text";
+                    campo.type = mostrando ? "password" : "text";
+                    var icono = boton.querySelector("i");
+                    icono.className = (mostrando ? "bi bi-eye" : "bi bi-eye-slash") + " girar";
+                    setTimeout(function () { icono.classList.remove("girar"); }, 300);
+                    boton.setAttribute("aria-label", mostrando ? "Mostrar contraseña" : "Ocultar contraseña");
                 });
             });
         })();

@@ -1,23 +1,5 @@
-"""Comando de mantenimiento para vaciar los datos "de negocio" cargados
-durante las pruebas del sistema, sin tocar las cuentas de usuario.
-
-Uso (desde la carpeta del proyecto, con el entorno virtual activado):
-
-    python manage.py borrar_datos_prueba --confirmar
-
-Sin el flag --confirmar solo muestra cuántas filas de cada tabla se
-borrarían, sin borrar nada (modo "simulación"), para poder revisar antes
-de ejecutar el borrado real.
-
-Qué borra: CargaArchivo (arrastra en cascada sus RegistroContable y
-ErrorValidacion), EmpresaAuditada, Gestion y CuentaContable. Qué NO
-borra: usuarios, grupos/roles, ni el HistorialCambio (se deja como
-constancia de que este borrado ocurrió, en vez de desaparecer sin
-rastro — ver `registrar_creacion`/`registrar_edicion` en auditoria.py).
-
-Se borra en este orden porque CargaArchivo.empresa y CargaArchivo.gestion
-usan on_delete=PROTECT: mientras exista una carga que las referencie, no
-se puede borrar la empresa ni la gestión.
+"""Comando de mantenimiento para vaciar los datos "de negocio" cargados durante las
+pruebas del sistema, sin tocar las cuentas de usuario.
 """
 from django.core.management.base import BaseCommand
 from django.db import transaction
@@ -64,15 +46,14 @@ class Command(BaseCommand):
             self.stdout.write(
                 self.style.WARNING(
                     "\nModo simulación: no se borró nada. "
-                    "Volvé a ejecutar con --confirmar para borrar de verdad."
+                    "Vuelve a ejecutar con --confirmar para borrar de verdad."
                 )
             )
             return
 
         with transaction.atomic():
-            # CargaArchivo primero: arrastra RegistroContable y
-            # ErrorValidacion por CASCADE, y libera el PROTECT que impedía
-            # borrar EmpresaAuditada/Gestion.
+            # CargaArchivo primero: arrastra RegistroContable y ErrorValidacion por
+            # CASCADE, y libera el PROTECT que impedía borrar EmpresaAuditada/Gestion.
             CargaArchivo.objects.all().delete()
             EmpresaAuditada.objects.all().delete()
             Gestion.objects.all().delete()

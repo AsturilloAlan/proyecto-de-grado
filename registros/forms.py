@@ -7,6 +7,12 @@ from django import forms
 from .models import CargaArchivo, EmpresaAuditada, Gestion
 
 PATRON_TELEFONO = re.compile(r"^[0-9+()\s-]{6,20}$")
+# NIT: se aceptan dígitos con guion o puntos como separadores.
+PATRON_NIT_CARACTERES = re.compile(r"^[0-9.\s-]+$")
+NIT_MINIMO_DIGITOS = 5
+NIT_MAXIMO_DIGITOS = 15
+# Al menos una letra: rechaza nombres puramente numéricos.
+PATRON_TIENE_LETRA = re.compile(r"[^\W\d_]", re.UNICODE)
 
 EXTENSIONES_PERMITIDAS = [".xlsx", ".xls", ".csv", ".pdf"]
 TAMANO_MAXIMO_MB = 20
@@ -14,10 +20,7 @@ TAMANO_MAXIMO_BYTES = TAMANO_MAXIMO_MB * 1024 * 1024
 
 
 class EmpresaAuditadaForm(forms.ModelForm):
-    # No es un campo del modelo EmpresaAuditada: es un atajo para no tener
-    # que ir a otra pantalla a crear la primera gestión de esta empresa.
-    # Si se deja vacío, la empresa queda registrada igual, sin gestión
-    # (se puede agregar después desde "Cargar registros").
+    # Atajo para crear la primera gestión de la empresa desde este formulario.
     anio_gestion_inicial = forms.IntegerField(
         label="Año de la primera gestión a auditar (opcional)",
         required=False,
@@ -48,7 +51,7 @@ class EmpresaAuditadaForm(forms.ModelForm):
             "nit": "NIT",
             "rubro": "Rubro / sector económico",
             "categoria_cierre": "Categoría de cierre de gestión (SIN)",
-            "contacto_nombre": "Nombre del contacto",
+            "contacto_nombre": "Nombre del representante legal",
             "contacto_email": "Correo del contacto",
             "contacto_telefono": "Teléfono del contacto",
         }
@@ -66,7 +69,38 @@ class EmpresaAuditadaForm(forms.ModelForm):
         nombre = self.cleaned_data["nombre"].strip()
         if not nombre:
             raise forms.ValidationError("El nombre de la empresa es obligatorio.")
+        # Rechaza nombres solo numéricos o de símbolos.
+        if not PATRON_TIENE_LETRA.search(nombre):
+            raise forms.ValidationError(
+                "El nombre de la empresa debe incluir al menos una letra; no "
+                "puede ser solo números o símbolos."
+            )
         return nombre
+
+    def clean_contacto_nombre(self):
+        contacto_nombre = self.cleaned_data.get("contacto_nombre", "").strip()
+        # El nombre del representante legal no lleva dígitos.
+        if contacto_nombre and any(caracter.isdigit() for caracter in contacto_nombre):
+            raise forms.ValidationError(
+                "El nombre de contacto no debería contener números."
+            )
+        return contacto_nombre
+
+    def clean_nit(self):
+        nit = self.cleaned_data.get("nit", "").strip()
+        if not nit:
+            return nit
+        digitos = sum(1 for caracter in nit if caracter.isdigit())
+        if not PATRON_NIT_CARACTERES.match(nit) or not (
+            NIT_MINIMO_DIGITOS <= digitos <= NIT_MAXIMO_DIGITOS
+        ):
+            raise forms.ValidationError(
+                "Ingresa un NIT válido: solo números, con puntos o guiones como "
+                f"separadores si quieres (entre {NIT_MINIMO_DIGITOS} y "
+                f"{NIT_MAXIMO_DIGITOS} dígitos). Ej.: 1023456021, 1023456021-0 "
+                "o 619.7772.443-0."
+            )
+        return nit
 
     def clean_contacto_telefono(self):
         telefono = self.cleaned_data.get("contacto_telefono", "").strip()
@@ -79,27 +113,7 @@ class EmpresaAuditadaForm(forms.ModelForm):
 
 
 class GestionForm(forms.ModelForm):
-    """Alta de una gestión (año fiscal).
-
-    Uso simple (la mayoría de los casos): se elige la empresa y se escribe
-    el año — las fechas se calculan solas según la categoría de cierre
-    SIN de esa empresa (ver `EmpresaAuditada.fechas_gestion_para`), en vez
-    de asumir siempre el año calendario. Es la misma automatización que
-    ya existía al crear una empresa nueva, pero antes NO se aplicaba acá
-    (esta pantalla no sabía para qué empresa era la gestión), que era
-    justamente el hueco: cualquier gestión agregada después de la inicial
-    quedaba sin ninguna sugerencia de fechas.
-
-    "Empresa" es un campo del FORMULARIO, no del modelo Gestion: Gestion
-    sigue siendo independiente de cualquier empresa en particular (varias
-    empresas con el mismo rubro pueden compartir una gestión con las
-    mismas fechas) — acá solo se usa para calcular la sugerencia, no se
-    guarda esa asociación.
-
-    Uso avanzado (opcional): igual se puede escribir o corregir las
-    fechas de inicio/fin a mano (ej. una excepción real de esa empresa),
-    tanto si se eligió empresa como si no.
-    """
+    """Alta de una gestión (año fiscal)."""
 
     empresa = forms.ModelChoiceField(
         queryset=EmpresaAuditada.objects.all(),
@@ -136,6 +150,13 @@ class GestionForm(forms.ModelForm):
         anio = self.cleaned_data["anio"]
         if anio < 2000 or anio > 2100:
             raise forms.ValidationError("Ingresa un año válido (entre 2000 y 2100).")
+        # No se admite una gestión que todavía no empezó.
+        limite_superior = date.today().year + 1
+        if anio > limite_superior:
+            raise forms.ValidationError(
+                f"El año {anio} es demasiado lejano a futuro para una gestión a "
+                f"auditar (máximo permitido: {limite_superior})."
+            )
         return anio
 
     def clean(self):
@@ -144,9 +165,8 @@ class GestionForm(forms.ModelForm):
         inicio = limpio.get("fecha_inicio")
         fin = limpio.get("fecha_fin")
         empresa = limpio.get("empresa")
-        # Si no se especificaron fechas a mano: con empresa elegida, se
-        # calculan según su categoría de cierre SIN; sin empresa, se cae
-        # al año calendario de siempre (comportamiento previo, sin cambios).
+        # Sin fechas manuales se calculan según la categoría de cierre de la empresa, o
+        # por año calendario.
         if anio and not inicio and not fin:
             if empresa is not None:
                 inicio, fin = empresa.fechas_gestion_para(anio)
@@ -169,9 +189,7 @@ class GestionForm(forms.ModelForm):
 
     def save(self, commit=True):
         instancia = super().save(commit=False)
-        # clean() ya rellenó fecha_inicio/fecha_fin si vinieron vacías,
-        # pero save(commit=False) no vuelve a pasar por cleaned_data para
-        # asignarlas al objeto — se hace explícito acá.
+        # save(commit=False) no toma las fechas calculadas en clean(); se asignan aquí.
         instancia.fecha_inicio = self.cleaned_data.get("fecha_inicio", instancia.fecha_inicio)
         instancia.fecha_fin = self.cleaned_data.get("fecha_fin", instancia.fecha_fin)
         if commit:
@@ -180,18 +198,14 @@ class GestionForm(forms.ModelForm):
 
 
 class AnulacionForm(forms.Form):
-    """Motivo obligatorio para anular una carga (ver `carga_anular` en
-    views.py). No es un ModelForm porque no edita el archivo/registros de
-    la carga en sí — solo junta el motivo antes de aplicar la anulación,
-    que la vista hace explícitamente sobre los campos de auditoría
-    (estado, anulado_por, fecha_anulacion, motivo_anulacion)."""
+    """Motivo obligatorio para anular una carga."""
 
     motivo = forms.CharField(
         label="Motivo de la anulación",
         widget=forms.Textarea(attrs={"class": "form-control", "rows": 3}),
         min_length=10,
         error_messages={
-            "min_length": "Escribí un motivo un poco más detallado (mínimo 10 caracteres) — queda en el historial de auditoría.",
+            "min_length": "Escribe un motivo un poco más detallado (mínimo 10 caracteres); queda en el historial de auditoría.",
         },
     )
 
@@ -223,4 +237,7 @@ class CargaArchivoForm(forms.ModelForm):
             raise forms.ValidationError(
                 f"El archivo pesa demasiado (máximo {TAMANO_MAXIMO_MB} MB)."
             )
+        if archivo.size == 0:
+            # Rechaza archivos vacíos al subirlos.
+            raise forms.ValidationError("El archivo está vacío.")
         return archivo

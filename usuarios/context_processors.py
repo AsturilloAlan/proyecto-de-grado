@@ -1,21 +1,8 @@
-"""Navegación de la interfaz.
-
-En vez de un botón "volver" basado en el historial del navegador
-(`history.back()`), que puede confundir al usuario porque las
-redirecciones de login (`?next=`) o de rol (`rol_requerido`) alteran
-ese historial, cada página protegida tiene un destino de "volver" fijo
-y predecible, resuelto aquí según la URL actual.
-"""
+"""Navegación de la interfaz."""
 from django.urls import resolve, reverse
 
-# url_name (con namespace) -> (url_name de destino, texto del botón)
-# Solo se listan páginas que NO están directamente en el menú principal
-# (cargar/empresas ya tienen su propio enlace en el navbar).
+# url_name -> (destino del botón volver, texto). Solo páginas fuera del menú principal.
 _MAPA_VOLVER = {
-    # detalle_carga NO está acá a propósito: esa página puede llegarse desde
-    # Inicio o desde Cargar registros, así que en vez de un "volver" fijo
-    # (que solo conoce un destino) usa un breadcrumb propio con ambos niveles
-    # (Inicio > Cargar registros > Carga #N).
     "registros:gestion_crear": ("registros:cargar", "Volver a cargar registros"),
     "registros:gestion_editar": ("registros:cargar", "Volver a cargar registros"),
     "registros:empresa_crear": ("registros:empresas_lista", "Volver a empresas"),
@@ -29,7 +16,12 @@ _MAPA_VOLVER = {
 
 
 def navegacion(request):
-    contexto = {"es_administrador": False, "es_auditor": False, "puede_confirmar_carga": False}
+    contexto = {
+        "es_administrador": False,
+        "es_auditor": False,
+        "puede_confirmar_carga": False,
+        "puede_gestionar_gestiones": False,
+    }
 
     usuario = getattr(request, "user", None)
     if usuario is not None and usuario.is_authenticated:
@@ -39,10 +31,10 @@ def navegacion(request):
         contexto["es_auditor"] = usuario.is_superuser or usuario.groups.filter(
             name="Auditor"
         ).exists()
-        # Quién puede confirmar definitivamente una carga "con pendientes"
-        # (ver `carga_confirmar_validacion`): Administrador y Auditor, los
-        # dos roles que ya pueden ver el detalle de una carga.
+        # Roles que pueden confirmar una carga con pendientes.
         contexto["puede_confirmar_carga"] = contexto["es_administrador"] or contexto["es_auditor"]
+        # Roles que pueden crear y editar gestiones.
+        contexto["puede_gestionar_gestiones"] = contexto["es_administrador"] or contexto["es_auditor"]
 
     try:
         coincidencia = resolve(request.path_info)

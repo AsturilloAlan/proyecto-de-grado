@@ -1,41 +1,12 @@
-"""
-Procesamiento y validación de archivos de registros contables (RF-01, RF-02).
-
-Soporta tres formatos de archivo:
-
-1. Tabla plana: cada fila trae su propia columna "cuenta" (código de la
-   cuenta contable). Es el formato más simple, útil para pruebas o
-   exportaciones ya limpias.
-
-2. Libro Mayor agrupado por cuenta (el formato real que exportan los
-   sistemas contables, ej. el Libro Mayor de una empresa auditada): el
-   archivo trae varias filas de título antes del encabezado real
-   (nombre de la empresa, NIT, periodo...), y las transacciones vienen
-   agrupadas en bloques — una fila de encabezado con el código y nombre
-   de la cuenta (ej. "1-1-1-01-01 CAJA MONEDA NACIONAL"), seguida de sus
-   transacciones, hasta la siguiente cuenta. También trae filas de
-   subtotal intercaladas ("Total 01/2023", "TOTAL CUENTA 1-1-1-01-01")
-   que no son transacciones y se deben ignorar.
-
-3. Libro Diario en PDF (ver `_procesar_pdf`): el formato real que se
-   recibió de un cliente que solo tiene el libro diario exportado en
-   PDF, no en Excel. No es un PDF escaneado (el texto se puede extraer
-   directo, sin OCR) — trae un comprobante contable por bloque, con su
-   tipo, fecha, número de documento, glosa, y las cuentas de ese
-   comprobante con su monto en Debe o Haber, seguido de un total de
-   control. Se aprovecha justamente ese total de control para validar
-   que el comprobante se leyó bien (ver `total_debe`/`total_haber`).
-
-En los tres casos, las filas válidas se guardan en RegistroContable y las
-filas con problemas se registran en ErrorValidacion en lugar de
-descartarse sin rastro, para que el auditor pueda revisarlas.
-"""
+"""Procesamiento y validación de archivos de registros contables (RF-01, RF-02)."""
 import csv
 import re
 import unicodedata
+from datetime import date
 
 import pandas as pd
 import pdfplumber
+from django.db import transaction
 
 from .models import CuentaContable, ErrorValidacion, RegistroContable
 
@@ -48,6 +19,7 @@ COLUMNAS_ESPERADAS = {
     "glosa": ["glosa", "descripcion", "detalle", "concepto"],
     "debe": ["debe"],
     "haber": ["haber"],
+    "saldo": ["saldo"],
     "comprobante": [
         "comprobante",
         "nro comprobante",
@@ -57,9 +29,7 @@ COLUMNAS_ESPERADAS = {
     ],
 }
 
-# Solo estas son estrictamente obligatorias en el encabezado. "cuenta" es
-# opcional: si no viene como columna, se asume el formato agrupado por
-# cuenta (bloques), donde la cuenta se extrae de las filas de título.
+# Solo estas son estrictamente obligatorias en el encabezado.
 CAMPOS_REQUERIDOS = ["fecha", "debe", "haber"]
 
 # Cuántas filas iniciales se revisan buscando la fila real de encabezados
@@ -69,16 +39,80 @@ FILAS_BUSQUEDA_ENCABEZADO = 30
 # Código de cuenta al inicio de una fila de bloque, ej. "1-1-1-01-01 CAJA...".
 PATRON_CODIGO_CUENTA = re.compile(r"^([0-9][0-9\-\.]*)\s+(.+)$")
 
-# Filas de subtotal a ignorar: "Total 01/2023", "TOTAL CUENTA 1-1-1-01-01".
-PATRON_SUBTOTAL = re.compile(r"^\s*total\b", re.IGNORECASE)
+# Plan de cuentas boliviano típico: el primer dígito del código indica el grupo
+# contable.
+GRUPO_CONTABLE_POR_PRIMER_DIGITO = {
+    "1": "activo",
+    "2": "pasivo",
+    "3": "patrimonio",
+    "4": "ingreso",
+    "5": "gasto",
+}
 
-# --- Parseo del Libro Diario en PDF (ver docstring del módulo) ---
-# Cada comprobante en el PDF trae siempre estas líneas, en este orden:
-# "Tipo: X Fecha: DD/MM/AAAA", "Nro. Doc.: X T.C.: Y", "Razon Social:X
-# Cheque Nº:Y", "Glosa: X", el encabezado de la tabla de cuentas, una
-# línea por cada cuenta (con su monto en Debe o en Haber), y por último
-# "Total: <debe> <haber>" — ese total es un dato de control: si la suma
-# de los montos que se leyeron no coincide, algo se leyó mal.
+
+def _tipo_por_codigo(codigo):
+    """Tipo de cuenta según el primer dígito del código; "activo" si no se reconoce."""
+    primer_caracter = str(codigo).strip()[:1]
+    return GRUPO_CONTABLE_POR_PRIMER_DIGITO.get(primer_caracter, "activo")
+
+# Filas de subtotal/saldo a ignorar: "Total 01/2023", "TOTAL CUENTA 1-1-1-01-01",
+# "Sumas", "Saldo anterior".
+PATRON_SUBTOTAL = re.compile(
+    r"^\s*(total|sumas?|saldo\s+(anterior|inicial|final))\b", re.IGNORECASE
+)
+
+def _avisos_calidad_dato(
+    carga, numero_fila, codigo_cuenta, comprobante, fecha_transaccion, debe, haber,
+    claves_vistas, verificar_comprobante=True,
+):
+    """Avisos de calidad de dato sobre una fila válida (no la rechazan)."""
+    avisos = []
+
+    if fecha_transaccion > date.today():
+        avisos.append(
+            ErrorValidacion(
+                carga=carga, fila=numero_fila, campo="fecha", tipo="aviso",
+                descripcion=(
+                    f"La fecha {fecha_transaccion:%d/%m/%Y} es posterior a hoy; "
+                    "verificar que no sea un error de tipeo."
+                ),
+            )
+        )
+
+    if verificar_comprobante and not str(comprobante or "").strip():
+        avisos.append(
+            ErrorValidacion(
+                carga=carga, fila=numero_fila, campo="comprobante", tipo="aviso",
+                descripcion=(
+                    "La fila no trae número de comprobante; dificulta rastrearla "
+                    "hasta su documento de origen."
+                ),
+            )
+        )
+
+    # Solo se busca duplicado cuando hay número de comprobante.
+    comprobante_normalizado = str(comprobante or "").strip()
+    if comprobante_normalizado:
+        clave = (comprobante_normalizado, fecha_transaccion, codigo_cuenta, round(debe, 2), round(haber, 2))
+        fila_previa = claves_vistas.get(clave)
+        if fila_previa is not None:
+            avisos.append(
+                ErrorValidacion(
+                    carga=carga, fila=numero_fila, campo="duplicado", tipo="aviso",
+                    descripcion=(
+                        f"Mismo comprobante ({comprobante_normalizado}), fecha, cuenta y "
+                        f"montos que la fila {fila_previa}; podría ser un registro repetido "
+                        "por error."
+                    ),
+                )
+            )
+        else:
+            claves_vistas[clave] = numero_fila
+
+    return avisos
+
+
+# --- Parseo del Libro Diario en PDF ---
 PATRON_PDF_TIPO_FECHA = re.compile(r"^Tipo:\s*(\S+)\s+Fecha:\s*(\d{2}/\d{2}/\d{4})")
 PATRON_PDF_NRO_DOC = re.compile(r"^Nro\.\s*Doc\.:\s*(\S+)")
 PATRON_PDF_GLOSA = re.compile(r"^Glosa:\s*(.*)$")
@@ -114,15 +148,7 @@ def _mapear_columnas(valores_fila):
 
 
 def _leer_csv_con_filas_irregulares(ruta):
-    """Lee un CSV fila por fila (sin asumir que todas tienen el mismo
-    número de columnas) y rellena las filas cortas con None.
-
-    Los libros mayores reales suelen traer filas de título con una sola
-    celda (ej. el nombre de la empresa) mezcladas con filas de datos de
-    varias columnas; el parser rápido de pandas (`read_csv`) rechaza esos
-    archivos por "número de campos inconsistente", así que se arma el
-    DataFrame a mano con el módulo `csv` de la librería estándar.
-    """
+    """Lee un CSV fila por fila y rellena las filas cortas con None."""
     with open(ruta, newline="", encoding="utf-8-sig") as archivo:
         filas = list(csv.reader(archivo))
     ancho = max((len(f) for f in filas), default=0)
@@ -131,9 +157,7 @@ def _leer_csv_con_filas_irregulares(ruta):
 
 
 def _leer_filas_crudas(carga):
-    """Lee el archivo completo sin asumir en qué fila están los
-    encabezados, porque los libros mayores reales traen varias filas de
-    título (empresa, NIT, periodo) antes de la fila real de columnas."""
+    """Lee el archivo completo sin asumir en qué fila están los encabezados."""
     nombre = carga.archivo.name.lower()
     if nombre.endswith(".csv"):
         return _leer_csv_con_filas_irregulares(carga.archivo.path)
@@ -141,9 +165,7 @@ def _leer_filas_crudas(carga):
 
 
 def _ubicar_encabezado(df):
-    """Busca, entre las primeras filas del archivo, la que realmente
-    contiene los nombres de columna (fecha, debe, haber...). Devuelve
-    (índice_de_fila, mapeo) o (None, {}) si no la encuentra."""
+    """Busca la fila de encabezados entre las primeras filas del archivo."""
     limite = min(len(df), FILAS_BUSQUEDA_ENCABEZADO)
     for indice in range(limite):
         mapeo = _mapear_columnas(df.iloc[indice].tolist())
@@ -163,6 +185,43 @@ def _es_vacio(valor):
     return valor is None or (isinstance(valor, str) and valor.strip() == "") or pd.isna(valor)
 
 
+# Tope del DecimalField de debe/haber/saldo (max_digits=14, decimal_places=2):
+# 12 dígitos enteros como máximo.
+IMPORTE_MAXIMO = 10 ** 12
+
+
+def _parsear_importe(valor):
+    """Convierte una celda de importe a float, sin inventar datos."""
+    if _es_vacio(valor):
+        return 0.0, None
+    if isinstance(valor, (int, float)):
+        numero = float(valor)
+    else:
+        texto = str(valor).strip().replace(" ", "").replace(" ", "")
+        if texto.lower().startswith("bs"):
+            texto = texto[2:].lstrip(".")
+        if "," in texto and "." in texto:
+            # El separador que aparece último es el decimal.
+            if texto.rfind(",") > texto.rfind("."):
+                texto = texto.replace(".", "").replace(",", ".")
+            else:
+                texto = texto.replace(",", "")
+        elif "," in texto:
+            if re.fullmatch(r"-?\d{1,3}(,\d{3})+", texto):
+                texto = texto.replace(",", "")  # 1,234,567 (miles)
+            else:
+                texto = texto.replace(",", ".")  # 1234,56 (coma decimal)
+        try:
+            numero = float(texto)
+        except ValueError:
+            return None, f"Importe inválido: '{valor}' no es un número"
+    if numero != numero or numero in (float("inf"), float("-inf")):
+        return None, f"Importe inválido: '{valor}'"
+    if abs(numero) >= IMPORTE_MAXIMO:
+        return None, f"Importe fuera de rango: '{valor}'"
+    return round(numero, 2), None
+
+
 def _texto_no_vacio_de_fila(fila):
     """Concatena las celdas no vacías de una fila de título/bloque en un
     solo texto (normalmente solo la primera celda trae algo)."""
@@ -171,12 +230,9 @@ def _texto_no_vacio_de_fila(fila):
 
 
 def _agrupar_lineas_pdf(words):
-    """Agrupa las palabras que devuelve pdfplumber (cada una con su
-    posición x0/top) en líneas de texto, según su posición vertical.
-
-    Hace falta una tolerancia (en vez de agrupar por 'top' exacto) porque
-    dos palabras de la misma línea visual pueden traer un 'top' con una
-    fracción de diferencia por cómo se renderizó el PDF originalmente."""
+    """Agrupa las palabras que devuelve pdfplumber (cada una con su posición x0/top)
+    en líneas de texto, según su posición vertical.
+    """
     lineas = []
     for palabra in sorted(words, key=lambda w: (w["top"], w["x0"])):
         if lineas and abs(palabra["top"] - lineas[-1]["top"]) <= TOLERANCIA_VERTICAL_LINEA_PDF:
@@ -191,26 +247,10 @@ def _agrupar_lineas_pdf(words):
 
 
 def _extraer_comprobantes_pdf(ruta_archivo):
-    """Recorre todo el PDF y devuelve la lista de comprobantes
-    encontrados, cada uno como un diccionario:
-    {tipo, fecha (texto dd/mm/aaaa), nro_doc, glosa, cuentas: [(codigo,
-    nombre, debe, haber), ...], total_debe, total_haber}.
-
-    La posición horizontal (x0) de cada monto es lo que decide si es un
-    Debe o un Haber: la columna "DEBE Bs." queda más a la izquierda que
-    "HABER Bs." en el PDF, con una separación amplia y constante entre
-    ambas (se comprobó contra los 513 comprobantes de un Libro Diario
-    real: los 513 cuadraron con su total de control). El umbral está a
-    mitad de camino entre ambas columnas para no depender de un valor
-    exacto de píxel.
-    """
+    """Devuelve los comprobantes encontrados en el PDF con sus cuentas y totales."""
     comprobantes = []
     actual = None
-    # Posiciones observadas en un Libro Diario real (columna DEBE ~ x0 459,
-    # columna HABER ~ x0 514); el umbral queda a mitad de camino más un
-    # margen, porque los montos están alineados a la derecha dentro de su
-    # columna y los más cortos (ej. "12.67") empiezan más a la derecha que
-    # el propio encabezado de su columna.
+    # Umbral horizontal entre las columnas Debe y Haber, medido en un Libro Diario real.
     umbral_debe_haber = (458.8 + 513.9) / 2 + 15
 
     with pdfplumber.open(ruta_archivo) as pdf:
@@ -277,16 +317,7 @@ def _extraer_comprobantes_pdf(ruta_archivo):
 
 
 def _procesar_pdf(carga):
-    """Variante de `procesar_carga` para el Libro Diario en PDF (ver
-    docstring del módulo). Devuelve (filas_validas, errores_a_guardar,
-    total, nombre_por_codigo, primera_fila_por_codigo) — la misma forma
-    que espera el resto de `procesar_carga` para guardar los resultados,
-    de modo que esa parte (resolver/crear CuentaContable y el
-    bulk_create final) se reutiliza sin cambios entre todos los formatos.
-
-    Devuelve `None` si el archivo no se pudo procesar en absoluto (ya
-    quedó registrado el ErrorValidacion correspondiente).
-    """
+    """Variante de `procesar_carga` para el Libro Diario en PDF."""
     try:
         comprobantes = _extraer_comprobantes_pdf(carga.archivo.path)
     except Exception as exc:  # PDF corrupto, protegido, escaneado sin texto, etc.
@@ -323,6 +354,7 @@ def _procesar_pdf(carga):
     errores_a_guardar = []
     nombre_por_codigo = {}
     primera_fila_por_codigo = {}
+    claves_vistas = {}  # clave -> primera fila donde apareció, para detectar duplicados
     numero_fila = 0  # no hay una fila de hoja de cálculo real: es un conteo secuencial
 
     for indice_comprobante, comprobante in enumerate(comprobantes, start=1):
@@ -346,13 +378,15 @@ def _procesar_pdf(carga):
                 errores_fila.append(("debe/haber", "La fila no tiene monto en Debe ni en Haber"))
             if debe < 0 or haber < 0:
                 errores_fila.append(("debe/haber", "Debe y Haber no pueden ser negativos"))
+            if debe > 0 and haber > 0:
+                errores_fila.append(("debe/haber", "La fila tiene monto en Debe y en Haber a la vez; cada línea debe ir en uno solo"))
             if descuadre:
                 errores_fila.append(
                     (
                         "comprobante",
                         f"El comprobante Nº {comprobante['nro_doc']} no cuadra: la suma "
                         f"leída (Debe {suma_debe:,.2f} / Haber {suma_haber:,.2f}) no coincide "
-                        f"con el total impreso en el PDF — revisar ese comprobante en el "
+                        f"con el total impreso en el PDF; revisar ese comprobante en el "
                         f"documento original antes de confiar en estas filas.",
                     )
                 )
@@ -384,6 +418,13 @@ def _procesar_pdf(carga):
                     )
                 )
 
+            errores_a_guardar.extend(
+                _avisos_calidad_dato(
+                    carga, numero_fila, codigo_cuenta, comprobante["nro_doc"],
+                    fecha_transaccion, debe, haber, claves_vistas,
+                )
+            )
+
             nombre_por_codigo.setdefault(codigo_cuenta, nombre_cuenta or codigo_cuenta)
             primera_fila_por_codigo.setdefault(codigo_cuenta, numero_fila)
             filas_validas.append(
@@ -394,6 +435,7 @@ def _procesar_pdf(carga):
                     "glosa": comprobante["glosa"],
                     "debe": debe,
                     "haber": haber,
+                    "saldo": None,  # el Libro Diario en PDF no trae columna de saldo
                     "fila_origen": numero_fila,
                 }
             )
@@ -402,20 +444,7 @@ def _procesar_pdf(carga):
 
 
 def _procesar_hoja_calculo(carga):
-    """Variante de `procesar_carga` para Excel/CSV (tabla plana o Libro
-    Mayor agrupado por cuenta — ver docstring del módulo). Devuelve
-    (filas_validas, errores_a_guardar, total, nombre_por_codigo,
-    primera_fila_por_codigo), igual que `_procesar_pdf`, o `None` si el
-    archivo no se pudo procesar (ya se registró el error fatal
-    correspondiente).
-
-    Para archivos grandes (un libro mayor real puede tener más de 20 mil
-    filas), guardar de a una fila a la vez es demasiado lento — se
-    recolectan las filas válidas y los errores/avisos en memoria mientras
-    se recorre el archivo, y se guardan al final en bloque
-    (`bulk_create`), en vez de hacer una consulta a la base de datos por
-    cada fila.
-    """
+    """Variante de `procesar_carga` para Excel/CSV."""
     try:
         df = _leer_filas_crudas(carga)
     except Exception as exc:  # archivo corrupto, formato inesperado, etc.
@@ -452,9 +481,10 @@ def _procesar_hoja_calculo(carga):
     total = 0
     filas_validas = []  # datos ya validados, listos para RegistroContable
     errores_a_guardar = []  # instancias de ErrorValidacion sin guardar todavía
-    cuenta_actual = None  # (codigo, nombre) — solo se usa en el formato agrupado
+    cuenta_actual = None  # (codigo, nombre), solo en el formato agrupado
     nombre_por_codigo = {}  # primer nombre visto para cada código nuevo
     primera_fila_por_codigo = {}  # primera fila donde apareció cada código nuevo
+    claves_vistas = {}  # clave -> primera fila donde apareció, para detectar duplicados
 
     for indice in range(fila_encabezado + 1, len(df)):
         fila = df.iloc[indice]
@@ -462,23 +492,29 @@ def _procesar_hoja_calculo(carga):
 
         fecha_raw = _valor(fila, mapeo, "fecha")
         fecha = pd.to_datetime(fecha_raw, errors="coerce", dayfirst=True)
+        debe_raw = _valor(fila, mapeo, "debe")
+        haber_raw = _valor(fila, mapeo, "haber")
+        tiene_importe = not (_es_vacio(debe_raw) and _es_vacio(haber_raw))
 
         if not tiene_columna_cuenta and pd.isna(fecha):
-            # No es una fila de transacción: puede ser un separador en
-            # blanco, un subtotal, o el encabezado de un nuevo bloque de
-            # cuenta. Ninguna de las tres cuenta como fila de datos.
+            # Sin fecha válida puede ser un separador en blanco, un
+            # subtotal, o el encabezado de un nuevo bloque de cuenta.
             texto = _texto_no_vacio_de_fila(fila)
             if not texto or PATRON_SUBTOTAL.match(texto):
                 continue
-            coincidencia = PATRON_CODIGO_CUENTA.match(texto)
-            if coincidencia:
-                cuenta_actual = (coincidencia.group(1).strip(), coincidencia.group(2).strip())
+            if tiene_importe:
+                # Trae importes en Debe/Haber: es una transacción con la fecha mal
+                # escrita, no un encabezado de cuenta.
+                pass
             else:
-                # Bloque sin un código reconocible al inicio: se usa el
-                # texto completo como nombre y como código (mejor dejar
-                # constancia que descartarlo en silencio).
-                cuenta_actual = (texto[:30], texto)
-            continue
+                coincidencia = PATRON_CODIGO_CUENTA.match(texto)
+                if coincidencia:
+                    cuenta_actual = (coincidencia.group(1).strip(), coincidencia.group(2).strip())
+                else:
+                    # Bloque sin un código reconocible al inicio: se usa el texto
+                    # completo como nombre y como código.
+                    cuenta_actual = (texto[:30], texto)
+                continue
 
         # A partir de aquí, se trata como fila de transacción.
         total += 1
@@ -500,17 +536,25 @@ def _procesar_hoja_calculo(carga):
                 ("cuenta", "Transacción encontrada antes de cualquier encabezado de cuenta")
             )
 
-        debe = pd.to_numeric(_valor(fila, mapeo, "debe"), errors="coerce")
-        haber = pd.to_numeric(_valor(fila, mapeo, "haber"), errors="coerce")
-        # pandas devuelve tipos numpy (numpy.int64/float64), que Django no
-        # puede guardar directo en un DecimalField — hay que convertirlos
-        # a float (tipo nativo de Python) antes de usarlos.
-        debe = 0.0 if pd.isna(debe) else float(debe)
-        haber = 0.0 if pd.isna(haber) else float(haber)
-        if debe == 0 and haber == 0:
-            errores_fila.append(("debe/haber", "La fila no tiene monto en Debe ni en Haber"))
-        if debe < 0 or haber < 0:
-            errores_fila.append(("debe/haber", "Debe y Haber no pueden ser negativos"))
+        debe, error_debe = _parsear_importe(debe_raw)
+        haber, error_haber = _parsear_importe(haber_raw)
+        if error_debe:
+            errores_fila.append(("debe", error_debe))
+        if error_haber:
+            errores_fila.append(("haber", error_haber))
+        # El saldo es solo informativo: se guarda si trae un número válido, o None si
+        # no.
+        saldo_raw = _valor(fila, mapeo, "saldo")
+        saldo, error_saldo = _parsear_importe(saldo_raw)
+        if error_saldo or _es_vacio(saldo_raw):
+            saldo = None
+        if not (error_debe or error_haber):
+            if debe == 0 and haber == 0:
+                errores_fila.append(("debe/haber", "La fila no tiene monto en Debe ni en Haber"))
+            if debe < 0 or haber < 0:
+                errores_fila.append(("debe/haber", "Debe y Haber no pueden ser negativos"))
+            if debe > 0 and haber > 0:
+                errores_fila.append(("debe/haber", "La fila tiene monto en Debe y en Haber a la vez; cada línea debe ir en uno solo"))
 
         if errores_fila:
             for campo, descripcion in errores_fila:
@@ -539,16 +583,26 @@ def _procesar_hoja_calculo(carga):
                 )
             )
 
+        comprobante_valor = str(_valor(fila, mapeo, "comprobante") or "").strip()
+        errores_a_guardar.extend(
+            _avisos_calidad_dato(
+                carga, numero_fila, codigo_cuenta, comprobante_valor,
+                fecha_transaccion, debe, haber, claves_vistas,
+                verificar_comprobante="comprobante" in mapeo,
+            )
+        )
+
         nombre_por_codigo.setdefault(codigo_cuenta, nombre_cuenta or codigo_cuenta)
         primera_fila_por_codigo.setdefault(codigo_cuenta, numero_fila)
         filas_validas.append(
             {
                 "codigo_cuenta": codigo_cuenta,
                 "fecha": fecha.date(),
-                "comprobante": str(_valor(fila, mapeo, "comprobante") or "").strip(),
+                "comprobante": comprobante_valor,
                 "glosa": str(_valor(fila, mapeo, "glosa") or "").strip(),
                 "debe": debe,
                 "haber": haber,
+                "saldo": saldo,
                 "fila_origen": numero_fila,
             }
         )
@@ -556,15 +610,42 @@ def _procesar_hoja_calculo(carga):
     return filas_validas, errores_a_guardar, total, nombre_por_codigo, primera_fila_por_codigo
 
 
-def procesar_carga(carga):
-    """Procesa el archivo de una CargaArchivo y guarda los resultados.
-
-    Punto de entrada único: decide qué parser usar según la extensión
-    (PDF del Libro Diario, o Excel/CSV — ver docstring del módulo) y
-    después comparte la misma lógica para resolver/crear las cuentas
-    contables y guardar todo en bloque, sin importar de qué formato
-    vinieron las filas.
+def _avisos_naturaleza_cuenta(carga, filas_validas, cuentas_por_codigo):
+    """Avisos de saldo/movimiento fuera de lo normal según el grupo contable de la
+    cuenta.
     """
+    avisos = []
+    for f in filas_validas:
+        cuenta = cuentas_por_codigo[f["codigo_cuenta"]]
+        if cuenta.tipo == "ingreso" and f["debe"] > 0:
+            avisos.append(
+                ErrorValidacion(
+                    carga=carga, fila=f["fila_origen"], campo="naturaleza_cuenta",
+                    tipo="aviso",
+                    descripcion=(
+                        f"La cuenta de ingreso '{cuenta.codigo} - {cuenta.nombre}' tiene "
+                        "movimiento en el Debe; lo habitual es que los ingresos se "
+                        "registren en el Haber."
+                    ),
+                )
+            )
+        elif cuenta.tipo == "gasto" and f["haber"] > 0:
+            avisos.append(
+                ErrorValidacion(
+                    carga=carga, fila=f["fila_origen"], campo="naturaleza_cuenta",
+                    tipo="aviso",
+                    descripcion=(
+                        f"La cuenta de gasto '{cuenta.codigo} - {cuenta.nombre}' tiene "
+                        "movimiento en el Haber; lo habitual es que los gastos se "
+                        "registren en el Debe."
+                    ),
+                )
+            )
+    return avisos
+
+
+def procesar_carga(carga):
+    """Procesa el archivo de una CargaArchivo y guarda los resultados."""
     nombre = carga.archivo.name.lower()
     if nombre.endswith(".pdf"):
         resultado = _procesar_pdf(carga)
@@ -576,8 +657,34 @@ def procesar_carga(carga):
 
     filas_validas, errores_a_guardar, total, nombre_por_codigo, primera_fila_por_codigo = resultado
 
-    # Cuentas contables: se resuelven todas de una vez (una consulta y,
-    # si hace falta, un bulk_create), en vez de una consulta por fila.
+    if total == 0:
+        # Un archivo sin transacciones no puede quedar validado.
+        ErrorValidacion.objects.bulk_create(errores_a_guardar)
+        ErrorValidacion.objects.create(
+            carga=carga, fila=0, campo="archivo",
+            descripcion="El archivo no contiene ninguna transacción para importar.",
+        )
+        carga.total_registros = 0
+        carga.registros_validos = 0
+        carga.registros_con_error = 0
+        carga.registros_con_aviso = 0
+        carga.estado = "con_errores"
+        carga.save()
+        return
+
+    # Todo lo que sigue se guarda en una sola transacción de base de datos: si falla
+    # cualquier paso, no queda nada guardado a medias.
+    with transaction.atomic():
+        _guardar_resultado(
+            carga, filas_validas, errores_a_guardar, total,
+            nombre_por_codigo, primera_fila_por_codigo,
+        )
+
+
+def _guardar_resultado(
+    carga, filas_validas, errores_a_guardar, total, nombre_por_codigo, primera_fila_por_codigo
+):
+    # Cuentas contables: una consulta y, si hace falta, un bulk_create.
     codigos_necesarios = set(nombre_por_codigo)
     cuentas_por_codigo = {
         c.codigo: c for c in CuentaContable.objects.filter(codigo__in=codigos_necesarios)
@@ -587,14 +694,14 @@ def procesar_carga(carga):
         CuentaContable.objects.bulk_create(
             [
                 CuentaContable(
-                    codigo=codigo, nombre=nombre_por_codigo[codigo], tipo="activo"
+                    codigo=codigo,
+                    nombre=nombre_por_codigo[codigo],
+                    tipo=_tipo_por_codigo(codigo),
                 )
                 for codigo in codigos_nuevos
             ]
         )
-        # MySQL (a diferencia de PostgreSQL/SQLite) no devuelve los id
-        # generados en bulk_create(); hay que volver a consultarlas para
-        # tener las instancias con su pk real antes de usarlas como FK.
+        # MySQL no devuelve los id tras bulk_create; se vuelven a consultar.
         for cuenta in CuentaContable.objects.filter(codigo__in=codigos_nuevos):
             cuentas_por_codigo[cuenta.codigo] = cuenta
             errores_a_guardar.append(
@@ -605,11 +712,15 @@ def procesar_carga(carga):
                     tipo="aviso",
                     descripcion=(
                         f"La cuenta '{cuenta.codigo}' no existía en el catálogo y se creó "
-                        "automáticamente con tipo 'activo' por defecto; verificar su "
-                        "clasificación real."
+                        f"automáticamente como '{cuenta.get_tipo_display()}' según su código; "
+                        "verificar su clasificación real."
                     ),
                 )
             )
+
+    errores_a_guardar.extend(
+        _avisos_naturaleza_cuenta(carga, filas_validas, cuentas_por_codigo)
+    )
 
     registros = [
         RegistroContable(
@@ -620,6 +731,7 @@ def procesar_carga(carga):
             glosa=f["glosa"],
             debe=f["debe"],
             haber=f["haber"],
+            saldo=f.get("saldo"),
             fila_origen=f["fila_origen"],
         )
         for f in filas_validas
@@ -629,23 +741,18 @@ def procesar_carga(carga):
 
     validos = len(filas_validas)
     con_error = total - validos
-    # Los avisos son sobre filas que SÍ se guardaron (están en filas_validas
-    # y también generaron un ErrorValidacion tipo "aviso", ej. fecha fuera
-    # de la gestión, cuenta creada automáticamente) — se cuentan aparte de
-    # los errores para poder mostrar los tres números por separado.
+    # Los avisos son de filas guardadas; se cuentan aparte de los errores.
     con_aviso = sum(1 for e in errores_a_guardar if e.tipo == "aviso")
     carga.total_registros = total
     carga.registros_validos = validos
     carga.registros_con_error = con_error
     carga.registros_con_aviso = con_aviso
-    if con_error == 0:
-        carga.estado = "validado"
-    elif validos > 0:
-        # Se guardó la mayoría (o todo menos un puñado) de las filas: no es
-        # un fracaso, es una carga que quedó bien pero con algo puntual para
-        # que el auditor revise (ver ESTADO_CHOICES en models.py).
-        carga.estado = "con_observaciones"
-    else:
+    if con_error and validos == 0:
         # No se guardó ni una sola fila: ahí sí es un fracaso real.
         carga.estado = "con_errores"
+    elif con_error or con_aviso:
+        # Filas rechazadas o avisos pendientes: requiere revisión del auditor.
+        carga.estado = "con_observaciones"
+    else:
+        carga.estado = "validado"
     carga.save()
