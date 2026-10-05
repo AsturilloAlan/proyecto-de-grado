@@ -10,9 +10,9 @@
             <h1 class="text-guindo mb-1 h3">{{ titulo|default:"Agregar gestión" }}</h1>
             <p class="text-secondary mb-0">
                 {% if gestion %}
-                    Corregí el año o las fechas y guardá.
+                    Corrección del año o de las fechas de la gestión.
                 {% else %}
-                    Escribe el año y guarda; el resto es opcional.
+                    Solo el año es obligatorio.
                 {% endif %}
             </p>
         </div>
@@ -57,12 +57,11 @@
                 </summary>
                 <p class="form-text">
                     {% if gestion %}
-                        Corregí acá si el año o las fechas quedaron mal puestas.
+                        Fechas de inicio y fin registradas para esta gestión.
                     {% else %}
-                        Si elegiste una empresa arriba, ya se sugirieron según su
-                        categoría de cierre SIN. Sin empresa, se asume 01/01 al
-                        31/12 de ese año. Solo cambiá esto a mano si hace falta
-                        una excepción puntual.
+                        Con una empresa elegida, las fechas se sugieren según su
+                        categoría de cierre (SIN). Sin empresa, se asume del 01/01
+                        al 31/12. Solo se modifican a mano ante una excepción.
                     {% endif %}
                 </p>
                 <div class="row g-3 mt-1">
@@ -81,7 +80,7 @@
         </div>
         <div>
             <button class="btn btn-guindo" type="submit">
-                <i class="bi bi-check-lg"></i> Guardar
+                Guardar
             </button>
             <a class="btn btn-outline-guindo" href="{% url 'registros:cargar' %}">Cancelar</a>
         </div>
@@ -90,7 +89,7 @@
     {% if gestiones %}
         <hr class="my-4">
         <h2 class="h6 text-guindo text-uppercase mb-3">
-            <i class="bi bi-calendar3"></i> Gestiones ya registradas
+            Gestiones ya registradas
         </h2>
         <div class="table-responsive">
             <table class="table table-hover align-middle mb-0">
@@ -110,7 +109,7 @@
                         <td>{{ g.fecha_fin|date:"d/m/Y" }}</td>
                         <td class="text-end">
                             <a href="{% url 'registros:gestion_editar' g.id %}" class="small">
-                                <i class="bi bi-pencil"></i> Editar
+                                Editar
                             </a>
                         </td>
                     </tr>

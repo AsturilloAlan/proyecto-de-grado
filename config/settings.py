@@ -3,6 +3,7 @@ Configuración del proyecto: Sistema de apoyo a la auditoría externa
 (detección de transacciones atípicas con Machine Learning).
 """
 import os
+import sys
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -15,6 +16,9 @@ load_dotenv(BASE_DIR / ".env")
 SECRET_KEY = os.environ.get("SECRET_KEY", "django-insecure-dev-key-cambiar-en-produccion")
 
 DEBUG = os.environ.get("DEBUG", "True") == "True"
+
+# Las cargas se procesan en segundo plano; en las pruebas automáticas, en el momento.
+PROCESAR_EN_SEGUNDO_PLANO = "test" not in sys.argv
 
 ALLOWED_HOSTS = [
     h.strip() for h in os.environ.get("ALLOWED_HOSTS", "localhost,127.0.0.1").split(",") if h.strip()
@@ -110,6 +114,8 @@ LOGOUT_REDIRECT_URL = "login"
 # La sesión expira al cerrar el navegador o tras 30 minutos de inactividad.
 SESSION_EXPIRE_AT_BROWSER_CLOSE = True
 SESSION_COOKIE_AGE = 60 * 30  # 30 minutos
+# Renueva el plazo con cada petición: cuenta desde la última actividad, no desde el login.
+SESSION_SAVE_EVERY_REQUEST = True
 SESSION_COOKIE_HTTPONLY = True
 CSRF_COOKIE_HTTPONLY = True
 
@@ -140,4 +146,30 @@ CACHES = {
     "default": {
         "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
     }
+}
+
+# Registro de errores: consola y archivo sistema.log (ignorado por git). Los fallos del
+# procesamiento en segundo plano quedan aquí aunque nadie esté mirando la consola.
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "simple": {"format": "{asctime} {levelname} {name}: {message}", "style": "{"},
+    },
+    "handlers": {
+        "consola": {"class": "logging.StreamHandler", "formatter": "simple"},
+        "archivo": {
+            "class": "logging.handlers.RotatingFileHandler",
+            "filename": BASE_DIR / "sistema.log",
+            "maxBytes": 2 * 1024 * 1024,
+            "backupCount": 3,
+            "encoding": "utf-8",
+            "formatter": "simple",
+        },
+    },
+    "loggers": {
+        "registros": {"handlers": ["consola", "archivo"], "level": "WARNING"},
+        "usuarios": {"handlers": ["consola", "archivo"], "level": "WARNING"},
+        "analisis": {"handlers": ["consola", "archivo"], "level": "WARNING"},
+    },
 }

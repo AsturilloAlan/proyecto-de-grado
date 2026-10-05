@@ -84,7 +84,9 @@ class Gestion(models.Model):
 
 
 class CuentaContable(models.Model):
-    """Catálogo de cuentas del libro mayor."""
+    """Plan de cuentas de cada empresa auditada: el mismo código puede significar
+    cosas distintas en dos empresas.
+    """
 
     TIPO_CHOICES = [
         ("activo", "Activo"),
@@ -94,7 +96,11 @@ class CuentaContable(models.Model):
         ("gasto", "Gasto"),
     ]
 
-    codigo = models.CharField(max_length=30, unique=True)
+    empresa = models.ForeignKey(
+        EmpresaAuditada, on_delete=models.PROTECT, related_name="cuentas",
+        null=True, blank=True,
+    )
+    codigo = models.CharField(max_length=30)
     nombre = models.CharField(max_length=200)
     tipo = models.CharField(max_length=20, choices=TIPO_CHOICES)
 
@@ -102,6 +108,9 @@ class CuentaContable(models.Model):
         verbose_name = "Cuenta Contable"
         verbose_name_plural = "Cuentas Contables"
         ordering = ["codigo"]
+        constraints = [
+            models.UniqueConstraint(fields=["empresa", "codigo"], name="cuenta_codigo_por_empresa"),
+        ]
 
     def __str__(self):
         return f"{self.codigo} - {self.nombre}"

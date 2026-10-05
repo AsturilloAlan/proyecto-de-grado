@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+{% block title %}Carga #{{ carga.id }} en proceso{% endblock %}
+{% block content %}
+    <style>
+        .panel-proceso { text-align: center; padding: 2.5rem 1rem 2rem; }
+        .anillo-proceso {
+            width: 72px; height: 72px; margin: 0 auto 1.25rem; border-radius: 50%;
+            border: 5px solid rgba(110,27,63,.12); border-top-color: var(--guindo);
+            animation: girar-proceso 1s linear infinite;
+        }
+        [data-bs-theme="dark"] .anillo-proceso { border-color: rgba(231,184,205,.15); border-top-color: #e7b8cd; }
+        @keyframes girar-proceso { to { transform: rotate(360deg); } }
+        .panel-proceso.terminado .anillo-proceso {
+            animation: none; border-color: var(--bs-success);
+            display: grid; place-items: center; transition: border-color .3s ease;
+        }
+        .panel-proceso .icono-listo { display: none; color: var(--bs-success); font-size: 2rem; }
+        .panel-proceso.terminado .icono-listo { display: block; animation: aparecer-listo .35s cubic-bezier(.34,1.56,.64,1) both; }
+        @keyframes aparecer-listo { from { transform: scale(.4); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+        .tiempo-proceso { font-variant-numeric: tabular-nums; }
+        @media (prefers-reduced-motion: reduce) {
+            .anillo-proceso { animation-duration: 3s; }
+            .panel-proceso.terminado .icono-listo { animation: none; }
+        }
+    </style>
+
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb small mb-3">
+            <li class="breadcrumb-item"><a href="{% url 'home' %}">Inicio</a></li>
+            <li class="breadcrumb-item"><a href="{% url 'registros:cargar' %}">Cargar registros</a></li>
+            <li class="breadcrumb-item active" aria-current="page">Carga #{{ carga.id }}</li>
+        </ol>
+    </nav>
+
+    <div class="panel-proceso" id="panel-proceso" role="status" aria-live="polite">
+        <div class="anillo-proceso"><i class="bi bi-check-lg icono-listo"></i></div>
+        <h1 class="h4 text-guindo mb-2" id="titulo-proceso">Procesando el archivo</h1>
+        <p class="text-secondary mb-1">
+            {{ carga.empresa }} · Gestión {{ carga.gestion.anio }}
+        </p>
+        <p class="text-secondary small mb-3">
+            Se están leyendo y validando las filas. Tiempo transcurrido:
+            <span class="tiempo-proceso" id="tiempo-proceso">0 s</span>
+        </p>
+        <div class="barra-progreso-indeterminada activa mx-auto mb-4" style="max-width: 280px;"></div>
+        <p class="small text-secondary mb-0" id="nota-proceso">
+            Es posible salir de esta página: el proceso continúa y el resultado queda en
+            <a href="{% url 'registros:cargar' %}">Cargar registros</a>.
+        </p>
+    </div>
+{% endblock %}
+{% block extra_js %}
+<script>
+    (function () {
+        var url = "{% url 'registros:carga_estado' carga.id %}";
+        var panel = document.getElementById("panel-proceso");
+        var tiempo = document.getElementById("tiempo-proceso");
+        var nota = document.getElementById("nota-proceso");
+        var inicio = Date.now() - {{ segundos_transcurridos|default:0 }} * 1000;
+        var fallos = 0;
+
+        var reloj = setInterval(function () {
+            var s = Math.round((Date.now() - inicio) / 1000);
+            tiempo.textContent = s < 60 ? s + " s" : Math.floor(s / 60) + " min " + (s % 60) + " s";
+        }, 1000);
+
+        function terminar() {
+            clearInterval(reloj);
+            panel.classList.add("terminado");
+            document.getElementById("titulo-proceso").textContent = "Archivo procesado";
+            panel.querySelector(".barra-progreso-indeterminada").classList.remove("activa");
+            setTimeout(function () { window.location.reload(); }, 700);
+        }
+
+        function consultar() {
+            fetch(url, { headers: { "Accept": "application/json" } })
+                .then(window.leerRespuestaJson)
+                .then(function (data) {
+                    fallos = 0;
+                    if (data.en_proceso) setTimeout(consultar, 2000); else terminar();
+                })
+                .catch(function (err) {
+                    if (err && (err.motivo === "sesion" || err.motivo === "pagina")) {
+                        clearInterval(reloj);
+                        nota.textContent = window.mensajeFalloRed(err);
+                        return;
+                    }
+                    // Sin conexión o error momentáneo del servidor: se avisa y se reintenta
+                    // con más espera; el proceso sigue en el servidor aunque no se vea aquí.
+                    fallos += 1;
+                    nota.textContent = window.mensajeFalloRed(err) + " Se reintentará automáticamente.";
+                    setTimeout(consultar, Math.min(2000 * (fallos + 1), 15000));
+                });
+        }
+        setTimeout(consultar, 1200);
+    })();
+</script>
+{% endblock %}

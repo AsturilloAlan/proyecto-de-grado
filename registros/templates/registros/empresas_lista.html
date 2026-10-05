@@ -10,7 +10,7 @@
             <h1 id="lista-empresas" class="text-guindo mb-0 h3">Empresas clientes de ST&amp;S</h1>
         </div>
         <a class="btn btn-guindo" href="{% url 'registros:empresa_crear' %}">
-            <i class="bi bi-plus-lg"></i> Registrar nueva empresa
+            Registrar nueva empresa
         </a>
     </div>
 
@@ -54,11 +54,11 @@
                                 {{ empresa.contacto_nombre }}<br>
                                 <small class="text-secondary">
                                     {% if empresa.contacto_email %}
-                                        <i class="bi bi-envelope"></i> {{ empresa.contacto_email }}
+                                        {{ empresa.contacto_email }}
                                     {% endif %}
                                     {% if empresa.contacto_email and empresa.contacto_telefono %}<br>{% endif %}
                                     {% if empresa.contacto_telefono %}
-                                        <i class="bi bi-telephone"></i> {{ empresa.contacto_telefono }}
+                                        {{ empresa.contacto_telefono }}
                                     {% endif %}
                                 </small>
                             {% else %}—{% endif %}
@@ -66,10 +66,10 @@
                         <td>{{ empresa.fecha_registro|date:"d/m/Y" }}</td>
                         <td>
                             <a class="btn btn-sm btn-outline-guindo" href="{% url 'registros:empresa_editar' empresa.id %}">
-                                <i class="bi bi-pencil"></i> Editar
+                                Editar
                             </a>
                             <a class="btn btn-sm btn-outline-secondary" href="{% url 'registros:empresa_historial' empresa.id %}">
-                                <i class="bi bi-clock-history"></i> Historial
+                                Historial
                             </a>
                         </td>
                     </tr>
@@ -89,9 +89,9 @@
         <div class="estado-vacio">
             <div class="estado-vacio-icono"><i class="bi bi-building"></i></div>
             <h3 class="text-guindo">Todavía no hay empresas registradas</h3>
-            <p class="text-secondary">Registrá la primera empresa cliente para empezar a auditarla.</p>
+            <p class="text-secondary">Todavía no hay empresas cliente registradas.</p>
             <a class="btn btn-guindo btn-sm mt-2" href="{% url 'registros:empresa_crear' %}">
-                <i class="bi bi-plus-lg"></i> Registrar nueva empresa
+                Registrar nueva empresa
             </a>
         </div>
     {% endif %}

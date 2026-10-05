@@ -22,9 +22,9 @@ class GestionAdmin(admin.ModelAdmin):
 
 @admin.register(CuentaContable)
 class CuentaContableAdmin(admin.ModelAdmin):
-    list_display = ("codigo", "nombre", "tipo")
+    list_display = ("codigo", "nombre", "tipo", "empresa")
     search_fields = ("codigo", "nombre")
-    list_filter = ("tipo",)
+    list_filter = ("empresa", "tipo")
 
 
 @admin.register(CargaArchivo)

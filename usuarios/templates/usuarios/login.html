@@ -14,14 +14,22 @@
     .fluido-in { animation: fluido-in .5s cubic-bezier(.2,.8,.2,1) both; }
     @media (prefers-reduced-motion: reduce) { .fluido-in { animation: none; } }
 
-    /* En celular la tarjeta se centra verticalmente. */
+    /* En celular: tarjeta centrada, más compacta y sin zoom automático al escribir. */
     @media (max-width: 767.98px) {
         main.container:has(.tarjeta-editorial) {
             display: flex;
             align-items: center;
-            min-height: calc(100vh - 96px);
+            min-height: calc(100svh - 140px);
+            padding-left: .75rem; padding-right: .75rem;
         }
-        .tarjeta-editorial { margin-top: 0 !important; }
+        .tarjeta-editorial { margin-top: 0 !important; width: 100%; }
+        .tarjeta-editorial > .card-body { padding: 0 !important; }
+        .zona-editorial { padding-top: 0 !important; padding-bottom: 0 !important; }
+        .tarjeta-vidrio { padding: 1.5rem 1.25rem; border-radius: 18px; }
+        .tarjeta-vidrio h1 { font-size: 1.35rem; }
+        .form-floating > .form-control { font-size: 16px; }
+        #form-login .btn-guindo { padding-top: .75rem; padding-bottom: .75rem; }
+        .panel-bloqueo { flex-direction: column; text-align: center; }
     }
 
     /* Logo en celular, con cambio suave entre tema claro y oscuro. */
@@ -167,7 +175,7 @@
                             <div>
                                 <div class="small fw-semibold mb-1">Acceso bloqueado temporalmente</div>
                                 <div class="reloj-bloqueo" id="reloj-bloqueo">--:--</div>
-                                <div class="small text-secondary mt-1">Demasiados intentos fallidos. Podrás volver a intentar cuando termine el contador.</div>
+                                <div class="small text-secondary mt-1">Demasiados intentos fallidos. El acceso se habilita al terminar el contador.</div>
                             </div>
                         </div>
                     {% endif %}
@@ -213,7 +221,7 @@
                                 </button>
                             </div>
                             <div class="text-warning small mt-1 d-none" id="aviso-mayus">
-                                <i class="bi bi-exclamation-triangle"></i> Bloq Mayús está activado.
+                                Bloq Mayús está activado.
                             </div>
                             {% for error in form.password.errors %}
                                 <div class="text-danger small mt-1">{{ error }}</div>
@@ -221,14 +229,11 @@
                         </div>
 
                         <button class="btn btn-guindo w-100 fluido-in" type="submit" data-cargando-texto="Ingresando..." style="animation-delay: .22s;">
-                            <i class="bi bi-box-arrow-in-right"></i> Ingresar
+                            Ingresar
                         </button>
                     </form>
                     <div class="fluido-in" style="animation-delay: .28s;">
-                        <p class="text-secondary small text-center text-md-start mt-3 mb-1">
-                            ¿Olvidaste tu usuario o contraseña? Contacta con el administrador del sistema.
-                        </p>
-                        <p class="text-secondary text-center text-md-start mb-0" style="font-size: .72rem; opacity: .7;">
+                        <p class="text-secondary text-center text-md-start mt-4 mb-0" style="font-size: .72rem; opacity: .7;">
                             © {% now "Y" %} ST&amp;S Auditores y Consultores S.R.L.
                         </p>
                     </div>

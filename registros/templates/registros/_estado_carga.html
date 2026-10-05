@@ -1,20 +1,39 @@
 {% comment %}
-Estado de una carga en dos partes: importación del archivo y revisión del auditor.
-Uso: {% include "registros/_estado_carga.html" with carga=carga %}  (compacto=True para tablas)
+Estado de una carga: importación del archivo y revisión del auditor.
+Uso: {% include "registros/_estado_carga.html" with carga=carga %}
+En tablas (compacto=True) se muestra un solo estado principal y, si hubo filas
+rechazadas, una segunda etiqueta con la cantidad.
 {% endcomment %}
 {% with imp=carga.estado_importacion rev=carga.estado_revision_carga %}
-<span class="estado-carga{% if compacto %} estado-carga-compacto{% endif %}">
+{% if compacto %}
+<span class="estado-carga estado-carga-compacto">
+    {% if rev == 'anulada' %}
+        <span class="chip-estado chip-anulada">Anulada</span>
+    {% elif imp == 'fallida' %}
+        <span class="chip-estado chip-fallida">Importación fallida</span>
+    {% elif imp == 'procesando' %}
+        <span class="chip-estado chip-procesando">Procesando</span>
+    {% else %}
+        <span class="chip-estado chip-{{ rev }}">
+            {{ carga.estado_revision_carga_display }}{% if rev == 'en_revision' %}: {{ carga.avisos_pendientes }} pendiente{{ carga.avisos_pendientes|pluralize }}{% endif %}
+        </span>
+        {% if imp == 'parcial' %}
+            <span class="chip-estado chip-parcial">{{ carga.registros_con_error }} fila{{ carga.registros_con_error|pluralize }} rechazada{{ carga.registros_con_error|pluralize }}</span>
+        {% endif %}
+    {% endif %}
+</span>
+{% else %}
+<span class="estado-carga">
     <span class="chip-estado chip-{{ imp }}" title="Importación del archivo">
-        <i class="bi {% if imp == 'completa' %}bi-check2-circle{% elif imp == 'parcial' %}bi-exclamation-diamond{% elif imp == 'fallida' %}bi-x-octagon{% else %}bi-hourglass-split{% endif %}"></i>
-        {% if not compacto %}<span class="chip-etiqueta">Importación</span>{% endif %}
+        <span class="chip-etiqueta">Importación</span>
         {{ carga.estado_importacion_display }}{% if imp == 'parcial' %}: {{ carga.registros_con_error }} rechazada{{ carga.registros_con_error|pluralize }}{% endif %}
     </span>
     {% if rev != 'no_aplica' %}
     <span class="chip-estado chip-{{ rev }}" title="Revisión del auditor">
-        <i class="bi {% if rev == 'en_revision' %}bi-search{% elif rev == 'por_confirmar' %}bi-clipboard-check{% elif rev == 'validada' %}bi-patch-check-fill{% else %}bi-slash-circle{% endif %}"></i>
-        {% if not compacto %}<span class="chip-etiqueta">Revisión</span>{% endif %}
+        <span class="chip-etiqueta">Revisión</span>
         {{ carga.estado_revision_carga_display }}{% if rev == 'en_revision' %}: {{ carga.avisos_pendientes }} pendiente{{ carga.avisos_pendientes|pluralize }}{% endif %}
     </span>
     {% endif %}
 </span>
+{% endif %}
 {% endwith %}

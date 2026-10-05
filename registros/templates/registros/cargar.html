@@ -8,13 +8,12 @@
         </div>
         <div>
             <h1 class="text-guindo mb-1 h3">Cargar registros contables</h1>
-            <p class="text-secondary mb-0">Sube el archivo del libro mayor o libro diario: Excel, CSV, o PDF (exportado desde tu sistema contable).</p>
+            <p class="text-secondary mb-0">Libro mayor o libro diario en Excel, CSV o PDF.</p>
         </div>
     </div>
 
     {% if not form.fields.empresa.queryset.exists or not form.fields.gestion.queryset.exists %}
         <div class="alert alert-guindo-suave">
-            <i class="bi bi-info-circle"></i>
             Aún no hay empresas o gestiones registradas.
             {% if es_administrador %}
                 Un Administrador debe crear al menos una empresa desde
@@ -58,7 +57,7 @@
                     <label for="{{ form.gestion.id_for_label }}" class="form-label mb-0">{{ form.gestion.label }}</label>
                     {% if puede_gestionar_gestiones %}
                         <a href="{% url 'registros:gestion_crear' %}" class="small">
-                            <i class="bi bi-plus-circle"></i> Agregar gestión
+                            Agregar gestión
                         </a>
                     {% endif %}
                 </div>
@@ -75,15 +74,19 @@
                         {% endfor %}
                     </ul>
                 </div>
+                <div class="text-warning-emphasis small mt-1 d-none" id="aviso-gestion-cierre">
+                    La gestión elegida no coincide con el cierre fiscal de la empresa.
+                </div>
                 {% for error in form.gestion.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
             </div>
+            {{ gestiones_por_empresa|json_script:"gestiones-por-empresa" }}
 
             <div class="col-12">
                 <label class="form-label">{{ form.archivo.label }}</label>
                 <div class="dropzone-archivo" id="dropzone-archivo" role="button" tabindex="0" aria-label="Elegir o arrastrar archivo">
                     <div id="dropzone-vacio" class="d-flex flex-column align-items-center gap-1">
                         <i class="bi bi-cloud-arrow-up fs-2 text-guindo dropzone-icono-flotante"></i>
-                        <span class="fw-semibold">Arrastra tu archivo aquí o haz clic para elegirlo</span>
+                        <span class="fw-semibold">Arrastrar el archivo aquí o hacer clic para elegirlo</span>
                         <span class="text-secondary small">.xlsx, .xls, .csv o .pdf · máx. 20&nbsp;MB</span>
                     </div>
                     <div id="dropzone-elegido" class="d-none w-100 align-items-center gap-3 text-start">
@@ -98,12 +101,13 @@
                     </div>
                 </div>
                 <div class="input-archivo-oculto">{{ form.archivo }}</div>
+                <div class="text-danger small mt-1 d-none" id="dropzone-error" role="alert"></div>
                 {% for error in form.archivo.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
             </div>
 
             <div class="col-12">
-                <button class="btn btn-guindo" type="submit" data-cargando-texto="Procesando archivo...">
-                    <i class="bi bi-cloud-upload"></i> Cargar y validar
+                <button class="btn btn-guindo" type="submit" data-cargando-texto="Subiendo archivo...">
+                    Cargar y validar
                 </button>
                 <div class="barra-progreso-indeterminada" style="max-width: 280px;"></div>
             </div>
@@ -112,19 +116,17 @@
 
     <hr class="my-4">
 
-    <h2 id="historial-cargas" class="h5 text-guindo"><i class="bi bi-clock-history"></i> Historial de cargas</h2>
+    <h2 id="historial-cargas" class="h5 text-guindo">Historial de cargas</h2>
 
     {% if hay_cargas_en_total %}
-        <form method="get" class="row row-cols-lg-auto g-2 align-items-end mb-3">
-            <div class="col-12">
+        <form method="get" class="row g-2 align-items-end mb-3 filtros-historial">
+            <div class="col-12 col-sm-6 col-lg">
                 <label for="filtro-empresa" class="form-label small mb-1">Empresa</label>
-                <div class="selector-personalizado" style="min-width: 180px;">
+                <div class="selector-personalizado">
                     <select id="filtro-empresa" name="empresa" class="select-oculto">
                         <option value="">Todas</option>
                         {% for empresa in empresas_con_cargas %}
-                            <option value="{{ empresa.id }}" {% if filtro_empresa == empresa.id|stringformat:"s" %}selected{% endif %}>
-                                {{ empresa.nombre }}
-                            </option>
+                            <option value="{{ empresa.id }}" {% if filtro_empresa == empresa.id|stringformat:"s" %}selected{% endif %}>{{ empresa.nombre }}</option>
                         {% endfor %}
                     </select>
                     <button type="button" class="form-control form-control-sm selector-boton">
@@ -139,15 +141,13 @@
                     </ul>
                 </div>
             </div>
-            <div class="col-12">
+            <div class="col-12 col-sm-6 col-lg">
                 <label for="filtro-gestion" class="form-label small mb-1">Gestión</label>
-                <div class="selector-personalizado" style="min-width: 180px;">
+                <div class="selector-personalizado">
                     <select id="filtro-gestion" name="gestion" class="select-oculto">
                         <option value="">Todas</option>
                         {% for gestion in gestiones_con_cargas %}
-                            <option value="{{ gestion.id }}" {% if filtro_gestion == gestion.id|stringformat:"s" %}selected{% endif %}>
-                                {{ gestion }}
-                            </option>
+                            <option value="{{ gestion.id }}" {% if filtro_gestion == gestion.id|stringformat:"s" %}selected{% endif %}>{{ gestion }}</option>
                         {% endfor %}
                     </select>
                     <button type="button" class="form-control form-control-sm selector-boton">
@@ -162,13 +162,13 @@
                     </ul>
                 </div>
             </div>
-            <div class="col-12">
-                <label for="filtro-importacion" class="form-label small mb-1">Importación</label>
-                <div class="selector-personalizado" style="min-width: 160px;">
-                    <select id="filtro-importacion" name="importacion" class="select-oculto">
-                        <option value="">Todas</option>
-                        {% for valor, texto in opciones_importacion %}
-                            <option value="{{ valor }}" {% if filtro_importacion == valor %}selected{% endif %}>{{ texto }}</option>
+            <div class="col-12 col-sm-6 col-lg">
+                <label for="filtro-estado" class="form-label small mb-1">Estado</label>
+                <div class="selector-personalizado">
+                    <select id="filtro-estado" name="estado" class="select-oculto">
+                        <option value="">Todos</option>
+                        {% for valor, texto in opciones_estado %}
+                            <option value="{{ valor }}" {% if filtro_estado == valor %}selected{% endif %}>{{ texto }}</option>
                         {% endfor %}
                     </select>
                     <button type="button" class="form-control form-control-sm selector-boton">
@@ -176,41 +176,24 @@
                         <i class="bi bi-chevron-down"></i>
                     </button>
                     <ul class="selector-lista d-none" role="listbox">
-                        <li class="selector-opcion" data-valor="" role="option">Todas</li>
-                        {% for valor, texto in opciones_importacion %}
+                        <li class="selector-opcion" data-valor="" role="option">Todos</li>
+                        {% for valor, texto in opciones_estado %}
                             <li class="selector-opcion" data-valor="{{ valor }}" role="option">{{ texto }}</li>
                         {% endfor %}
                     </ul>
                 </div>
             </div>
-            <div class="col-12">
-                <label for="filtro-revision" class="form-label small mb-1">Revisión</label>
-                <div class="selector-personalizado" style="min-width: 160px;">
-                    <select id="filtro-revision" name="revision" class="select-oculto">
-                        <option value="">Todas</option>
-                        {% for valor, texto in opciones_revision %}
-                            <option value="{{ valor }}" {% if filtro_revision == valor %}selected{% endif %}>{{ texto }}</option>
-                        {% endfor %}
-                    </select>
-                    <button type="button" class="form-control form-control-sm selector-boton">
-                        <span class="selector-texto"></span>
-                        <i class="bi bi-chevron-down"></i>
+            <div class="col-12 col-lg-auto">
+                <div class="d-flex gap-2">
+                    <button class="btn btn-sm btn-guindo flex-fill" type="submit">
+                        <i class="bi bi-funnel"></i> Filtrar
                     </button>
-                    <ul class="selector-lista d-none" role="listbox">
-                        <li class="selector-opcion" data-valor="" role="option">Todas</li>
-                        {% for valor, texto in opciones_revision %}
-                            <li class="selector-opcion" data-valor="{{ valor }}" role="option">{{ texto }}</li>
-                        {% endfor %}
-                    </ul>
+                    {% if hay_filtro_activo %}
+                        <a href="{% url 'registros:cargar' %}" class="btn btn-sm btn-outline-guindo flex-fill">
+                            <i class="bi bi-x-lg"></i> Quitar filtros
+                        </a>
+                    {% endif %}
                 </div>
-            </div>
-            <div class="col-12">
-                <button class="btn btn-sm btn-guindo" type="submit">
-                    <i class="bi bi-funnel"></i> Filtrar
-                </button>
-                {% if hay_filtro_activo %}
-                    <a href="{% url 'registros:cargar' %}" class="btn btn-sm btn-outline-guindo">Quitar filtros</a>
-                {% endif %}
             </div>
         </form>
     {% endif %}
@@ -231,7 +214,7 @@
                 </thead>
                 <tbody>
                     {% for carga in cargas_anteriores %}
-                    <tr>
+                    <tr class="fila-carga" data-href="{% url 'registros:detalle_carga' carga.id %}"{% if carga.estado == 'pendiente' %} data-estado-url="{% url 'registros:carga_estado' carga.id %}"{% endif %}>
                         <td>{{ carga.fecha_carga|date:"d/m/Y H:i" }}</td>
                         <td>{{ carga.empresa }}</td>
                         <td>
@@ -266,19 +249,80 @@
         <div class="estado-vacio">
             <div class="estado-vacio-icono"><i class="bi bi-funnel"></i></div>
             <h3 class="text-guindo">Ninguna carga coincide con ese filtro.</h3>
-            <p class="text-secondary">Prueba con otra combinación de filtros.</p>
+            <p class="text-secondary">Probar con otra combinación de filtros.</p>
             <a class="btn btn-outline-guindo btn-sm mt-2" href="{% url 'registros:cargar' %}">Quitar filtros</a>
         </div>
     {% else %}
         <div class="estado-vacio">
             <div class="estado-vacio-icono"><i class="bi bi-inbox"></i></div>
             <h3 class="text-guindo">Todavía no se cargó ningún archivo</h3>
-            <p class="text-secondary">Usa el formulario de arriba para subir el primero.</p>
+            <p class="text-secondary">Las cargas aparecerán aquí.</p>
         </div>
     {% endif %}
 {% endblock %}
 {% block extra_js %}
+<style>
+    .fila-carga { cursor: pointer; }
+    .selector-opcion.otro-cierre { opacity: .5; }
+    .selector-opcion.otro-cierre::after { content: " · otro cierre"; font-size: .8em; }
+</style>
 <script>
+    // Toda la fila del historial abre el detalle de la carga.
+    document.querySelectorAll(".fila-carga").forEach(function (fila) {
+        fila.addEventListener("click", function (e) {
+            if (e.target.closest("a, button")) return;
+            window.location.href = fila.dataset.href;
+        });
+    });
+    (function () {
+        // Cargas en proceso: al terminar, la lista se actualiza sola, salvo que el
+        // formulario ya tenga un archivo elegido (no se pierde lo que se está preparando).
+        var filas = document.querySelectorAll(".fila-carga[data-estado-url]");
+        if (!filas.length) return;
+        var archivo = document.getElementById("{{ form.archivo.id_for_label }}");
+        var fallosSeguidos = 0;
+        function revisar() {
+            Promise.all(Array.prototype.map.call(filas, function (fila) {
+                return fetch(fila.dataset.estadoUrl, { headers: { "Accept": "application/json" } })
+                    .then(window.leerRespuestaJson)
+                    .catch(function () { return { fallo: true }; });
+            })).then(function (estados) {
+                var termino = estados.some(function (e) { return !e.fallo && !e.en_proceso; });
+                fallosSeguidos = estados.every(function (e) { return e.fallo; }) ? fallosSeguidos + 1 : 0;
+                if (termino && !(archivo && archivo.files && archivo.files.length)) {
+                    window.location.reload();
+                } else if (fallosSeguidos < 5) {
+                    setTimeout(revisar, 4000);
+                }
+                // Tras 5 fallos seguidos se deja de consultar; al recargar la página se
+                // vuelve a intentar.
+            });
+        }
+        setTimeout(revisar, 3000);
+    })();
+    (function () {
+        // Atenúa las gestiones que no corresponden al cierre fiscal de la empresa elegida.
+        var datos = document.getElementById("gestiones-por-empresa");
+        var selectEmpresa = document.getElementById("{{ form.empresa.id_for_label }}");
+        var selectGestion = document.getElementById("{{ form.gestion.id_for_label }}");
+        var aviso = document.getElementById("aviso-gestion-cierre");
+        if (!datos || !selectEmpresa || !selectGestion || !aviso) return;
+        var compatibles = JSON.parse(datos.textContent);
+        var opciones = selectGestion.closest(".selector-personalizado").querySelectorAll(".selector-opcion");
+
+        function revisar() {
+            var lista = compatibles[selectEmpresa.value];
+            opciones.forEach(function (op) {
+                var valor = op.getAttribute("data-valor");
+                op.classList.toggle("otro-cierre", !!lista && valor !== "" && lista.indexOf(valor) === -1);
+            });
+            aviso.classList.toggle("d-none",
+                !lista || !selectGestion.value || lista.indexOf(selectGestion.value) !== -1);
+        }
+        selectEmpresa.addEventListener("change", revisar);
+        selectGestion.addEventListener("change", revisar);
+        revisar();
+    })();
     (function () {
         var input = document.getElementById("{{ form.archivo.id_for_label }}");
         var zona = document.getElementById("dropzone-archivo");
@@ -303,9 +347,37 @@
             return "bi-file-earmark-check";
         }
 
+        // Misma regla que el servidor; aquí solo evita esperar la subida para ver el error.
+        var EXTENSIONES = ["xlsx", "xls", "csv", "pdf"];
+        var TAMANO_MAXIMO = 20 * 1024 * 1024;
+        var errorEl = document.getElementById("dropzone-error");
+
+        function errorArchivo(archivo) {
+            var extension = archivo.name.includes(".") ? archivo.name.split(".").pop().toLowerCase() : "";
+            if (EXTENSIONES.indexOf(extension) === -1) {
+                return "Formato no admitido: se aceptan archivos .xlsx, .xls, .csv o .pdf.";
+            }
+            if (archivo.size > TAMANO_MAXIMO) {
+                return "El archivo pesa " + formatearTamano(archivo.size) + "; el máximo es 20 MB.";
+            }
+            if (archivo.size === 0) return "El archivo está vacío.";
+            return "";
+        }
+
         function actualizarVista() {
+            errorEl.classList.add("d-none");
             if (input.files && input.files.length > 0) {
                 var archivo = input.files[0];
+                var problema = errorArchivo(archivo);
+                if (problema) {
+                    errorEl.textContent = problema;
+                    errorEl.classList.remove("d-none");
+                    input.value = "";
+                    vacio.classList.remove("d-none");
+                    elegido.classList.add("d-none");
+                    elegido.classList.remove("d-flex");
+                    return;
+                }
                 nombreEl.textContent = archivo.name;
                 tamanoEl.textContent = formatearTamano(archivo.size);
                 iconoEl.className = "bi " + iconoParaArchivo(archivo.name);

@@ -49,7 +49,8 @@ class PerfilForm(forms.ModelForm):
         fields = ["avatar", "avatar_preset"]
         labels = {"avatar": "Foto de perfil"}
         widgets = {
-            "avatar": forms.ClearableFileInput(attrs={"class": "form-control"}),
+            # Sin "Actualmente / Limpiar": elegir un avatar predefinido ya reemplaza la foto.
+            "avatar": forms.FileInput(attrs={"class": "d-none", "accept": "image/*"}),
             "avatar_preset": forms.HiddenInput(),
         }
 

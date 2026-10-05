@@ -7,3 +7,4 @@ PyMySQL>=1.1
 Pillow>=10.0
 pdfplumber>=0.11
 xlrd>=2.0  # lectura de Excel antiguo (.xls)
+matplotlib>=3.8  # gráficos del informe de evaluación de modelos

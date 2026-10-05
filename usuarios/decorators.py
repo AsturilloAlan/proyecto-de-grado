@@ -21,7 +21,7 @@ def rol_requerido(*roles):
 
             messages.error(
                 request,
-                "No tienes el rol necesario para acceder a esa sección "
+                "Acceso restringido al rol "
                 f"({', '.join(roles)}).",
             )
             return redirect("home")

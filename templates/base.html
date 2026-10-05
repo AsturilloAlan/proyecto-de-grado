@@ -9,8 +9,11 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Lora:wght@500;600;700&display=swap" rel="stylesheet">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+    <!-- Copia local (python manage.py descargar_estaticos); si no existe, se usa el CDN. -->
+    <link href="{% static 'vendor/bootstrap/bootstrap.min.css' %}" rel="stylesheet"
+          onerror="this.onerror=null;this.href='https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css'">
+    <link href="{% static 'vendor/bootstrap-icons/bootstrap-icons.min.css' %}" rel="stylesheet"
+          onerror="this.onerror=null;this.href='https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css'">
     <script>
         /* Aplica el tema guardado antes de pintar, sin parpadeo. */
         (function () {
@@ -151,9 +154,6 @@
         [data-bs-theme="dark"] #menuUsuario { color: #b9adc0 !important; }
         [data-bs-theme="dark"] #menuUsuario:hover { background: rgba(255,255,255,.06); color: #f1e9ee !important; }
 
-        .avatar-inicial { background: rgba(110,27,63,.12); color: var(--guindo-oscuro); }
-        [data-bs-theme="dark"] .avatar-inicial { background: rgba(231,184,205,.15); color: #e7b8cd; }
-
         .logo-navbar-caja {
             position: relative; display: inline-block; height: 40px; width: 148px;
             animation: logo-entrar .5s cubic-bezier(.2,.8,.2,1) both;
@@ -179,9 +179,7 @@
             border: none;
             border-top: 4px solid var(--guindo);
             border-radius: 1rem;
-            background: rgba(255,255,255,.88);
-            backdrop-filter: blur(10px) saturate(140%);
-            -webkit-backdrop-filter: blur(10px) saturate(140%);
+            background: rgba(255,255,255,.92);
             box-shadow: 0 8px 30px rgba(74,17,41,.09), 0 1px 3px rgba(74,17,41,.05);
             transition: box-shadow .25s ease, transform .25s ease;
         }
@@ -245,7 +243,11 @@
         #boton-tema:hover { transform: rotate(15deg); }
         #frase-rotativa { transition: opacity .3s ease; }
         .avatar-navbar { width: 32px; height: 32px; object-fit: cover; transition: transform .2s ease; }
-        .avatar-inicial { width: 32px; height: 32px; font-weight: 600; font-size: .85rem; transition: transform .2s ease; }
+        .avatar-inicial {
+            width: 32px; height: 32px; font-weight: 600; font-size: .85rem; transition: transform .2s ease;
+            background: rgba(110,27,63,.12); color: var(--guindo-oscuro);
+        }
+        [data-bs-theme="dark"] .avatar-inicial { background: rgba(231,184,205,.15); color: #e7b8cd; }
         #menuUsuario:hover .avatar-navbar, #menuUsuario:hover .avatar-inicial { transform: scale(1.08); }
         .dropdown-menu {
             border: none; box-shadow: 0 12px 32px rgba(74,17,41,.18); border-radius: .75rem;
@@ -269,7 +271,8 @@
 
         /* Entrada de la tarjeta principal. */
         @keyframes entrar-tarjeta { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
-        .card-principal { animation: entrar-tarjeta .35s cubic-bezier(.2,.8,.3,1) both; }
+        /* "backwards": sin transform al terminar, para que lo fijo adentro siga a la pantalla. */
+        .card-principal { animation: entrar-tarjeta .35s cubic-bezier(.2,.8,.3,1) backwards; }
 
         /* Filas de tabla en cascada (stagger), no todas de golpe. */
         @keyframes entrar-fila { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
@@ -412,6 +415,8 @@
         .selector-boton .bi-chevron-down { transition: transform .2s ease; color: var(--guindo-oscuro); flex-shrink: 0; }
         [data-bs-theme="dark"] .selector-boton .bi-chevron-down { color: #e7b8cd; }
         .selector-abierto .bi-chevron-down { transform: rotate(180deg); }
+        /* El selector abierto queda por encima de los campos vecinos. */
+        .selector-personalizado.selector-abierto { z-index: 1060; }
         .selector-lista {
             position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 1050;
             background: #fff; border: 1px solid rgba(110,27,63,.15); border-radius: .6rem;
@@ -500,16 +505,16 @@
         .boton-mostrar-clave-auto i.girar { animation: girar-icono-clave .3s ease; }
         @keyframes girar-icono-clave { from { transform: rotate(0deg) scale(.7); opacity: .4; } to { transform: rotate(360deg) scale(1); opacity: 1; } }
 
-        /* Alertas en línea: fondo suave con acento lateral. */
+        /* Alertas en línea: superficie neutra con una marca de color fina a la izquierda. */
         .alert {
             --alerta-acento: var(--bs-secondary);
-            border: 1px solid color-mix(in srgb, var(--alerta-acento) 22%, transparent);
-            border-left: 4px solid var(--alerta-acento);
-            border-radius: .75rem;
-            background: color-mix(in srgb, var(--alerta-acento) 8%, var(--bs-body-bg));
+            border: 1px solid var(--bs-border-color-translucent);
+            border-left: 3px solid var(--alerta-acento);
+            border-radius: .6rem;
+            background: var(--bs-tertiary-bg);
             color: var(--bs-body-color);
-            padding: .85rem 1.1rem;
-            box-shadow: 0 1px 2px rgba(0,0,0,.03);
+            padding: .75rem 1rem;
+            font-size: .95rem;
         }
         .alert > .bi:first-child { color: var(--alerta-acento); margin-right: .35rem; }
         .alert-success { --alerta-acento: #198754; }
@@ -518,7 +523,7 @@
         .alert-info    { --alerta-acento: #0d8aa8; }
         .alert-dark    { --alerta-acento: #5b5463; }
         .alert-guindo-suave { --alerta-acento: var(--guindo); }
-        [data-bs-theme="dark"] .alert { background: color-mix(in srgb, var(--alerta-acento) 14%, #1e1624); }
+        [data-bs-theme="dark"] .alert { background: rgba(255,255,255,.035); border-color: rgba(255,255,255,.08); }
         [data-bs-theme="dark"] .alert-success { --alerta-acento: #4ec48a; }
         [data-bs-theme="dark"] .alert-danger  { --alerta-acento: #ef7d88; }
         [data-bs-theme="dark"] .alert-warning { --alerta-acento: #f0c14b; }
@@ -554,6 +559,18 @@
         [data-bs-theme="dark"] .chip-fallida { --chip: #ef7d88; }
         [data-bs-theme="dark"] .chip-por_confirmar { --chip: #e7b8cd; }
         [data-bs-theme="dark"] .chip-anulada, [data-bs-theme="dark"] .chip-procesando { --chip: #a89fb1; }
+        /* Punto que late mientras la carga está en proceso. */
+        .chip-procesando::before {
+            content: ""; width: .45rem; height: .45rem; border-radius: 50%;
+            background: currentColor; animation: latir-chip 1.2s ease-in-out infinite;
+        }
+        @keyframes latir-chip { 50% { opacity: .2; } }
+        @media (prefers-reduced-motion: reduce) { .chip-procesando::before { animation: none; } }
+
+        /* Contador que acaba de cambiar. */
+        .contador-cambio { animation: contador-cambio .45s ease; display: inline-block; }
+        @keyframes contador-cambio { 40% { transform: scale(1.25); } }
+        @media (prefers-reduced-motion: reduce) { .contador-cambio { animation: none; } }
 
         /* Notificaciones flotantes (mensajes del sistema). */
         .zona-avisos {
@@ -606,6 +623,31 @@
         @media (prefers-reduced-motion: reduce) {
             .aviso-flotante, .aviso-flotante.saliendo { animation: none; }
         }
+
+        /* ---------- Responsive ---------- */
+        /* Tablet y celular. */
+        @media (max-width: 991.98px) {
+            .card-principal > .card-body { padding: 1.5rem !important; }
+        }
+        @media (max-width: 767.98px) {
+            main.container { padding-left: .6rem; padding-right: .6rem; }
+            .navbar-guindo { margin-bottom: 1rem !important; }
+            .logo-navbar-caja { width: 120px; height: 34px; }
+            .logo-navbar-caja img { max-width: 120px; max-height: 34px; }
+            .navbar-collapse { border-top: 1px solid rgba(110,27,63,.12); margin-top: .5rem; }
+            .navbar-collapse .nav-link { padding: .65rem .25rem; }
+            .card-principal { border-radius: .85rem; }
+            .card-principal > .card-body { padding: 1rem !important; }
+            h1, .h1 { font-size: 1.55rem; }
+            h2.h4 { font-size: 1.15rem; }
+            .table { font-size: .88rem; }
+            .table > :not(caption) > * > * { padding: .45rem .5rem; }
+            .btn { min-height: 38px; }
+            /* Campos a 16 px: evita el zoom automático del celular al escribir. */
+            .form-control, .form-select { font-size: 16px; }
+            .modal-dialog { margin: .75rem; }
+            .pagination { justify-content: center; }
+        }
     </style>
     {% block extra_head %}{% endblock %}
 </head>
@@ -631,48 +673,17 @@
     {% else %}
     <nav class="navbar navbar-expand-md navbar-guindo mb-4">
         <div class="container">
-            <a class="navbar-brand d-flex align-items-center" href="{% if user.is_authenticated %}{% url 'home' %}{% else %}#{% endif %}">
+            <a class="navbar-brand d-flex align-items-center" href="{% url 'home' %}">
                 <span class="logo-navbar-caja">
                     <img src="{% static 'img/logo-sts-claro.png' %}" alt="ST&amp;S Auditores y Consultores" class="logo-tema-claro">
                     <img src="{% static 'img/logo-sts-oscuro.png' %}" alt="ST&amp;S Auditores y Consultores" class="logo-tema-oscuro">
                 </span>
             </a>
-            {% if user.is_authenticated %}
-                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#menuPrincipal">
-                    <span class="navbar-toggler-icon"></span>
-                </button>
-                <div class="collapse navbar-collapse" id="menuPrincipal">
-                    <ul class="navbar-nav me-auto">
-                        <li class="nav-item">
-                            <a class="nav-link {% if url_actual == 'home' %}active fw-bold{% endif %}" href="{% url 'home' %}">
-                                <i class="bi bi-house"></i> Inicio
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link {% if url_actual == 'registros:cargar' or url_actual == 'registros:detalle_carga' %}active fw-bold{% endif %}" href="{% url 'registros:cargar' %}">
-                                <i class="bi bi-cloud-upload"></i> Cargar registros
-                            </a>
-                        </li>
-                        {% if es_administrador %}
-                            <li class="nav-item">
-                                <a class="nav-link {% if 'registros:empresa' in url_actual %}active fw-bold{% endif %}" href="{% url 'registros:empresas_lista' %}">
-                                    <i class="bi bi-building"></i> Empresas
-                                </a>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nav-link {% if 'usuario' in url_actual %}active fw-bold{% endif %}" href="{% url 'usuarios_lista' %}">
-                                    <i class="bi bi-people"></i> Usuarios
-                                </a>
-                            </li>
-                        {% endif %}
-                    </ul>
-                </div>
-            {% endif %}
-            <div class="d-flex align-items-center gap-2">
+            <!-- Tema y usuario: en celular quedan junto al botón de menú, en la primera fila. -->
+            <div class="d-flex align-items-center gap-2 ms-auto order-md-2 acciones-navbar">
                 <button type="button" id="boton-tema" class="btn btn-sm btn-outline-light" title="Cambiar tema claro/oscuro">
                     <i class="bi bi-moon-stars" id="icono-tema"></i>
                 </button>
-                {% if user.is_authenticated %}
                     <div class="dropdown">
                         <button class="btn btn-sm d-flex align-items-center gap-2 dropdown-toggle" type="button"
                                 id="menuUsuario" data-bs-toggle="dropdown" aria-expanded="false">
@@ -696,24 +707,52 @@
                         <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="menuUsuario">
                             <li>
                                 <a class="dropdown-item" href="{% url 'perfil' %}">
-                                    <i class="bi bi-person-circle"></i> Mi perfil
+                                    Mi perfil
                                 </a>
                             </li>
                             <li>
                                 <a class="dropdown-item" href="{% url 'cambiar_clave' %}">
-                                    <i class="bi bi-key"></i> Cambiar contraseña
+                                    Cambiar contraseña
                                 </a>
                             </li>
                             <li><hr class="dropdown-divider"></li>
                             <li>
                                 <a class="dropdown-item text-danger" href="{% url 'logout' %}">
-                                    <i class="bi bi-box-arrow-right"></i> Cerrar sesión
+                                    Cerrar sesión
                                 </a>
                             </li>
                         </ul>
                     </div>
-                {% endif %}
             </div>
+                <button class="navbar-toggler ms-2" aria-controls="menuPrincipal" aria-expanded="false" aria-label="Abrir menú" type="button" data-bs-toggle="collapse" data-bs-target="#menuPrincipal">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+                <div class="collapse navbar-collapse order-md-1" id="menuPrincipal">
+                    <ul class="navbar-nav me-auto">
+                        <li class="nav-item">
+                            <a class="nav-link {% if url_actual == 'home' %}active fw-bold{% endif %}" href="{% url 'home' %}">
+                                Inicio
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link {% if url_actual == 'registros:cargar' or url_actual == 'registros:detalle_carga' %}active fw-bold{% endif %}" href="{% url 'registros:cargar' %}">
+                                Cargar registros
+                            </a>
+                        </li>
+                        {% if es_administrador %}
+                            <li class="nav-item">
+                                <a class="nav-link {% if 'registros:empresa' in url_actual %}active fw-bold{% endif %}" href="{% url 'registros:empresas_lista' %}">
+                                    Empresas
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link {% if 'usuario' in url_actual %}active fw-bold{% endif %}" href="{% url 'usuarios_lista' %}">
+                                    Usuarios
+                                </a>
+                            </li>
+                        {% endif %}
+                    </ul>
+                </div>
         </div>
     </nav>
     {% endif %}
@@ -739,7 +778,7 @@
 
         {% if volver_url %}
             <a href="{{ volver_url }}" class="btn btn-sm btn-outline-guindo mb-3">
-                <i class="bi bi-arrow-left"></i> {{ volver_texto }}
+                {{ volver_texto }}
             </a>
         {% endif %}
 
@@ -759,7 +798,27 @@
         <p class="footer-caption mb-0">Sistema de Auditoría &middot; &copy; {% now "Y" %}</p>
     </footer>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="{% static 'vendor/bootstrap/bootstrap.bundle.min.js' %}"></script>
+    <script>
+        window.bootstrap || document.write('<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"><\/script>');
+    </script>
+    <script>
+        // Respuestas JSON: distingue sesión vencida, error del servidor y página desactualizada.
+        window.leerRespuestaJson = function (r) {
+            var tipo = r.headers.get("content-type") || "";
+            if (tipo.indexOf("application/json") !== -1) return r.json();
+            var error = new Error("respuesta no JSON");
+            error.motivo = r.redirected ? "sesion" : (r.status >= 500 ? "servidor" : "pagina");
+            throw error;
+        };
+        window.mensajeFalloRed = function (err) {
+            var motivo = err && err.motivo;
+            if (motivo === "sesion") return "La sesión expiró. Recargar la página e iniciar sesión de nuevo.";
+            if (motivo === "servidor") return "Error del servidor. Intentar de nuevo en unos minutos.";
+            if (motivo === "pagina") return "La página quedó desactualizada. Recargarla e intentar de nuevo.";
+            return "No se pudo conectar con el servidor. Intentar de nuevo.";
+        };
+    </script>
     <script>
         (function () {
             var boton = document.getElementById("boton-tema");
@@ -837,8 +896,10 @@
     </script>
     <script>
         (function () {
-            // Contador animado en las estadísticas (data-contar).
-            document.querySelectorAll("[data-contar]").forEach(function (elemento) {
+            // Contadores animados (data-contar); el valor real ya viene en el HTML.
+            var animarContadores = !document.hidden &&
+                !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+            if (animarContadores) document.querySelectorAll("[data-contar]").forEach(function (elemento) {
                 var final = parseInt(elemento.getAttribute("data-contar"), 10) || 0;
                 var duracion = 700;
                 var inicio = null;
@@ -860,12 +921,25 @@
                 formulario.addEventListener("submit", function () {
                     var boton = formulario.querySelector("[data-cargando-texto]");
                     if (!boton) return;
+                    if (boton.dataset.textoOriginal === undefined) boton.dataset.textoOriginal = boton.innerHTML;
                     boton.classList.add("cargando");
                     boton.innerHTML = '<span class="spinner-inline"></span> ' + boton.getAttribute("data-cargando-texto");
 
                     // Activa la barra de progreso decorativa, si existe.
                     var barra = formulario.querySelector(".barra-progreso-indeterminada");
                     if (barra) barra.classList.add("activa");
+                });
+            });
+
+            // Al volver con Atrás (bfcache), los botones vuelven a su estado normal.
+            window.addEventListener("pageshow", function (evento) {
+                if (!evento.persisted) return;
+                document.querySelectorAll("[data-cargando-texto].cargando").forEach(function (boton) {
+                    boton.classList.remove("cargando");
+                    if (boton.dataset.textoOriginal !== undefined) boton.innerHTML = boton.dataset.textoOriginal;
+                });
+                document.querySelectorAll(".barra-progreso-indeterminada.activa").forEach(function (barra) {
+                    barra.classList.remove("activa");
                 });
             });
 
@@ -916,6 +990,12 @@
                 sincronizarTexto();
 
                 function abrir() {
+                    // Solo un selector abierto a la vez.
+                    document.querySelectorAll(".selector-personalizado.selector-abierto").forEach(function (otro) {
+                        if (otro === contenedor) return;
+                        otro.classList.remove("selector-abierto");
+                        otro.querySelector(".selector-lista").classList.add("d-none");
+                    });
                     lista.classList.remove("d-none");
                     contenedor.classList.add("selector-abierto");
                 }

@@ -1,0 +1,16 @@
+{% comment %}
+Justificaciones frecuentes (registros/frases.py). Cada modal muestra solo el grupo de la
+decisión elegida; un clic escribe la frase en el campo del mismo modal.
+{% endcomment %}
+<div class="frases-rapidas mb-2" aria-label="Justificaciones frecuentes">
+    <div class="grupo-frases" data-estado="valido">
+        {% for etiqueta, frase in frases_rapidas.valido %}
+            <button type="button" class="frase-rapida" data-frase="{{ frase }}">{{ etiqueta }}</button>
+        {% endfor %}
+    </div>
+    <div class="grupo-frases" data-estado="observado">
+        {% for etiqueta, frase in frases_rapidas.observado %}
+            <button type="button" class="frase-rapida" data-frase="{{ frase }}">{{ etiqueta }}</button>
+        {% endfor %}
+    </div>
+</div>

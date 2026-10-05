@@ -3,7 +3,7 @@
 {% block content %}
     <nav aria-label="breadcrumb">
         <ol class="breadcrumb small mb-3">
-            <li class="breadcrumb-item"><a href="{% url 'home' %}"><i class="bi bi-house"></i> Inicio</a></li>
+            <li class="breadcrumb-item"><a href="{% url 'home' %}">Inicio</a></li>
             <li class="breadcrumb-item"><a href="{% url 'registros:cargar' %}">Cargar registros</a></li>
             <li class="breadcrumb-item"><a href="{% url 'registros:detalle_carga' carga.id %}">Carga #{{ carga.id }}</a></li>
             <li class="breadcrumb-item active" aria-current="page">Anular</li>
@@ -12,13 +12,7 @@
 
     <h1 class="text-guindo h3">Anular carga #{{ carga.id }}</h1>
 
-    <div class="alert alert-warning mt-3">
-        <i class="bi bi-exclamation-triangle"></i>
-        Esta carga <strong>no se borra ni se puede editar</strong>: queda marcada como
-        "Anulada", con tu usuario, fecha y el motivo que escribas abajo. Úsalo si elegiste
-        mal la empresa o la gestión. Después de anular, sube el archivo de nuevo desde
-        "Cargar registros".
-    </div>
+    <p class="text-secondary mb-4">La carga se conserva en el historial como anulada.</p>
 
     <ul class="list-unstyled">
         <li><strong>Empresa:</strong> {{ carga.empresa }}</li>
@@ -27,18 +21,27 @@
         <li><strong>Registros guardados:</strong> {{ carga.registros_validos }}</li>
     </ul>
 
-    <form method="post" class="mx-auto" style="max-width: 560px;">
+    <form method="post" style="max-width: 560px;">
         {% csrf_token %}
         {{ form.non_field_errors }}
+        <fieldset class="mb-3">
+            <legend class="form-label fs-6">{{ form.tipo_motivo.label }}</legend>
+            {% for opcion in form.tipo_motivo %}
+                <div class="form-check">
+                    {{ opcion.tag }}
+                    <label class="form-check-label" for="{{ opcion.id_for_label }}">{{ opcion.choice_label }}</label>
+                </div>
+            {% endfor %}
+            {% for error in form.tipo_motivo.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+        </fieldset>
         <div class="mb-3">
-            <label for="{{ form.motivo.id_for_label }}" class="form-label">{{ form.motivo.label }}</label>
-            {{ form.motivo }}
-            <div class="form-text">Ej.: "Se cargó con la gestión 2025, correspondía la gestión 2022."</div>
-            {% for error in form.motivo.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+            <label for="{{ form.detalle.id_for_label }}" class="form-label">{{ form.detalle.label }} <span class="text-secondary small">(obligatorio solo en "Otro motivo")</span></label>
+            {{ form.detalle }}
+            {% for error in form.detalle.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
         </div>
         <div>
             <button class="btn btn-danger" type="submit">
-                <i class="bi bi-slash-circle"></i> Anular esta carga
+                Anular esta carga
             </button>
             <a class="btn btn-outline-guindo" href="{% url 'registros:detalle_carga' carga.id %}">Cancelar</a>
         </div>

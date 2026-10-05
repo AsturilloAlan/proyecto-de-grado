@@ -59,14 +59,21 @@
         .reporte-datos .dato-destacado { font-size: 1.5rem; font-weight: 700; color: var(--rep-acento); line-height: 1.1; }
 
         .reporte-tabla { border-color: var(--rep-borde); }
-        .reporte-tabla thead th {
+        /* Selector más específico que el estilo general de encabezados de base.html. */
+        .reporte .reporte-tabla > thead > tr > th,
+        [data-bs-theme="dark"] .reporte .reporte-tabla > thead > tr > th {
+            --bs-table-bg: var(--rep-cabecera);
             background: var(--rep-cabecera); color: #fff !important; border-color: var(--rep-cabecera);
             font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; white-space: nowrap;
         }
-        .reporte-tabla td { border-color: var(--rep-borde); vertical-align: top; }
+        .reporte-tabla { table-layout: fixed; width: 100%; min-width: 900px; }
+        .reporte-tabla th { white-space: normal !important; vertical-align: bottom; }
+        .reporte-tabla td { border-color: var(--rep-borde); vertical-align: top; overflow-wrap: anywhere; }
+        .reporte-tabla .celda-justificacion { height: 3.5rem; }
         .reporte-tabla tbody tr:nth-child(even) td { background: var(--rep-cebra); }
 
-        .firma-bloque { margin-top: 4.5rem; break-inside: avoid; }
+        .firma-bloque { display: flex; gap: 3rem; margin-top: 4.5rem; break-inside: avoid; }
+        .firma-bloque > div { flex: 1 1 0; }
         .firma-linea { border-top: 1px solid var(--rep-firma); margin-top: 3.5rem; padding-top: .4rem; width: 85%; }
         .firma-linea .cargo { font-size: .8rem; color: var(--rep-secundario); }
         .reporte-pie {
@@ -75,7 +82,7 @@
         }
 
         @media print {
-            @page { margin: 14mm 12mm; }
+            @page { size: auto; margin: 12mm 10mm; }
             .no-print, .navbar-guindo, .footer-app { display: none !important; }
             html, body, main.container { background: #fff !important; }
             * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
@@ -94,6 +101,20 @@
             .reporte .logo-tema-claro { opacity: 1 !important; }
             .reporte .logo-tema-oscuro { opacity: 0 !important; }
             .reporte .alert { background: #fff !important; color: #000 !important; }
+            /* En modo oscuro Bootstrap pinta las celdas con su fondo oscuro; al imprimir se fuerza blanco. */
+            .reporte .reporte-tabla {
+                --bs-table-bg: #fff; --bs-table-color: #000; --bs-table-striped-bg: #faf6f8;
+                --bs-table-hover-bg: #fff; --bs-table-active-bg: #fff; --bs-table-border-color: #d9c9d1;
+            }
+            .reporte .reporte-tabla > tbody > tr > td { background-color: #fff !important; box-shadow: none !important; }
+            .reporte .reporte-tabla > tbody > tr:nth-child(even) > td { background-color: #faf6f8 !important; }
+            .reporte .reporte-tabla td, .reporte .reporte-tabla td * { color: #000 !important; }
+            .reporte-tabla-contenedor { overflow: visible !important; }
+            .reporte-tabla { min-width: 0 !important; font-size: 8.5pt; }
+            .reporte-tabla th { font-size: 7pt !important; padding: .3rem .35rem !important; }
+            .reporte-tabla td { padding: .3rem .35rem !important; }
+            .reporte-datos { grid-template-columns: repeat(3, 1fr); font-size: 9.5pt; }
+            .reporte-intro { font-size: 10pt; }
             .reporte-tabla thead { display: table-header-group; }
             .reporte-tabla tr { break-inside: avoid; }
         }
@@ -101,7 +122,7 @@
 
     <nav aria-label="breadcrumb" class="no-print">
         <ol class="breadcrumb small mb-3">
-            <li class="breadcrumb-item"><a href="{% url 'home' %}"><i class="bi bi-house"></i> Inicio</a></li>
+            <li class="breadcrumb-item"><a href="{% url 'home' %}">Inicio</a></li>
             <li class="breadcrumb-item"><a href="{% url 'registros:detalle_carga' carga.id %}">Carga #{{ carga.id }}</a></li>
             <li class="breadcrumb-item active" aria-current="page">Reporte de observaciones</li>
         </ol>
@@ -109,7 +130,7 @@
 
     <div class="d-flex justify-content-end no-print mb-3">
         <button type="button" class="btn btn-sm btn-guindo" onclick="window.print()">
-            <i class="bi bi-printer"></i> Imprimir / guardar como PDF
+            Imprimir / guardar como PDF
         </button>
     </div>
 
@@ -138,18 +159,14 @@
             Motivo: {{ carga.motivo_anulacion }}. No tiene validez como papel de trabajo.
         </div>
     {% elif avisos_pendientes %}
-        <div class="alert alert-warning">
+        <div class="alert alert-warning no-print">
             <strong>Revisión en curso.</strong> Quedan {{ avisos_pendientes }} de {{ avisos_total }}
             avisos sin revisar, por lo que este reporte es un borrador y puede cambiar.
         </div>
     {% endif %}
 
     <h1 class="reporte-titulo h3">Reporte de transacciones observadas</h1>
-    <p class="reporte-intro mb-4">
-        Este documento detalla las transacciones que, tras la revisión del auditor, quedaron
-        clasificadas como <strong>observadas</strong>, es decir, como hallazgos confirmados. No se
-        incluyen los avisos que el auditor descartó por considerarlos falsos positivos ("válido").
-    </p>
+    <p class="reporte-intro mb-4">Hallazgos confirmados por el auditor. No incluye los avisos descartados.</p>
 
     <dl class="reporte-datos">
         <div><dt>Empresa auditada</dt><dd>{{ carga.empresa }}</dd></div>
@@ -157,36 +174,40 @@
         <div><dt>Origen de los datos</dt><dd>{{ carga.get_formato_detectado_display|default:"Sin dato" }}</dd></div>
         <div><dt>Reporte generado</dt><dd>{{ fecha_generacion|date:"d/m/Y H:i" }} por {{ generado_por.username }}</dd></div>
         <div><dt>Total de observaciones</dt><dd class="dato-destacado">{{ filas_reporte|length }}</dd></div>
-        <div>
+        <div class="no-print">
             <dt>Cobertura de la revisión</dt>
-            <dd>{{ avisos_total }} avisos generados, {{ avisos_pendientes }} pendientes. Importación {{ carga.estado_importacion_display|lower }}, revisión {{ carga.estado_revision_carga_display|lower }}.</dd>
+            <dd>{{ avisos_total }} avisos generados, {{ avisos_pendientes }} pendiente{{ avisos_pendientes|pluralize }} de revisar. Importación: {{ carga.estado_importacion_display|lower }}. Revisión: {{ carga.estado_revision_carga_display|lower }}.</dd>
         </div>
     </dl>
 
     {% if filas_reporte %}
-        <div class="table-responsive">
-            <table class="table table-sm table-bordered align-middle reporte-tabla">
+        <div class="table-responsive reporte-tabla-contenedor">
+            <table class="table table-sm table-bordered reporte-tabla">
+                <colgroup>
+                    <col style="width:5%"><col style="width:11%"><col style="width:16%"><col style="width:7%">
+                    <col style="width:25%"><col style="width:25%"><col style="width:11%">
+                </colgroup>
                 <thead>
                     <tr>
                         <th>Fila</th>
                         <th>Comprobante</th>
                         <th>Cuenta</th>
                         <th>Grupo</th>
-                        <th>Descripción del hallazgo</th>
-                        <th>Justificación del auditor</th>
+                        <th>Hallazgo</th>
+                        <th>Fundamento del auditor</th>
                         <th>Revisado por</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for item in filas_reporte %}
                     <tr class="reporte-fila-hallazgo">
-                        <td class="text-nowrap">{{ item.observacion.fila }}</td>
-                        <td class="text-nowrap">{{ item.registro.numero_comprobante|default:"Sin dato" }}</td>
+                        <td>{{ item.observacion.fila }}</td>
+                        <td>{{ item.registro.numero_comprobante|default:"Sin dato" }}</td>
                         <td>{% if item.registro %}<span class="fw-semibold">{{ item.registro.cuenta.codigo }}</span><br>{{ item.registro.cuenta.nombre }}{% else %}Sin dato{% endif %}</td>
-                        <td class="text-nowrap">{% if item.registro %}{{ item.registro.cuenta.get_tipo_display }}{% else %}Sin dato{% endif %}</td>
+                        <td>{% if item.registro %}{{ item.registro.cuenta.get_tipo_display }}{% else %}Sin dato{% endif %}</td>
                         <td>{{ item.observacion.descripcion }}</td>
-                        <td>{{ item.observacion.comentario_revision }}</td>
-                        <td class="text-nowrap">
+                        <td class="celda-justificacion">{{ item.observacion.comentario_revision }}</td>
+                        <td>
                             {{ item.observacion.revisado_por.username }}<br>
                             <span class="small" style="color: var(--rep-secundario);">{{ item.observacion.fecha_revision|date:"d/m/Y H:i" }}</span>
                         </td>
@@ -197,22 +218,22 @@
         </div>
     {% else %}
         <div class="alert alert-info">
-            <i class="bi bi-info-circle-fill"></i> Todavía no hay transacciones marcadas como "observado" en esta carga.
+            Todavía no hay transacciones marcadas como "observado" en esta carga.
             {% if avisos_pendientes %}Esto no significa que la revisión haya terminado: quedan avisos pendientes.{% endif %}
         </div>
     {% endif %}
 
-    <div class="row firma-bloque">
-        <div class="col-md-6">
+    <div class="firma-bloque">
+        <div>
             <div class="firma-linea">
-                Firma del Auditor
-                <div class="cargo">ST&amp;S Auditores y Consultores S.R.L.</div>
+                {{ generado_por.get_full_name|default:generado_por.username }}
+                <div class="cargo">Auditor · ST&amp;S Auditores y Consultores S.R.L.</div>
             </div>
         </div>
-        <div class="col-md-6">
+        <div>
             <div class="firma-linea">
-                Firma del Representante Legal / Contador de la empresa
-                <div class="cargo">{{ carga.empresa }}</div>
+                {{ carga.empresa.contacto_nombre|default:"Representante legal" }}
+                <div class="cargo">{% if carga.empresa.contacto_nombre %}Representante legal · {% endif %}{{ carga.empresa }}</div>
             </div>
         </div>
     </div>

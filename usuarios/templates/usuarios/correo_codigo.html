@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<title>Código de verificación</title>
+</head>
+<body style="margin:0; padding:0; background-color:#f4eef1; font-family:'Segoe UI', Arial, Helvetica, sans-serif; color:#2b2230;">
+<span style="display:none; max-height:0; overflow:hidden; opacity:0;">Código {{ codigo }}, válido por {{ minutos }} minutos.</span>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f4eef1;">
+<tr>
+<td align="center" style="padding:32px 12px;">
+
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:560px; background-color:#ffffff; border-radius:14px; overflow:hidden; box-shadow:0 6px 24px rgba(74,17,41,0.10);">
+
+        <!-- Encabezado -->
+        <tr>
+            <td style="padding:26px 32px 18px; border-bottom:3px solid #6E1B3F;">
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                    <tr>
+                        <td valign="middle" style="width:120px;">
+                            <img src="cid:logo_sts" alt="ST&amp;S" width="110" style="display:block; width:110px; height:auto; border:0;">
+                        </td>
+                        <td valign="middle" style="padding-left:14px;">
+                            <div style="font-family:Georgia, 'Times New Roman', serif; font-weight:bold; font-size:14px; color:#4A1129; letter-spacing:0.5px;">ST&amp;S AUDITORES Y CONSULTORES S.R.L.</div>
+                            <div style="font-size:11px; color:#8a7d86; text-transform:uppercase; letter-spacing:1px; margin-top:2px;">Sistema de apoyo a la auditoría externa</div>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+
+        <!-- Cuerpo -->
+        <tr>
+            <td style="padding:30px 32px 8px;">
+                <h1 style="margin:0 0 10px; font-family:Georgia, 'Times New Roman', serif; font-size:22px; color:#4A1129;">Código de verificación</h1>
+                <p style="margin:0; font-size:15px; line-height:1.55; color:#4d4450;">
+                    Código de verificación para completar el inicio de sesión de {{ nombre }}:
+                </p>
+            </td>
+        </tr>
+        <tr>
+            <td align="center" style="padding:20px 32px 8px;">
+                <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                    <tr>
+                        <td style="background-color:#f8f1f4; border:1px solid #e6d3dc; border-radius:12px; padding:16px 28px;">
+                            <span style="font-family:'Courier New', Courier, monospace; font-size:34px; font-weight:bold; letter-spacing:10px; color:#6E1B3F;">{{ codigo }}</span>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+        <tr>
+            <td align="center" style="padding:6px 32px 24px;">
+                <span style="display:inline-block; font-size:13px; color:#8a5a00; background-color:#fff4dc; border-radius:999px; padding:5px 14px;">
+                    Vence a las <strong>{{ vence|date:"H:i" }}</strong> ({{ minutos }} minutos). Uso único.
+                </span>
+            </td>
+        </tr>
+
+        <!-- Detalle de la solicitud -->
+        <tr>
+            <td style="padding:0 32px;">
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border:1px solid #eee3e8; border-radius:10px;">
+                    <tr>
+                        <td colspan="2" style="padding:12px 16px 6px; font-size:11px; font-weight:bold; letter-spacing:1px; text-transform:uppercase; color:#8a7d86;">Detalle de la solicitud</td>
+                    </tr>
+                    <tr>
+                        <td style="padding:6px 16px; font-size:13px; color:#8a7d86; width:38%;">Usuario</td>
+                        <td style="padding:6px 16px; font-size:13px; color:#2b2230;">{{ usuario }}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding:6px 16px; font-size:13px; color:#8a7d86;">Fecha y hora</td>
+                        <td style="padding:6px 16px; font-size:13px; color:#2b2230;">{{ fecha_solicitud|date:"d/m/Y H:i" }}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding:6px 16px; font-size:13px; color:#8a7d86;">Dispositivo</td>
+                        <td style="padding:6px 16px; font-size:13px; color:#2b2230;">{{ dispositivo }}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding:6px 16px 12px; font-size:13px; color:#8a7d86;">Dirección IP</td>
+                        <td style="padding:6px 16px 12px; font-size:13px; color:#2b2230;">{{ ip }}</td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+
+        <!-- Aviso de seguridad -->
+        <tr>
+            <td style="padding:20px 32px 28px;">
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                    <tr>
+                        <td style="border-left:4px solid #6E1B3F; background-color:#faf5f7; padding:12px 16px; font-size:13px; line-height:1.5; color:#4d4450;">
+                            <strong style="color:#4A1129;">¿Acceso no solicitado?</strong> Ignorar este correo y cambiar la contraseña.
+                            ST&amp;S nunca solicita este código por teléfono, correo o mensaje.
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+
+        <!-- Pie -->
+        <tr>
+            <td style="padding:18px 32px; background-color:#4A1129; color:#e7b8cd; font-size:11px; line-height:1.6; text-align:center;">
+                Correo automático, no responder.<br>
+                &copy; {{ fecha_solicitud|date:"Y" }} ST&amp;S Auditores y Consultores S.R.L.
+            </td>
+        </tr>
+    </table>
+
+</td>
+</tr>
+</table>
+</body>
+</html>

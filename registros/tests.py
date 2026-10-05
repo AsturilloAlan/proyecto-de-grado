@@ -1,12 +1,20 @@
 """Pruebas automatizadas de la app registros."""
+import csv
 import shutil
 import tempfile
-from datetime import date
+
+import pandas as pd
+from datetime import date, timedelta
+from decimal import Decimal
+from io import StringIO
+from unittest.mock import patch
 
 from django.contrib.auth.models import Group, User
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.core.management import CommandError, call_command
 from django.test import TestCase, override_settings
 from django.urls import reverse
+from django.utils import timezone
 
 from .forms import CargaArchivoForm, EmpresaAuditadaForm, GestionForm
 from .models import (
@@ -396,8 +404,8 @@ class ProcesarCargaTests(TestCase):
         # Cuentas ya existentes de antemano: así ninguna fila genera el aviso de "cuenta
         # nueva" y se puede probar el caso realmente limpio (sin errores NI avisos
         # pendientes) por separado del caso con avisos, que se prueba en otro test.
-        CuentaContable.objects.create(codigo="1001", nombre="Cuenta 1001")
-        CuentaContable.objects.create(codigo="2001", nombre="Cuenta 2001")
+        CuentaContable.objects.create(empresa=self.empresa, codigo="1001", nombre="Cuenta 1001")
+        CuentaContable.objects.create(empresa=self.empresa, codigo="2001", nombre="Cuenta 2001")
         csv = (
             "fecha,cuenta,glosa,debe,haber\n"
             "01/01/2023,1001,Pago proveedor,100,0\n"
@@ -464,7 +472,7 @@ class ProcesarCargaTests(TestCase):
         self.assertEqual(cuenta.tipo, "gasto")
 
     def test_ingreso_con_movimiento_en_el_debe_genera_aviso(self):
-        CuentaContable.objects.create(codigo="4001", nombre="Ventas", tipo="ingreso")
+        CuentaContable.objects.create(empresa=self.empresa, codigo="4001", nombre="Ventas", tipo="ingreso")
         csv = "fecha,cuenta,glosa,debe,haber\n01/01/2023,4001,Venta rara,90,0\n"
         carga = self._crear_carga(csv)
         procesar_carga(carga)
@@ -478,7 +486,7 @@ class ProcesarCargaTests(TestCase):
         )
 
     def test_gasto_con_movimiento_en_el_haber_genera_aviso(self):
-        CuentaContable.objects.create(codigo="5001", nombre="Sueldos", tipo="gasto")
+        CuentaContable.objects.create(empresa=self.empresa, codigo="5001", nombre="Sueldos", tipo="gasto")
         csv = "fecha,cuenta,glosa,debe,haber\n01/01/2023,5001,Reverso raro,0,60\n"
         carga = self._crear_carga(csv)
         procesar_carga(carga)
@@ -494,7 +502,7 @@ class ProcesarCargaTests(TestCase):
     def test_activo_no_genera_aviso_de_naturaleza_cuenta(self):
         # Caso normal (sin nada raro): no debe dispararse ningún aviso de
         # naturaleza_cuenta para una cuenta de Activo con movimiento normal.
-        CuentaContable.objects.create(codigo="1001", nombre="Caja", tipo="activo")
+        CuentaContable.objects.create(empresa=self.empresa, codigo="1001", nombre="Caja", tipo="activo")
         csv = "fecha,cuenta,glosa,debe,haber\n01/01/2023,1001,Depósito,100,0\n"
         carga = self._crear_carga(csv)
         procesar_carga(carga)
@@ -509,8 +517,8 @@ class ProcesarCargaTests(TestCase):
         # Un comprobante contable reparte normalmente el monto entre varias cuentas
         # (debe en una, haber en otra), eso NO debe marcarse como fila duplicada, pedido
         # explícito de la auditora.
-        CuentaContable.objects.create(codigo="1001", nombre="Caja", tipo="activo")
-        CuentaContable.objects.create(codigo="2001", nombre="Proveedores", tipo="pasivo")
+        CuentaContable.objects.create(empresa=self.empresa, codigo="1001", nombre="Caja", tipo="activo")
+        CuentaContable.objects.create(empresa=self.empresa, codigo="2001", nombre="Proveedores", tipo="pasivo")
         csv = (
             "fecha,cuenta,comprobante,glosa,debe,haber\n"
             "01/01/2023,1001,C-001,Pago a proveedor,0,100\n"
@@ -533,8 +541,8 @@ class ProcesarCargaTests(TestCase):
         # Cuentas ya existentes de antemano, para que el resultado sea el caso limpio
         # (sin avisos de "cuenta nueva" de por medio) y se pueda comprobar el estado
         # "validado" sin ambigüedad.
-        CuentaContable.objects.create(codigo="1-1-1-01-01", nombre="Caja moneda nacional")
-        CuentaContable.objects.create(codigo="2-1-2-01", nombre="Cuentas por pagar")
+        CuentaContable.objects.create(empresa=self.empresa, codigo="1-1-1-01-01", nombre="Caja moneda nacional")
+        CuentaContable.objects.create(empresa=self.empresa, codigo="2-1-2-01", nombre="Cuentas por pagar")
         csv = (
             "EMPRESA DEMO S.R.L.\n"
             "LIBRO MAYOR\n"
@@ -588,12 +596,17 @@ class ProcesarCargaTests(TestCase):
         """Una transacción fechada fuera del rango de la gestión seleccionada no se
         rechaza, pero se deja un aviso para que el auditor lo revise.
         """
-        csv = "fecha,cuenta,glosa,debe,haber\n15/03/2024,1001,Fecha de otra gestion,100,0\n"
+        # Dos filas dentro del periodo: con una sola fuera, no es un archivo de otra gestión.
+        csv = (
+            "fecha,cuenta,glosa,debe,haber\n"
+            "01/03/2023,1001,Pago A,10,0\n02/03/2023,1001,Pago B,20,0\n"
+            "15/03/2024,1001,Fecha de otra gestion,100,0\n"
+        )
         carga = self._crear_carga(csv)
         procesar_carga(carga)
         carga.refresh_from_db()
 
-        self.assertEqual(carga.registros_validos, 1)
+        self.assertEqual(carga.registros_validos, 3)
         self.assertEqual(carga.registros_con_aviso, 2)
         self.assertTrue(
             ErrorValidacion.objects.filter(
@@ -758,7 +771,7 @@ class CargaAnularViewTests(TestCase):
 
         respuesta = self.client.post(
             reverse("registros:carga_anular", args=[carga.id]),
-            {"motivo": "Se cargó con la gestión 2025, correspondía la 2022."},
+            {"tipo_motivo": "gestion", "detalle": "Correspondía la gestión 2022."},
         )
 
         carga.refresh_from_db()
@@ -768,7 +781,7 @@ class CargaAnularViewTests(TestCase):
         self.assertEqual(carga.estado, "anulada")
         self.assertEqual(carga.anulado_por, self.administrador)
         self.assertIsNotNone(carga.fecha_anulacion)
-        self.assertIn("gestión 2025", carga.motivo_anulacion)
+        self.assertEqual(carga.motivo_anulacion, "Gestión equivocada. Correspondía la gestión 2022.")
         self.assertTrue(
             HistorialCambio.objects.filter(
                 modelo="CargaArchivo", objeto_id=carga.id, campo="estado", valor_nuevo="anulada"
@@ -779,7 +792,7 @@ class CargaAnularViewTests(TestCase):
         carga = self._crear_carga()
         self.client.login(username="admin", password="Clave-Segura123")
 
-        self.client.post(reverse("registros:carga_anular", args=[carga.id]), {"motivo": "corto"})
+        self.client.post(reverse("registros:carga_anular", args=[carga.id]), {"tipo_motivo": "otro", "detalle": "corto"})
 
         carga.refresh_from_db()
         self.assertEqual(carga.estado, "validado")
@@ -791,7 +804,7 @@ class CargaAnularViewTests(TestCase):
 
         self.client.post(
             reverse("registros:carga_anular", args=[carga.id]),
-            {"motivo": "Se cargó con la gestión equivocada."},
+            {"tipo_motivo": "gestion"},
         )
 
         carga.refresh_from_db()
@@ -803,7 +816,7 @@ class CargaAnularViewTests(TestCase):
 
         respuesta = self.client.post(
             reverse("registros:carga_anular", args=[carga.id]),
-            {"motivo": "Intento de anular de nuevo."},
+            {"tipo_motivo": "duplicada"},
             follow=True,
         )
 
@@ -1371,8 +1384,7 @@ class CargarRegistrosFiltroTests(TestCase):
 
 
 class BorrarDatosPruebaCommandTests(TestCase):
-    """Comando de mantenimiento `borrar_datos_prueba` (ver
-    registros/management/commands/borrar_datos_prueba.py)."""
+    """Comando borrar_datos_prueba."""
 
     def setUp(self):
         self.usuario = User.objects.create_user(
@@ -1412,6 +1424,21 @@ class BorrarDatosPruebaCommandTests(TestCase):
         self.assertEqual(CuentaContable.objects.count(), 0)
         # Los usuarios NO se tocan.
         self.assertEqual(User.objects.count(), 1)
+
+    def test_conservar_empresas_y_borrar_su_historial(self):
+        from django.core.management import call_command
+
+        HistorialCambio.objects.create(
+            modelo="CargaArchivo", objeto_id=self.carga.id, accion="edicion", usuario=self.usuario,
+        )
+        HistorialCambio.objects.create(
+            modelo="User", objeto_id=self.usuario.id, accion="edicion", usuario=self.usuario,
+        )
+        call_command("borrar_datos_prueba", "--confirmar", "--conservar-empresas", stdout=StringIO())
+        self.assertEqual(CargaArchivo.objects.count(), 0)
+        self.assertEqual(EmpresaAuditada.objects.count(), 1)
+        self.assertEqual(Gestion.objects.count(), 1)
+        self.assertEqual(list(HistorialCambio.objects.values_list("modelo", flat=True)), ["User"])
 
 
 
@@ -1599,6 +1626,29 @@ class RevisionAvisosIntegridadTests(TestCase):
         contenido = respuesta.content.decode("utf-8")
         self.assertIn("'=1+1", contenido)
 
+    def test_exportacion_csv_incluye_avisos_por_fila(self):
+        cuenta = CuentaContable.objects.create(codigo="4-1-01", nombre="Ventas", tipo="ingreso")
+        for fila in (7, 8):
+            RegistroContable.objects.create(
+                carga=self.carga, cuenta=cuenta, fecha=date(2023, 1, 1),
+                debe=10, haber=0, fila_origen=fila,
+            )
+        ErrorValidacion.objects.create(
+            carga=self.carga, fila=7, campo="duplicado", tipo="aviso",
+            descripcion="Posible duplicado de la fila 8", estado_revision="observado",
+        )
+        ErrorValidacion.objects.create(
+            carga=self.carga, fila=8, campo="naturaleza_cuenta", tipo="aviso",
+            descripcion="Ingreso registrado en el Debe",
+        )
+        respuesta = self.client.get(reverse("registros:exportar_dataset_csv", args=[self.carga.id]))
+        filas = list(csv.reader(respuesta.content.decode("utf-8").splitlines()))
+        encabezado = filas[0]
+        self.assertEqual(encabezado[-3:], ["aviso_duplicado", "aviso_naturaleza", "aviso_observado"])
+        por_fila = {fila[0]: fila[-3:] for fila in filas[1:]}
+        self.assertEqual(por_fila["7"], ["1", "0", "1"])
+        self.assertEqual(por_fila["8"], ["0", "1", "0"])
+
     def test_gestion_usada_en_una_carga_no_se_puede_editar(self):
         url = reverse("registros:gestion_editar", args=[self.gestion.id])
         self.client.post(url, {"anio": 2023, "fecha_inicio": "2023-04-01", "fecha_fin": "2024-03-31"})
@@ -1628,11 +1678,16 @@ class InterfazDetalleYReporteTests(TestCase):
         )
         ErrorValidacion.objects.create(carga=self.carga, fila=3, campo="cuenta", tipo="aviso", descripcion="x")
 
-    def test_detalle_tiene_navegacion_flotante_con_contadores(self):
-        respuesta = self.client.get(reverse("registros:detalle_carga", args=[self.carga.id]))
-        self.assertContains(respuesta, 'id="nav-secciones"')
-        self.assertContains(respuesta, 'href="#avisos"')
+    def test_pestanas_de_la_carga(self):
+        url = reverse("registros:detalle_carga", args=[self.carga.id])
+        respuesta = self.client.get(url)
+        # Con avisos pendientes abre en Avisos.
+        self.assertEqual(respuesta.context["pestana"], "avisos")
+        self.assertContains(respuesta, 'href="?pestana=errores"')
+        respuesta = self.client.get(url, {"pestana": "errores"})
         self.assertContains(respuesta, 'id="errores"')
+        self.assertNotContains(respuesta, 'id="avisos"')
+        self.assertEqual(self.client.get(url, {"fila": 3}).context["pestana"], "registros")
 
     def test_mensajes_se_muestran_como_notificacion_flotante(self):
         self.client.post(reverse("registros:carga_confirmar_validacion", args=[self.carga.id]), follow=False)
@@ -1691,6 +1746,12 @@ class EstadoImportacionRevisionTests(TestCase):
         self.assertEqual(ids({"importacion": "fallida"}), {fallida.id})
         self.assertEqual(ids({"revision": "en_revision"}), {parcial.id})
         self.assertEqual(ids({"revision": "por_confirmar"}), {por_confirmar.id})
+        # Selector único "Estado".
+        self.assertEqual(ids({"estado": "pendientes"}), {parcial.id})
+        self.assertEqual(ids({"estado": "por_confirmar"}), {por_confirmar.id})
+        self.assertEqual(ids({"estado": "con_rechazos"}), {parcial.id})
+        self.assertEqual(ids({"estado": "fallida"}), {fallida.id})
+        self.assertEqual(len(ids({"estado": "inventado"})), 3)
 
     def test_detalle_y_listado_muestran_ambas_etiquetas(self):
         carga = self._carga("con_observaciones", 90, 10, avisos_pendientes=2)
@@ -1711,3 +1772,637 @@ class RevisarBaseDatosCommandTests(TestCase):
         salida = StringIO()
         call_command("revisar_base_datos", stdout=salida)
         self.assertIn("No hay restos", salida.getvalue())
+
+
+@override_settings(MEDIA_ROOT=MEDIA_TEMPORAL)
+class EncabezadoRepetidoYFiltroErroresTests(TestCase):
+    def setUp(self):
+        self.admin = _crear_administrador()
+        self.client.login(username="admin", password="Clave-Segura123")
+        self.empresa = EmpresaAuditada.objects.create(nombre="Empresa X")
+        self.gestion = Gestion.objects.create(
+            anio=2023, fecha_inicio=date(2023, 1, 1), fecha_fin=date(2023, 12, 31)
+        )
+
+    def _carga(self, contenido):
+        return CargaArchivo.objects.create(
+            archivo=SimpleUploadedFile("carga.csv", contenido.encode("utf-8")),
+            usuario=self.admin, empresa=self.empresa, gestion=self.gestion,
+        )
+
+    def test_encabezado_repetido_en_libro_mayor_se_ignora(self):
+        carga = self._carga(
+            "FECHA,GLOSA,DEBE,HABER\n"
+            "1-1-1-01 Caja,,,\n"
+            "01/01/2023,pago,100,0\n"
+            "FECHA,GLOSA,DEBE,HABER\n"
+            "02/01/2023,cobro,0,50\n"
+        )
+        procesar_carga(carga)
+        carga.refresh_from_db()
+        self.assertEqual(carga.registros_validos, 2)
+        self.assertEqual(carga.errores.filter(tipo="error").count(), 0)
+
+    def test_filtro_de_errores_por_tipo(self):
+        carga = self._carga("x")
+        carga.estado = "con_errores"
+        carga.save()
+        ErrorValidacion.objects.create(carga=carga, fila=2, campo="fecha", descripcion="a")
+        ErrorValidacion.objects.create(carga=carga, fila=3, campo="debe", descripcion="b")
+        url = reverse("registros:detalle_carga", args=[carga.id])
+        respuesta = self.client.get(url, {"campo_error": "debe"})
+        self.assertEqual([e.campo for e in respuesta.context["errores"]], ["debe"])
+        self.assertContains(respuesta, "tipo-error activo")
+        respuesta = self.client.get(url, {"campo_error": "inexistente"})
+        self.assertEqual(len(respuesta.context["errores"]), 2)
+
+
+class AvisoIrAFilaTests(TestCase):
+    def setUp(self):
+        self.admin = _crear_administrador()
+        self.client.login(username="admin", password="Clave-Segura123")
+        empresa = EmpresaAuditada.objects.create(nombre="Empresa X")
+        gestion = Gestion.objects.create(
+            anio=2023, fecha_inicio=date(2023, 1, 1), fecha_fin=date(2023, 12, 31)
+        )
+        self.carga = CargaArchivo.objects.create(
+            archivo=SimpleUploadedFile("c.csv", b"x"), usuario=self.admin, empresa=empresa,
+            gestion=gestion, estado="con_observaciones", registros_validos=2,
+        )
+        cuenta = CuentaContable.objects.create(codigo="1001", nombre="Caja")
+        for fila in (7, 8):
+            RegistroContable.objects.create(
+                carga=self.carga, cuenta=cuenta, fecha=date(2023, 1, 1), debe=10, haber=0, fila_origen=fila
+            )
+        self.aviso = ErrorValidacion.objects.create(
+            carga=self.carga, fila=8, campo="duplicado", tipo="aviso",
+            descripcion="Mismo comprobante (X), fecha, cuenta y montos que la fila 7; podría ser un registro repetido por error.",
+        )
+
+    def test_aviso_enlaza_a_su_fila_y_a_la_relacionada(self):
+        url = reverse("registros:detalle_carga", args=[self.carga.id])
+        respuesta = self.client.get(url)
+        self.assertContains(respuesta, f"&fila=8&relacionada=7&desde_aviso={self.aviso.id}#fila-buscada")
+        respuesta = self.client.get(url, {"fila": 8, "relacionada": 7, "desde_aviso": self.aviso.id})
+        self.assertContains(respuesta, 'class="fila-resaltada"')
+        self.assertContains(respuesta, 'class="fila-relacionada"')
+        self.assertContains(respuesta, f"#aviso-fila-{self.aviso.id}")
+
+
+@override_settings(MEDIA_ROOT=MEDIA_TEMPORAL)
+class DuplicadoConFacturaTests(TestCase):
+    def setUp(self):
+        self.usuario = User.objects.create_user(username="auditor", password="Clave-Segura123")
+        self.empresa = EmpresaAuditada.objects.create(nombre="Empresa X")
+        self.gestion = Gestion.objects.create(
+            anio=2023, fecha_inicio=date(2023, 1, 1), fecha_fin=date(2023, 12, 31)
+        )
+
+    def _duplicados(self, glosa_a, glosa_b):
+        contenido = (
+            "fecha,cuenta,comprobante,glosa,debe,haber\n"
+            f'22/02/2023,1-1-3-02-05,CE 23020130,"{glosa_a}",574.20,0\n'
+            f'22/02/2023,1-1-3-02-05,CE 23020130,"{glosa_b}",574.20,0\n'
+        )
+        carga = CargaArchivo.objects.create(
+            archivo=SimpleUploadedFile("c.csv", contenido.encode("utf-8")),
+            usuario=self.usuario, empresa=self.empresa, gestion=self.gestion,
+        )
+        procesar_carga(carga)
+        return carga.errores.filter(campo="duplicado").count()
+
+    def test_facturas_distintas_no_son_duplicado(self):
+        self.assertEqual(self._duplicados("COMPRA CARNE; F.526; GUTIERREZ", "COMPRA CARNE; F.538; GUTIERREZ"), 0)
+
+    def test_misma_factura_si_es_duplicado(self):
+        self.assertEqual(self._duplicados("COMPRA CARNE; F.526;", "COMPRA CARNE; F-526"), 1)
+
+    def test_recibos_distintos_no_son_duplicado(self):
+        self.assertEqual(self._duplicados("QUESILLO; R-261; ALICIA R-261", "QUESILLO; R-262; ALICIA R-262"), 0)
+
+    def test_factura_y_recibo_con_mismo_numero_no_son_duplicado(self):
+        self.assertEqual(self._duplicados("COMPRA F.100;", "COMPRA R-100;"), 0)
+
+    def test_sin_factura_se_mantiene_la_regla(self):
+        self.assertEqual(self._duplicados("pago", "pago"), 1)
+
+
+class FiltroMontoTests(TestCase):
+    def setUp(self):
+        self.admin = _crear_administrador()
+        self.client.login(username="admin", password="Clave-Segura123")
+        empresa = EmpresaAuditada.objects.create(nombre="Empresa X")
+        gestion = Gestion.objects.create(
+            anio=2023, fecha_inicio=date(2023, 1, 1), fecha_fin=date(2023, 12, 31)
+        )
+        self.carga = CargaArchivo.objects.create(
+            archivo=SimpleUploadedFile("c.csv", b"x"), usuario=self.admin, empresa=empresa,
+            gestion=gestion, estado="validado", registros_validos=4,
+        )
+        ingreso = CuentaContable.objects.create(codigo="4-1-01", nombre="Ventas", tipo="ingreso")
+        gasto = CuentaContable.objects.create(codigo="5-1-01", nombre="Sueldos", tipo="gasto")
+        datos = [(ingreso, 0, 500, 2), (ingreso, 0, 20000, 3), (gasto, 15000, 0, 4), (gasto, 300, 0, 5)]
+        for cuenta, debe, haber, fila in datos:
+            RegistroContable.objects.create(
+                carga=self.carga, cuenta=cuenta, fecha=date(2023, 1, 1), debe=debe, haber=haber, fila_origen=fila
+            )
+
+    def _filas(self, **parametros):
+        respuesta = self.client.get(reverse("registros:detalle_carga", args=[self.carga.id]), parametros)
+        return [r.fila_origen for r in respuesta.context["registros_pagina"]]
+
+    def test_grupo_4_haber_mayor_a(self):
+        self.assertEqual(self._filas(cuenta_codigo="4", columna_monto="haber", monto_min="10000"), [3])
+
+    def test_grupo_5_debe_mayor_a(self):
+        self.assertEqual(self._filas(cuenta_codigo="5", columna_monto="debe", monto_min="10000"), [4])
+
+    def test_monto_invalido_se_ignora(self):
+        self.assertEqual(len(self._filas(monto_min="abc")), 4)
+
+
+class CorregirRevisionTests(TestCase):
+    def setUp(self):
+        self.admin = _crear_administrador()
+        self.client.login(username="admin", password="Clave-Segura123")
+        empresa = EmpresaAuditada.objects.create(nombre="Empresa X")
+        gestion = Gestion.objects.create(
+            anio=2023, fecha_inicio=date(2023, 1, 1), fecha_fin=date(2023, 12, 31)
+        )
+        self.carga = CargaArchivo.objects.create(
+            archivo=SimpleUploadedFile("c.csv", b"x"), usuario=self.admin, empresa=empresa,
+            gestion=gestion, estado="validado", registros_validos=1,
+        )
+        self.aviso = ErrorValidacion.objects.create(
+            carga=self.carga, fila=4, campo="duplicado", tipo="aviso", descripcion="x",
+            revisado=True, estado_revision="observado", comentario_revision="Texto con error de tipeo",
+        )
+
+    def test_revision_ya_hecha_se_puede_corregir_y_queda_en_historial(self):
+        url_detalle = reverse("registros:detalle_carga", args=[self.carga.id])
+        respuesta = self.client.get(url_detalle, {"pestana": "avisos", "estado_aviso": "observados"})
+        self.assertContains(respuesta, 'data-estado="observado"')
+        _post_json(
+            self.client,
+            reverse("registros:aviso_marcar_estado", args=[self.carga.id, self.aviso.id]),
+            {"estado": "observado", "comentario": "Texto corregido"},
+        )
+        self.aviso.refresh_from_db()
+        self.assertEqual(self.aviso.comentario_revision, "Texto corregido")
+        cambio = HistorialCambio.objects.get(modelo="ErrorValidacion", objeto_id=self.aviso.id)
+        self.assertIn("Texto con error de tipeo", cambio.valor_anterior)
+
+
+class EstadosAvisoYRevertirTests(TestCase):
+    def setUp(self):
+        self.admin = _crear_administrador()
+        self.client.login(username="admin", password="Clave-Segura123")
+        empresa = EmpresaAuditada.objects.create(nombre="Empresa X")
+        gestion = Gestion.objects.create(
+            anio=2023, fecha_inicio=date(2023, 1, 1), fecha_fin=date(2023, 12, 31)
+        )
+        self.carga = CargaArchivo.objects.create(
+            archivo=SimpleUploadedFile("c.csv", b"x"), usuario=self.admin, empresa=empresa,
+            gestion=gestion, estado="validado", registros_validos=3,
+        )
+        self.observado = ErrorValidacion.objects.create(
+            carga=self.carga, fila=2, campo="duplicado", tipo="aviso", descripcion="a",
+            revisado=True, estado_revision="observado", comentario_revision="Sin respaldo",
+        )
+        self.valido = ErrorValidacion.objects.create(
+            carga=self.carga, fila=3, campo="cuenta", tipo="aviso", descripcion="b",
+            revisado=True, estado_revision="valido", comentario_revision="Confirmado",
+        )
+        self.url = reverse("registros:detalle_carga", args=[self.carga.id])
+
+    def _ids(self, estado):
+        respuesta = self.client.get(self.url, {"pestana": "avisos", "estado_aviso": estado})
+        return [a.id for a in respuesta.context["avisos"]]
+
+    def test_observados_y_validos_se_listan_por_separado(self):
+        self.assertEqual(self._ids("observados"), [self.observado.id])
+        self.assertEqual(self._ids("validos"), [self.valido.id])
+        self.assertEqual(self._ids("pendientes"), [])
+
+    def test_revertir_devuelve_a_pendientes_y_deja_historial(self):
+        respuesta = _post_json(
+            self.client,
+            reverse("registros:aviso_marcar_estado", args=[self.carga.id, self.observado.id]),
+            {"estado": "pendiente", "comentario": "Se marcó por error"},
+        )
+        self.assertEqual(respuesta.status_code, 200)
+        self.observado.refresh_from_db()
+        self.assertFalse(self.observado.revisado)
+        self.assertEqual(self.observado.estado_revision, "pendiente")
+        self.assertEqual(self._ids("pendientes"), [self.observado.id])
+        cambio = HistorialCambio.objects.get(modelo="ErrorValidacion", objeto_id=self.observado.id)
+        self.assertIn("Sin respaldo", cambio.valor_anterior)
+        self.assertIn("Se marcó por error", cambio.valor_nuevo)
+        self.carga.refresh_from_db()
+        self.assertEqual(self.carga.estado, "con_observaciones")
+
+    def test_revertir_sin_motivo_se_rechaza(self):
+        respuesta = _post_json(
+            self.client,
+            reverse("registros:aviso_marcar_estado", args=[self.carga.id, self.valido.id]),
+            {"estado": "pendiente", "comentario": ""},
+        )
+        self.assertEqual(respuesta.status_code, 400)
+
+
+class RevisionSistemaOctubreTests(TestCase):
+    """Correcciones de REVISION_sistema.md (A1, A5, M1, M2, M5, M6)."""
+
+    def setUp(self):
+        self.admin = _crear_administrador()
+        self.client.login(username="admin", password="Clave-Segura123")
+        self.empresa = EmpresaAuditada.objects.create(nombre="Empresa X", categoria_cierre="industrial")
+        self.gestion = Gestion.objects.create(
+            anio=2023, fecha_inicio=date(2023, 1, 1), fecha_fin=date(2023, 12, 31)
+        )
+        self.gestion_industrial = Gestion.objects.create(
+            anio=2023, fecha_inicio=date(2022, 4, 1), fecha_fin=date(2023, 3, 31)
+        )
+        self.carga = CargaArchivo.objects.create(
+            archivo=SimpleUploadedFile("carga.csv", b"contenido"),
+            usuario=self.admin, empresa=self.empresa, gestion=self.gestion,
+            estado="con_observaciones",
+        )
+        self.avisos = [
+            ErrorValidacion.objects.create(
+                carga=self.carga, fila=10 + i, campo="cuenta", tipo="aviso", descripcion=f"a{i}",
+            )
+            for i in range(3)
+        ]
+
+    def test_exportar_carga_anulada_se_rechaza(self):
+        self.carga.estado = "anulada"
+        self.carga.save()
+        respuesta = self.client.get(reverse("registros:exportar_dataset_csv", args=[self.carga.id]))
+        self.assertRedirects(respuesta, reverse("registros:detalle_carga", args=[self.carga.id]))
+
+    def test_marcar_devuelve_contadores_por_estado(self):
+        url = reverse("registros:aviso_marcar_estado", args=[self.carga.id, self.avisos[0].id])
+        datos = _post_json(self.client, url, {"estado": "observado", "comentario": "x"}).json()
+        self.assertEqual(
+            (datos["avisos_pendientes"], datos["avisos_observados"], datos["avisos_validos"], datos["campo"]),
+            (2, 1, 0, "cuenta"),
+        )
+        url_lote = reverse("registros:avisos_marcar_revisados", args=[self.carga.id])
+        datos = _post_json(self.client, url_lote, {"campo": "cuenta", "comentario": "ok"}).json()
+        self.assertEqual(
+            (datos["avisos_pendientes"], datos["avisos_observados"], datos["avisos_validos"]), (0, 1, 2)
+        )
+
+    def test_formulario_marca_gestiones_del_cierre_de_la_empresa(self):
+        respuesta = self.client.get(reverse("registros:cargar"))
+        compatibles = respuesta.context["gestiones_por_empresa"][str(self.empresa.id)]
+        self.assertEqual(compatibles, [str(self.gestion_industrial.id)])
+        self.assertContains(respuesta, 'id="gestiones-por-empresa"')
+
+    def test_paginacion_de_avisos_conserva_filtros(self):
+        for i in range(60):
+            ErrorValidacion.objects.create(
+                carga=self.carga, fila=100 + i, campo="fecha", tipo="aviso", descripcion="f",
+            )
+        respuesta = self.client.get(
+            reverse("registros:detalle_carga", args=[self.carga.id]) + "?pestana=avisos&campo_aviso=fecha"
+        )
+        self.assertContains(respuesta, "campo_aviso=fecha")
+        self.assertContains(respuesta, "pagina_avisos=2")
+
+    def test_montos_con_separador_de_miles(self):
+        cuenta = CuentaContable.objects.create(codigo="1-1-01", nombre="Caja")
+        RegistroContable.objects.create(
+            carga=self.carga, cuenta=cuenta, fecha=date(2023, 1, 1),
+            debe=Decimal("1234567.5"), haber=0, fila_origen=2,
+        )
+        respuesta = self.client.get(
+            reverse("registros:detalle_carga", args=[self.carga.id]) + "?pestana=registros"
+        )
+        self.assertNotContains(respuesta, ">1234567.50<")
+
+
+class ReclasificarCuentasCommandTests(TestCase):
+    def test_reclasifica_por_primer_digito_solo_con_confirmar(self):
+        CuentaContable.objects.create(codigo="4-1-01", nombre="Ventas", tipo="activo")
+        CuentaContable.objects.create(codigo="X9", nombre="Rara", tipo="activo")
+        call_command("reclasificar_cuentas", stdout=StringIO())
+        self.assertEqual(CuentaContable.objects.get(codigo="4-1-01").tipo, "activo")
+        with self.assertRaises(CommandError):
+            call_command("reclasificar_cuentas", "--confirmar", stdout=StringIO())
+        User.objects.create_user(username="socio", password="Clave-Segura123")
+        call_command("reclasificar_cuentas", "--confirmar", "--usuario", "socio", stdout=StringIO())
+        cambio = HistorialCambio.objects.get(modelo="CuentaContable", campo="tipo")
+        self.assertEqual((cambio.valor_anterior, cambio.valor_nuevo), ("activo", "ingreso"))
+        self.assertEqual(CuentaContable.objects.get(codigo="4-1-01").tipo, "ingreso")
+        self.assertEqual(CuentaContable.objects.get(codigo="X9").tipo, "activo")
+
+
+class PlanDeCuentasPorEmpresaTests(TestCase):
+    def setUp(self):
+        self.usuario = User.objects.create_user(username="auditor", password="Clave-Segura123")
+        self.gestion = Gestion.objects.create(
+            anio=2023, fecha_inicio=date(2023, 1, 1), fecha_fin=date(2023, 12, 31)
+        )
+
+    def _procesar(self, empresa, contenido):
+        carga = CargaArchivo.objects.create(
+            archivo=SimpleUploadedFile("carga.csv", contenido.encode("utf-8")),
+            usuario=self.usuario, empresa=empresa, gestion=self.gestion,
+        )
+        procesar_carga(carga)
+        return carga
+
+    def test_mismo_codigo_en_dos_empresas_son_cuentas_distintas(self):
+        a = EmpresaAuditada.objects.create(nombre="Empresa A")
+        b = EmpresaAuditada.objects.create(nombre="Empresa B")
+        CuentaContable.objects.create(empresa=a, codigo="4001", nombre="Ventas", tipo="ingreso")
+        carga = self._procesar(b, "fecha,cuenta,glosa,debe,haber\n01/01/2023,4001,Compra,100,0\n")
+        cuenta_b = CuentaContable.objects.get(empresa=b, codigo="4001")
+        self.assertEqual(carga.registros.get().cuenta, cuenta_b)
+        self.assertEqual(CuentaContable.objects.filter(codigo="4001").count(), 2)
+        self.assertEqual(CuentaContable.objects.get(empresa=a, codigo="4001").nombre, "Ventas")
+
+
+@override_settings(MEDIA_ROOT=tempfile.mkdtemp())
+class ProcesamientoEnSegundoPlanoTests(TestCase):
+    def setUp(self):
+        self.admin = _crear_administrador()
+        self.client.login(username="admin", password="Clave-Segura123")
+        self.empresa = EmpresaAuditada.objects.create(nombre="Empresa X")
+        self.gestion = Gestion.objects.create(
+            anio=2023, fecha_inicio=date(2023, 1, 1), fecha_fin=date(2023, 12, 31)
+        )
+
+    def _carga_pendiente(self):
+        return CargaArchivo.objects.create(
+            archivo=SimpleUploadedFile("carga.csv", b"fecha,cuenta,debe,haber\n"),
+            usuario=self.admin, empresa=self.empresa, gestion=self.gestion,
+        )
+
+    def test_carga_en_proceso_muestra_pantalla_de_espera(self):
+        carga = self._carga_pendiente()
+        respuesta = self.client.get(reverse("registros:detalle_carga", args=[carga.id]))
+        self.assertTemplateUsed(respuesta, "registros/carga_procesando.html")
+        datos = self.client.get(reverse("registros:carga_estado", args=[carga.id])).json()
+        self.assertTrue(datos["en_proceso"])
+
+    def test_carga_interrumpida_se_marca_fallida(self):
+        carga = self._carga_pendiente()
+        CargaArchivo.objects.filter(pk=carga.pk).update(
+            fecha_carga=timezone.now() - timedelta(minutes=31)
+        )
+        datos = self.client.get(reverse("registros:carga_estado", args=[carga.id])).json()
+        self.assertFalse(datos["en_proceso"])
+        carga.refresh_from_db()
+        self.assertEqual(carga.estado, "con_errores")
+        self.assertTrue(carga.errores.filter(campo="archivo").exists())
+
+    def test_no_se_anula_mientras_procesa(self):
+        carga = self._carga_pendiente()
+        self.client.post(reverse("registros:carga_anular", args=[carga.id]), {"tipo_motivo": "gestion"})
+        carga.refresh_from_db()
+        self.assertEqual(carga.estado, "pendiente")
+
+    @override_settings(PROCESAR_EN_SEGUNDO_PLANO=True)
+    def test_subida_procesa_en_un_hilo_aparte(self):
+        hilos = []
+
+        class HiloInmediato:
+            def __init__(self, target, args, **kwargs):
+                hilos.append(kwargs.get("name"))
+                self.target, self.args = target, args
+
+            def start(self):
+                self.target(*self.args)
+
+        contenido = "fecha,cuenta,glosa,debe,haber\n01/01/2023,1001,Pago,100,0\n"
+        with patch("registros.procesamiento.threading.Thread", HiloInmediato), \
+                patch("registros.procesamiento.connections"), \
+                self.captureOnCommitCallbacks(execute=True):
+            respuesta = self.client.post(reverse("registros:cargar"), {
+                "empresa": self.empresa.id, "gestion": self.gestion.id,
+                "archivo": SimpleUploadedFile("libro.csv", contenido.encode("utf-8")),
+            })
+        carga = CargaArchivo.objects.get()
+        self.assertRedirects(respuesta, reverse("registros:detalle_carga", args=[carga.id]),
+                             fetch_redirect_response=False)
+        self.assertEqual(hilos, [f"carga-{carga.id}"])
+        carga.refresh_from_db()
+        self.assertEqual(carga.registros_validos, 1)
+
+
+class RevisionDesdeLaFilaTests(TestCase):
+    def setUp(self):
+        self.admin = _crear_administrador()
+        self.client.login(username="admin", password="Clave-Segura123")
+        empresa = EmpresaAuditada.objects.create(nombre="Empresa X")
+        gestion = Gestion.objects.create(
+            anio=2023, fecha_inicio=date(2023, 1, 1), fecha_fin=date(2023, 12, 31)
+        )
+        self.carga = CargaArchivo.objects.create(
+            archivo=SimpleUploadedFile("carga.csv", b"x"), usuario=self.admin,
+            empresa=empresa, gestion=gestion, estado="con_observaciones",
+        )
+        self.a1 = ErrorValidacion.objects.create(carga=self.carga, fila=10, campo="cuenta", tipo="aviso", descripcion="a")
+        self.a2 = ErrorValidacion.objects.create(
+            carga=self.carga, fila=20, campo="duplicado", tipo="aviso", descripcion="Posible duplicado de la fila 19",
+        )
+        self.url = reverse("registros:detalle_carga", args=[self.carga.id])
+
+    def test_barra_de_decision_enlaza_al_siguiente_pendiente(self):
+        respuesta = self.client.get(self.url, {"pestana": "registros", "fila": 10, "desde_aviso": self.a1.id})
+        siguiente = respuesta.context["siguiente_aviso_url"]
+        self.assertIn(f"desde_aviso={self.a2.id}", siguiente)
+        self.assertIn("fila=20", siguiente)
+        self.assertIn("relacionada=19", siguiente)
+        self.assertContains(respuesta, 'id="modalDecisionFila"')
+
+    def test_ultimo_pendiente_vuelve_al_primero_y_sin_otros_no_hay_siguiente(self):
+        respuesta = self.client.get(self.url, {"pestana": "registros", "fila": 20, "desde_aviso": self.a2.id})
+        self.assertIn(f"desde_aviso={self.a1.id}", respuesta.context["siguiente_aviso_url"])
+        self.a1.revisado = True
+        self.a1.estado_revision = "valido"
+        self.a1.save()
+        respuesta = self.client.get(self.url, {"pestana": "registros", "fila": 20, "desde_aviso": self.a2.id})
+        self.assertEqual(respuesta.context["siguiente_aviso_url"], "")
+
+
+class FrasesContradictoriasTests(TestCase):
+    def setUp(self):
+        self.admin = _crear_administrador()
+        self.client.login(username="admin", password="Clave-Segura123")
+        empresa = EmpresaAuditada.objects.create(nombre="Empresa X")
+        gestion = Gestion.objects.create(
+            anio=2023, fecha_inicio=date(2023, 1, 1), fecha_fin=date(2023, 12, 31)
+        )
+        self.carga = CargaArchivo.objects.create(
+            archivo=SimpleUploadedFile("carga.csv", b"x"), usuario=self.admin,
+            empresa=empresa, gestion=gestion, estado="con_observaciones",
+        )
+        self.aviso = ErrorValidacion.objects.create(carga=self.carga, fila=5, campo="duplicado", tipo="aviso", descripcion="d")
+
+    def test_frase_de_valido_no_se_acepta_como_observacion(self):
+        from .frases import FRASES_RAPIDAS
+        url = reverse("registros:aviso_marcar_estado", args=[self.carga.id, self.aviso.id])
+        frase_valido = FRASES_RAPIDAS["valido"][0][1]
+        respuesta = _post_json(self.client, url, {"estado": "observado", "comentario": frase_valido + " "})
+        self.assertEqual(respuesta.status_code, 400)
+        self.aviso.refresh_from_db()
+        self.assertFalse(self.aviso.revisado)
+        # Completada con la referencia del documento ya es un texto propio y se acepta.
+        respuesta = _post_json(self.client, url, {"estado": "valido", "comentario": frase_valido + " Factura N.º 12"})
+        self.assertEqual(respuesta.status_code, 200)
+
+    def test_lote_no_acepta_frase_de_observacion(self):
+        from .frases import FRASES_RAPIDAS
+        url = reverse("registros:avisos_marcar_revisados", args=[self.carga.id])
+        respuesta = _post_json(self.client, url, {"campo": "duplicado", "comentario": FRASES_RAPIDAS["observado"][0][1]})
+        self.assertEqual(respuesta.status_code, 400)
+
+    def test_reporte_atribuye_el_fundamento_al_auditor(self):
+        self.aviso.revisado = True
+        self.aviso.estado_revision = "observado"
+        self.aviso.comentario_revision = "La misma operación se registró dos veces."
+        self.aviso.save()
+        respuesta = self.client.get(reverse("registros:reporte_observaciones", args=[self.carga.id]))
+        self.assertContains(respuesta, "Fundamento del auditor")
+        self.assertNotContains(respuesta, "Justificación del contador")
+
+
+@override_settings(MEDIA_ROOT=tempfile.mkdtemp())
+class GestionEquivocadaYTotalGeneralTests(TestCase):
+    def setUp(self):
+        self.usuario = User.objects.create_user(username="auditor", password="Clave-Segura123")
+        self.empresa = EmpresaAuditada.objects.create(nombre="Empresa X")
+        self.gestion = Gestion.objects.create(
+            anio=2023, fecha_inicio=date(2023, 1, 1), fecha_fin=date(2023, 12, 31)
+        )
+
+    def _procesar(self, contenido):
+        carga = CargaArchivo.objects.create(
+            archivo=SimpleUploadedFile("carga.csv", contenido.encode("utf-8")),
+            usuario=self.usuario, empresa=self.empresa, gestion=self.gestion,
+        )
+        procesar_carga(carga)
+        carga.refresh_from_db()
+        return carga
+
+    def test_archivo_de_otra_gestion_se_rechaza_sin_guardar_filas(self):
+        filas = "".join(f"0{d}/03/2022,1001,pago,{d}0,0\n" for d in range(1, 6))
+        carga = self._procesar("fecha,cuenta,glosa,debe,haber\n" + filas)
+        self.assertEqual(carga.estado, "con_errores")
+        self.assertEqual(carga.registros.count(), 0)
+        error = carga.errores.get(campo="archivo")
+        self.assertIn("la mayoría son de 2022", error.descripcion)
+
+    def test_pocas_fechas_fuera_de_gestion_siguen_siendo_avisos(self):
+        carga = self._procesar(
+            "fecha,cuenta,glosa,debe,haber\n"
+            "01/03/2023,1001,pago,10,0\n02/03/2023,1001,pago,20,0\n31/12/2022,1001,pago,30,0\n"
+        )
+        self.assertEqual(carga.registros.count(), 3)
+        self.assertEqual(carga.errores.filter(campo="fecha", tipo="aviso").count(), 1)
+
+    def test_total_general_al_pie_no_es_un_error(self):
+        carga = self._procesar(
+            "fecha,cuenta,glosa,debe,haber\n"
+            "01/03/2023,1001,pago,10,0\n02/03/2023,2001,cobro,0,10\n,,,10,10\n"
+        )
+        self.assertEqual(carga.total_registros, 2)
+        self.assertFalse(carga.errores.filter(tipo="error").exists())
+
+
+class VistaErroresTests(TestCase):
+    def test_errores_agrupados_por_fila_con_que_hacer(self):
+        admin = _crear_administrador()
+        self.client.login(username="admin", password="Clave-Segura123")
+        empresa = EmpresaAuditada.objects.create(nombre="Empresa X")
+        gestion = Gestion.objects.create(anio=2023, fecha_inicio=date(2023, 1, 1), fecha_fin=date(2023, 12, 31))
+        carga = CargaArchivo.objects.create(
+            archivo=SimpleUploadedFile("c.csv", b"x"), usuario=admin, empresa=empresa,
+            gestion=gestion, estado="con_errores",
+        )
+        ErrorValidacion.objects.create(carga=carga, fila=7, campo="fecha", descripcion="Fecha vacía")
+        ErrorValidacion.objects.create(carga=carga, fila=7, campo="debe/haber", descripcion="Monto en Debe y en Haber a la vez")
+        ErrorValidacion.objects.create(carga=carga, fila=0, campo="archivo", descripcion="Archivo ilegible")
+        respuesta = self.client.get(reverse("registros:detalle_carga", args=[carga.id]), {"pestana": "errores"})
+        contenido = respuesta.content.decode()
+        self.assertEqual(contenido.count('class="tarjeta-error"'), 2)
+        self.assertIn("Dejar un monto positivo solo en Debe o solo en Haber.", contenido)
+        self.assertIn("Importe en Debe/Haber", contenido)
+        self.assertIn(">Archivo<", contenido)
+
+
+
+class CorreccionesRevisionCodigoTests(TestCase):
+    """Hallazgos de la revisión de código del 04/10/2026."""
+
+    def setUp(self):
+        self.usuario = User.objects.create_user(username="auditor", password="Clave-Segura123")
+        self.empresa = EmpresaAuditada.objects.create(nombre="Empresa X")
+        self.gestion = Gestion.objects.create(
+            anio=2023, fecha_inicio=date(2023, 1, 1), fecha_fin=date(2023, 12, 31)
+        )
+
+    def _carga(self, contenido="fecha,cuenta,glosa,debe,haber\n01/01/2023,1001,Pago,10,0\n"):
+        return CargaArchivo.objects.create(
+            archivo=SimpleUploadedFile("c.csv", contenido.encode("utf-8")),
+            usuario=self.usuario, empresa=self.empresa, gestion=self.gestion,
+        )
+
+    def test_resultado_no_pisa_una_anulacion_hecha_durante_el_proceso(self):
+        carga = self._carga()
+        CargaArchivo.objects.filter(pk=carga.pk).update(estado="anulada")
+        procesar_carga(carga)  # el objeto en memoria todavía dice "pendiente"
+        carga.refresh_from_db()
+        self.assertEqual(carga.estado, "anulada")
+        self.assertEqual(carga.registros.count(), 0)
+
+    def test_marcar_fallida_no_pisa_otro_estado_ni_duplica_el_mensaje(self):
+        from .procesamiento import _marcar_fallida
+        carga = self._carga()
+        self.assertTrue(_marcar_fallida(carga, "interrumpida"))
+        self.assertFalse(_marcar_fallida(carga, "interrumpida"))
+        self.assertEqual(carga.errores.filter(campo="archivo").count(), 1)
+        CargaArchivo.objects.filter(pk=carga.pk).update(estado="anulada")
+        self.assertFalse(_marcar_fallida(carga, "otra"))
+        carga.refresh_from_db()
+        self.assertEqual(carga.estado, "anulada")
+
+    def test_punto_de_miles_sin_decimales(self):
+        from .services import _parsear_importe
+        self.assertEqual(_parsear_importe("1.234"), (1234.0, None))
+        self.assertEqual(_parsear_importe("1.234.567"), (1234567.0, None))
+        self.assertEqual(_parsear_importe("1.23"), (1.23, None))
+        self.assertEqual(_parsear_importe("1.234,56"), (1234.56, None))
+
+    def test_frase_contraria_se_detecta_aunque_se_complete(self):
+        from .frases import FRASES_RAPIDAS, contradice_decision
+        frase = FRASES_RAPIDAS["valido"][0][1]
+        self.assertTrue(contradice_decision("observado", frase + " Factura N.º 526"))
+        self.assertFalse(contradice_decision("valido", frase + " Factura N.º 526"))
+        self.assertFalse(contradice_decision("observado", "Monto sin respaldo documental."))
+
+    def test_archivo_ilegible_da_mensaje_claro_sin_detalle_tecnico(self):
+        carga = CargaArchivo.objects.create(
+            archivo=SimpleUploadedFile("c.xlsx", b"esto no es un excel"),
+            usuario=self.usuario, empresa=self.empresa, gestion=self.gestion,
+        )
+        procesar_carga(carga)
+        carga.refresh_from_db()
+        self.assertEqual(carga.estado, "con_errores")
+        self.assertIn("No se pudo leer el archivo. Verificar", carga.errores.get(campo="archivo").descripcion)
+
+
+class FechasTests(TestCase):
+    def test_formato_anio_mes_dia_no_intercambia_dia_y_mes(self):
+        from datetime import datetime
+        from .services import _parsear_fecha
+        self.assertEqual(_parsear_fecha("2023-01-02 00:00:00").date(), date(2023, 1, 2))
+        self.assertEqual(_parsear_fecha("2023-01-02").date(), date(2023, 1, 2))
+        self.assertEqual(_parsear_fecha("02/01/2023").date(), date(2023, 1, 2))
+        self.assertEqual(_parsear_fecha(datetime(2023, 1, 2)).date(), date(2023, 1, 2))
+        self.assertTrue(_parsear_fecha("") is pd.NaT or str(_parsear_fecha("")) == "NaT")
+        self.assertEqual(str(_parsear_fecha("no es fecha")), "NaT")

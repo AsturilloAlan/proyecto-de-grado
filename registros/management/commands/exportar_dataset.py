@@ -1,12 +1,13 @@
-"""Exporta a CSV los registros ya validados de una carga, para usarlos como dataset
-de entrada en el prototipo de los algoritmos de detección de anomalías (Isolation
-Forest, LOF, One-Class SVM).
+"""Exporta a CSV el dataset de una carga (registros guardados y avisos por fila), para
+usarlo en la evaluación de los algoritmos de detección de anomalías.
 """
 import csv
 
 from django.core.management.base import BaseCommand, CommandError
 
+from registros.dataset import COLUMNAS_DATASET, filas_dataset
 from registros.models import CargaArchivo
+from registros.views import _celda_csv_segura
 
 
 class Command(BaseCommand):
@@ -32,41 +33,19 @@ class Command(BaseCommand):
             self.stdout.write(
                 self.style.WARNING(
                     f"Aviso: la carga #{carga.id} está anulada. Sus registros ya no se "
-                    "consideran válidos; revisa si es la carga correcta antes de usar este dataset."
+                    "consideran válidos; conviene verificar que sea la carga correcta antes de usar este dataset."
                 )
             )
 
-        registros = (
-            carga.registros.select_related("cuenta")
-            .order_by("fila_origen")
-        )
-        total = registros.count()
+        total = carga.registros.count()
         if total == 0:
             raise CommandError(f"La carga #{carga.id} no tiene registros guardados para exportar.")
 
         salida = options["salida"] or f"dataset_carga_{carga.id}.csv"
-
         with open(salida, "w", newline="", encoding="utf-8-sig") as archivo:
             escritor = csv.writer(archivo)
-            escritor.writerow(
-                ["fila_origen", "fecha", "cuenta_codigo", "cuenta_nombre", "cuenta_tipo",
-                 "comprobante", "glosa", "debe", "haber", "saldo"]
-            )
-            for registro in registros.iterator():
-                escritor.writerow(
-                    [
-                        registro.fila_origen,
-                        registro.fecha.isoformat(),
-                        registro.cuenta.codigo,
-                        registro.cuenta.nombre,
-                        registro.cuenta.tipo,
-                        registro.numero_comprobante,
-                        registro.glosa,
-                        registro.debe,
-                        registro.haber,
-                        registro.saldo if registro.saldo is not None else "",
-                    ]
-                )
+            escritor.writerow(COLUMNAS_DATASET)
+            escritor.writerows(filas_dataset(carga, celda=_celda_csv_segura))
 
         self.stdout.write(
             self.style.SUCCESS(

@@ -1,5 +1,5 @@
 {% comment %}
-Paginación reutilizable. Parámetros: pagina_obj, querystring (filtros activos) y ancla (id opcional).
+Paginación reutilizable. Parámetros: pagina_obj, querystring (filtros activos), ancla (id opcional) y parametro (nombre del parámetro de página, "pagina" por defecto).
 Uso: {% include "_paginacion.html" with pagina_obj=empresas %}
 {% endcomment %}
 {% load paginacion_extra %}
@@ -8,7 +8,7 @@ Uso: {% include "_paginacion.html" with pagina_obj=empresas %}
     <ul class="pagination pagination-sm mb-0 flex-wrap">
         <li class="page-item {% if not pagina_obj.has_previous %}disabled{% endif %}">
             {% if pagina_obj.has_previous %}
-                <a class="page-link" href="?{% if querystring %}{{ querystring }}&{% elif busqueda %}q={{ busqueda }}&{% endif %}pagina={{ pagina_obj.previous_page_number }}{% if ancla %}#{{ ancla }}{% endif %}">
+                <a class="page-link" href="?{% if querystring %}{{ querystring }}&{% elif busqueda %}q={{ busqueda }}&{% endif %}{{ parametro|default:"pagina" }}={{ pagina_obj.previous_page_number }}{% if ancla %}#{{ ancla }}{% endif %}">
                     <i class="bi bi-chevron-left"></i>
                 </a>
             {% else %}
@@ -20,13 +20,13 @@ Uso: {% include "_paginacion.html" with pagina_obj=empresas %}
                 <li class="page-item disabled"><span class="page-link border-0">{{ numero }}</span></li>
             {% else %}
                 <li class="page-item {% if numero == pagina_obj.number %}active{% endif %}">
-                    <a class="page-link" href="?{% if querystring %}{{ querystring }}&{% elif busqueda %}q={{ busqueda }}&{% endif %}pagina={{ numero }}{% if ancla %}#{{ ancla }}{% endif %}">{{ numero }}</a>
+                    <a class="page-link" href="?{% if querystring %}{{ querystring }}&{% elif busqueda %}q={{ busqueda }}&{% endif %}{{ parametro|default:"pagina" }}={{ numero }}{% if ancla %}#{{ ancla }}{% endif %}">{{ numero }}</a>
                 </li>
             {% endif %}
         {% endfor %}
         <li class="page-item {% if not pagina_obj.has_next %}disabled{% endif %}">
             {% if pagina_obj.has_next %}
-                <a class="page-link" href="?{% if querystring %}{{ querystring }}&{% elif busqueda %}q={{ busqueda }}&{% endif %}pagina={{ pagina_obj.next_page_number }}{% if ancla %}#{{ ancla }}{% endif %}">
+                <a class="page-link" href="?{% if querystring %}{{ querystring }}&{% elif busqueda %}q={{ busqueda }}&{% endif %}{{ parametro|default:"pagina" }}={{ pagina_obj.next_page_number }}{% if ancla %}#{{ ancla }}{% endif %}">
                     <i class="bi bi-chevron-right"></i>
                 </a>
             {% else %}

@@ -23,3 +23,6 @@ staticfiles/
 .idea/
 .DS_Store
 Thumbs.db
+
+# Resultados generados por evaluar_modelos
+evaluacion_modelos_*/

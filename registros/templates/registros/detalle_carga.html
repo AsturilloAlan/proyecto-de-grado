@@ -2,89 +2,203 @@
 {% block title %}Detalle de carga #{{ carga.id }}{% endblock %}
 {% block content %}
     <style>
-        /* Tablas de errores y avisos más espaciadas. */
+        /* Tablas de errores y avisos. */
         .tabla-avisos td, .tabla-avisos th { padding-top: .65rem; padding-bottom: .65rem; }
-        .tabla-avisos .celda-descripcion { line-height: 1.5; max-width: 46rem; }
+        .tabla-avisos .celda-descripcion { line-height: 1.5; }
+        .tabla-avisos .celda-descripcion { padding-right: 1.5rem; }
+        .tabla-avisos .celda-criterio { padding-left: 1rem; font-size: .85rem; color: var(--bs-secondary-color); line-height: 1.4; }
         /* Botón de aviso pendiente. */
-        .aviso-marcar-individual:hover {
-            background-color: #fff3cd !important;
-            border-color: #ffe69c !important;
-            color: #664d03 !important;
+        .estados-aviso { display: inline-flex; gap: .25rem; padding: .25rem; margin: 0 0 .9rem; border-radius: .6rem; background: var(--bs-tertiary-bg); }
+        .estados-aviso a {
+            padding: .35rem .85rem; border-radius: .45rem; font-size: .85rem; font-weight: 600;
+            color: var(--bs-secondary-color); text-decoration: none;
+        }
+        .estados-aviso a span { font-weight: 500; opacity: .75; margin-left: .2rem; font-variant-numeric: tabular-nums; }
+        .estados-aviso a:hover { color: var(--guindo); }
+        .estados-aviso a.activo { background: var(--bs-body-bg); color: var(--guindo-oscuro); box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+        [data-bs-theme="dark"] .estados-aviso a.activo { background: rgba(255,255,255,.08); color: #f1e3ea; }
+        .enlace-corregir { font-size: .78rem; color: var(--bs-secondary-color); text-decoration: none; }
+        .enlace-corregir:hover { color: var(--guindo); text-decoration: underline; }
+        [data-bs-theme="dark"] .enlace-corregir:hover { color: #e7b8cd; }
+        .boton-revisar { white-space: nowrap; padding: .2rem .65rem; font-weight: 600; }
+
+        /* Errores: tarjetas por tipo y por fila. */
+        .encabezado-errores { display: flex; align-items: center; gap: .9rem; margin-bottom: 1rem; }
+        .icono-errores {
+            width: 46px; height: 46px; border-radius: 12px; flex-shrink: 0;
+            display: grid; place-items: center; font-size: 1.35rem;
+            background: var(--bs-danger-bg-subtle); color: var(--bs-danger-text-emphasis);
+        }
+        .tipos-error { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: .6rem; margin-bottom: 1.25rem; }
+        .tipo-error {
+            display: flex; flex-direction: column; gap: .1rem; padding: .75rem .9rem; border-radius: .75rem;
+            border: 1px solid var(--bs-border-color); text-decoration: none; color: var(--bs-body-color);
+            background: var(--bs-body-bg); transition: border-color .15s ease, box-shadow .15s ease, transform .15s ease;
+        }
+        .tipo-error:hover { border-color: rgba(220,53,69,.45); transform: translateY(-1px); color: var(--bs-body-color); }
+        .tipo-error.activo { border-color: var(--bs-danger); box-shadow: 0 0 0 3px rgba(220,53,69,.12); }
+        .tipo-error-total { font-size: 1.5rem; font-weight: 700; line-height: 1.1; color: var(--bs-danger-text-emphasis); font-variant-numeric: tabular-nums; }
+        .tipo-error-nombre { font-weight: 600; }
+        .tipo-error-criterio { font-size: .78rem; color: var(--bs-secondary-color); line-height: 1.35; }
+        .lista-errores { display: flex; flex-direction: column; gap: .6rem; }
+        .tarjeta-error {
+            display: grid; grid-template-columns: 92px 1fr; gap: 1rem; padding: .9rem 1rem;
+            border: 1px solid var(--bs-border-color); border-left: 4px solid var(--bs-danger);
+            border-radius: .75rem; background: var(--bs-body-bg);
+            animation: entrar-barra .25s ease both;
+        }
+        .tarjeta-error-fila { display: flex; flex-direction: column; align-items: flex-start; color: var(--bs-danger-text-emphasis); }
+        .etiqueta-fila { font-size: .7rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--bs-secondary-color); }
+        .numero-fila { font-size: 1.35rem; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.1; }
+        .tarjeta-error-problemas { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: .6rem; }
+        .problema { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; }
+        .problema-texto { font-weight: 500; }
+        .que-hacer { font-size: .85rem; color: var(--bs-secondary-color); margin-top: .2rem; padding-left: .1rem; }
+        .que-hacer .bi { color: var(--guindo); }
+        [data-bs-theme="dark"] .que-hacer .bi { color: #e7b8cd; }
+        @media (max-width: 575.98px) {
+            .tarjeta-error { grid-template-columns: 1fr; gap: .5rem; }
+            .tarjeta-error-fila { flex-direction: row; align-items: baseline; gap: .4rem; }
+            .tipos-error { grid-template-columns: 1fr 1fr; }
+            .tipo-error-criterio { display: none; }
         }
 
         #inicio-carga, #registros, #errores, #avisos { scroll-margin-top: 1.25rem; }
 
-        /* Navegación flotante entre secciones. */
-        .nav-secciones {
-            position: fixed; right: 1.25rem; bottom: 1.5rem; z-index: 1080;
-            display: flex; flex-direction: column; gap: .35rem; padding: .4rem;
-            border-radius: 999px;
-            background: color-mix(in srgb, var(--bs-body-bg) 82%, transparent);
-            border: 1px solid rgba(110,27,63,.14);
-            box-shadow: 0 10px 28px -8px rgba(40,10,25,.3);
-            backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
-            animation: nav-secciones-entrar .4s cubic-bezier(.2,.9,.3,1.2) both;
+        /* Enlace de un aviso a su fila y resaltes al llegar. */
+        .enlace-fila { text-decoration: none; color: inherit; white-space: nowrap; }
+        .enlace-fila .bi { font-size: .75rem; opacity: .45; transition: opacity .15s ease; }
+        .enlace-fila:hover { color: var(--guindo); text-decoration: underline; }
+        [data-bs-theme="dark"] .enlace-fila:hover { color: #e7b8cd; }
+        .enlace-fila:hover .bi { opacity: 1; }
+        .table tbody tr.fila-resaltada > * { box-shadow: inset 0 0 0 9999px rgba(110,27,63,.1); }
+        .table tbody tr.fila-resaltada > :first-child { border-left: 4px solid var(--guindo); }
+        .table tbody tr.fila-relacionada > * { box-shadow: inset 0 0 0 9999px rgba(217,154,6,.12); }
+        .table tbody tr.fila-relacionada > :first-child { border-left: 4px solid #d99a06; }
+        [data-bs-theme="dark"] .table tbody tr.fila-resaltada > * { box-shadow: inset 0 0 0 9999px rgba(231,184,205,.12); }
+        [data-bs-theme="dark"] .table tbody tr.fila-resaltada > :first-child { border-left-color: #e7b8cd; }
+        .tabla-avisos tbody tr { scroll-margin-top: 6rem; }
+        .table tbody tr:target { animation: fila-resaltada-destello 2.5s ease-out; }
+
+        /* Pestañas de la carga. */
+        .pestanas-carga {
+            display: flex; flex-wrap: wrap; gap: .25rem;
+            margin: 1.5rem 0 .5rem; border-bottom: 1px solid rgba(110,27,63,.15);
+            position: sticky; top: 0; z-index: 5;
+            background: var(--bs-body-bg);
         }
-        [data-bs-theme="dark"] .nav-secciones { border-color: rgba(231,184,205,.18); box-shadow: 0 12px 30px -8px rgba(0,0,0,.6); }
-        .nav-secciones a {
-            position: relative; width: 42px; height: 42px; border-radius: 50%;
-            display: grid; place-items: center; font-size: 1.05rem;
-            color: var(--guindo-oscuro); text-decoration: none;
-            transition: background-color .15s ease, color .15s ease, transform .15s ease;
+        [data-bs-theme="dark"] .pestanas-carga { border-bottom-color: rgba(231,184,205,.18); background: #221a2a; }
+        .pestana {
+            display: inline-flex; align-items: center; gap: .5rem;
+            padding: .7rem 1.1rem; margin-bottom: -1px;
+            font-weight: 600; font-size: .95rem; text-decoration: none;
+            color: var(--bs-secondary-color);
+            border-bottom: 3px solid transparent;
+            transition: color .15s ease, border-color .15s ease, background-color .15s ease;
         }
-        [data-bs-theme="dark"] .nav-secciones a { color: #e7b8cd; }
-        .nav-secciones a:hover, .nav-secciones a:focus-visible {
-            background: rgba(110,27,63,.1); transform: scale(1.06); outline: none;
+        .pestana:hover { color: var(--guindo); background: rgba(110,27,63,.04); }
+        .pestana.activa { color: var(--guindo-oscuro); border-bottom-color: var(--guindo); }
+        [data-bs-theme="dark"] .pestana:hover { color: #e7b8cd; background: rgba(231,184,205,.05); }
+        [data-bs-theme="dark"] .pestana.activa { color: #f1e3ea; border-bottom-color: #e7b8cd; }
+        .pestana-contador {
+            font-size: .72rem; font-weight: 700; line-height: 1; padding: .3rem .5rem; border-radius: 999px;
+            background: rgba(108,117,125,.15); color: var(--bs-secondary-color);
+            font-variant-numeric: tabular-nums;
         }
-        .nav-secciones a.activa { background: linear-gradient(135deg, var(--guindo), var(--guindo-oscuro)); color: #fff; }
-        .nav-secciones .separador { height: 1px; margin: .1rem .5rem; background: rgba(110,27,63,.15); }
-        .nav-secciones .contador {
-            position: absolute; top: -2px; right: -4px; min-width: 18px; height: 18px; padding: 0 5px;
-            border-radius: 9px; font-size: .65rem; font-weight: 700; line-height: 18px; text-align: center;
-            color: #fff; background: var(--bs-danger); box-shadow: 0 0 0 2px var(--bs-body-bg);
+        .pestana-contador.aviso { background: #fff0c2; color: #8a5a00; }
+        .pestana-contador.error { background: var(--bs-danger-bg-subtle); color: var(--bs-danger-text-emphasis); }
+        .pestana-contador.listo { background: var(--bs-success-bg-subtle); color: var(--bs-success-text-emphasis); font-weight: 600; }
+        [data-bs-theme="dark"] .pestana-contador.aviso { background: rgba(240,193,75,.18); color: #f0c14b; }
+
+
+        /* Barra para decidir sobre el aviso sin salir de la fila. */
+        .barra-decision {
+            display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .75rem;
+            padding: .75rem 1rem; border-radius: .75rem;
+            background: rgba(110,27,63,.05); border: 1px solid rgba(110,27,63,.15);
+            position: sticky; top: 3.4rem; z-index: 4;
+            animation: entrar-barra .3s ease both;
         }
-        .nav-secciones .contador.aviso { background: #d99a06; }
-        .nav-secciones a[data-oculto] { display: none; }
-        /* Etiqueta al pasar el mouse. */
-        .nav-secciones a::after {
-            content: attr(aria-label);
-            position: absolute; right: calc(100% + .6rem); top: 50%; transform: translate(6px, -50%);
-            white-space: nowrap; font-size: .78rem; font-weight: 600;
-            padding: .3rem .6rem; border-radius: .5rem;
-            background: var(--guindo-oscuro); color: #fff;
-            opacity: 0; pointer-events: none; transition: opacity .15s ease, transform .15s ease;
+        [data-bs-theme="dark"] .barra-decision { background: #2a2033; border-color: rgba(231,184,205,.2); }
+        @keyframes entrar-barra { from { opacity: 0; transform: translateY(-6px); } }
+
+        /* Justificaciones frecuentes. */
+        .frases-rapidas { display: flex; flex-direction: column; gap: .4rem; }
+        .grupo-frases { display: flex; flex-wrap: wrap; align-items: center; gap: .35rem; }
+        .selector-decision { display: grid; grid-template-columns: 1fr 1fr; gap: .5rem; }
+        .opcion-decision {
+            padding: .6rem; border-radius: .6rem; font-weight: 600; background: transparent;
+            border: 2px solid var(--bs-border-color); color: var(--bs-secondary-color);
+            transition: border-color .15s ease, background-color .15s ease, color .15s ease;
         }
-        .nav-secciones a:hover::after, .nav-secciones a:focus-visible::after { opacity: 1; transform: translate(0, -50%); }
-        @keyframes nav-secciones-entrar { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
+        .opcion-decision[data-estado="valido"]:hover, .opcion-decision[data-estado="valido"].activa { border-color: var(--bs-success); color: var(--bs-success); }
+        .opcion-decision[data-estado="observado"]:hover, .opcion-decision[data-estado="observado"].activa { border-color: var(--bs-danger); color: var(--bs-danger); }
+        .opcion-decision[data-estado="valido"].activa { background: var(--bs-success-bg-subtle); }
+        .opcion-decision[data-estado="observado"].activa { background: var(--bs-danger-bg-subtle); }
+        .grupo-frases.d-none { display: none; }
+        .frase-rapida {
+            border: 1px solid rgba(110,27,63,.25); background: transparent; color: var(--guindo);
+            border-radius: 999px; padding: .2rem .65rem; font-size: .78rem;
+            transition: background-color .15s ease, color .15s ease;
+        }
+        .frase-rapida:hover { background: var(--guindo); color: #fff; }
+        [data-bs-theme="dark"] .frase-rapida { color: #e7b8cd; border-color: rgba(231,184,205,.3); }
+
+        /* Burbuja flotante de navegación. */
+        .burbuja-nav {
+            position: fixed; right: 1.25rem; bottom: 1.25rem; z-index: 1030;
+            display: flex; flex-direction: column; gap: .4rem;
+        }
+        .burbuja-nav button, .burbuja-nav a {
+            width: 44px; height: 44px; border-radius: 50%; border: none;
+            display: grid; place-items: center; font-size: 1.1rem; text-decoration: none;
+            background: var(--guindo); color: #fff; box-shadow: 0 6px 18px rgba(74,17,41,.3);
+            transition: transform .15s ease, opacity .2s ease, filter .15s ease;
+        }
+        .burbuja-nav button:hover, .burbuja-nav a:hover { transform: scale(1.08); filter: brightness(1.1); color: #fff; }
+        .burbuja-nav .secundario { background: var(--bs-body-bg); color: var(--guindo); border: 1px solid rgba(110,27,63,.25); }
+        [data-bs-theme="dark"] .burbuja-nav .secundario { background: #2a2033; color: #e7b8cd; }
+        .burbuja-nav .oculto { opacity: 0; pointer-events: none; transform: scale(.8); }
+        @media (prefers-reduced-motion: reduce) { .barra-decision { animation: none; } }
+
+        .selector-columna-monto { flex: 0 0 9.5rem; }
+        .herramientas-registros { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; }
+        .ir-a-fila { display: flex; align-items: center; gap: .4rem; }
+        .ir-a-fila input { width: 7.5rem; }
         @media (max-width: 575.98px) {
-            .nav-secciones { right: .75rem; bottom: .75rem; }
-            .nav-secciones a { width: 38px; height: 38px; }
-            .nav-secciones a::after { display: none; }
+            /* Una sola fila que nunca se sale: campo flexible y botones de igual alto. */
+            .herramientas-registros { width: 100%; flex-wrap: nowrap; gap: .4rem; }
+            .ir-a-fila { flex: 1 1 auto; min-width: 0; gap: .4rem; }
+            .ir-a-fila label { display: none; }
+            .ir-a-fila input { width: auto; flex: 1 1 auto; min-width: 0; }
+            .herramientas-registros .btn, .ir-a-fila input {
+                height: 38px; min-height: 38px; display: inline-flex; align-items: center; justify-content: center;
+            }
+            .herramientas-registros .btn { flex: 0 0 auto; padding: 0 .7rem; gap: .3rem; }
         }
-        @media print { .nav-secciones { display: none; } }
+        .filtros-registros .selector-boton { white-space: nowrap; }
+
+        /* Celular: pestañas deslizables, barra no fija y burbuja más chica. */
+        @media (max-width: 767.98px) {
+            .pestanas-carga { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin-top: 1rem; }
+            .pestanas-carga::-webkit-scrollbar { display: none; }
+            .pestana { padding: .6rem .8rem; font-size: .9rem; white-space: nowrap; }
+            .barra-decision { position: static; }
+            .barra-decision > .d-flex { width: 100%; }
+            .barra-decision > .d-flex .btn { flex: 1 1 auto; }
+            .burbuja-nav { right: .75rem; bottom: .75rem; }
+            .burbuja-nav button, .burbuja-nav a { width: 40px; height: 40px; font-size: 1rem; }
+            .estados-aviso { display: flex; width: 100%; overflow-x: auto; }
+            .estados-aviso a { white-space: nowrap; flex: 1; text-align: center; padding: .35rem .4rem; font-size: .8rem; }
+            .col-criterio { display: none; }
+            .selector-decision .opcion-decision { padding: .75rem .5rem; }
+        }
+
     </style>
 
-    <nav class="nav-secciones" id="nav-secciones" aria-label="Ir a una sección">
-        <a href="#inicio-carga" aria-label="Ir arriba" data-seccion="inicio-carga" data-oculto><i class="bi bi-arrow-up"></i></a>
-        {% if registros_pagina or cuenta_filtro or comprobante_filtro %}
-            <a href="#registros" aria-label="Registros cargados" data-seccion="registros"><i class="bi bi-table"></i></a>
-        {% endif %}
-        <a href="#errores" aria-label="Errores de validación" data-seccion="errores">
-            <i class="bi bi-x-circle"></i>
-            {% if carga.registros_con_error %}<span class="contador">{{ carga.registros_con_error }}</span>{% endif %}
-        </a>
-        {% if avisos %}
-            <a href="#avisos" aria-label="Avisos por revisar" data-seccion="avisos">
-                <i class="bi bi-exclamation-triangle"></i>
-                {% if avisos_pendientes %}<span class="contador aviso">{{ avisos_pendientes }}</span>{% endif %}
-            </a>
-        {% endif %}
-        <span class="separador" aria-hidden="true"></span>
-        <a href="#fin-carga" aria-label="Ir al final" data-seccion="fin-carga"><i class="bi bi-arrow-down"></i></a>
-    </nav>
     <nav aria-label="breadcrumb">
         <ol class="breadcrumb small mb-3">
-            <li class="breadcrumb-item"><a href="{% url 'home' %}"><i class="bi bi-house"></i> Inicio</a></li>
+            <li class="breadcrumb-item"><a href="{% url 'home' %}">Inicio</a></li>
             <li class="breadcrumb-item"><a href="{% url 'registros:cargar' %}">Cargar registros</a></li>
             <li class="breadcrumb-item active" aria-current="page">Carga #{{ carga.id }}</li>
         </ol>
@@ -110,15 +224,15 @@
         <li><strong>Total de filas procesadas:</strong> {{ carga.total_registros }}</li>
         <li>
             <strong>Resultado:</strong>
-            <span class="badge text-bg-success fw-normal"><i class="bi bi-check-lg"></i> {{ carga.registros_validos }} válido{{ carga.registros_validos|pluralize }}</span>
-            <span class="badge text-bg-warning fw-normal"><i class="bi bi-exclamation-triangle"></i> {{ carga.registros_con_aviso }} aviso{{ carga.registros_con_aviso|pluralize }}</span>
-            <span class="badge text-bg-danger fw-normal"><i class="bi bi-x-lg"></i> {{ carga.registros_con_error }} error{{ carga.registros_con_error|pluralize }}</span>
+            <span class="badge text-bg-success fw-normal">{{ carga.registros_validos }} válido{{ carga.registros_validos|pluralize }}</span>
+            <span class="badge text-bg-warning fw-normal">{{ carga.registros_con_aviso }} aviso{{ carga.registros_con_aviso|pluralize }}</span>
+            <span class="badge text-bg-danger fw-normal">{{ carga.registros_con_error }} error{{ carga.registros_con_error|pluralize:"es" }}</span>
         </li>
         {% if carga.registros_con_aviso %}
             <li>
                 <strong>Reporte:</strong>
                 <a href="{% url 'registros:reporte_observaciones' carga.id %}">
-                    <i class="bi bi-file-earmark-text"></i> Ver reporte de observaciones
+                    Ver reporte de observaciones
                 </a>
             </li>
         {% endif %}
@@ -126,7 +240,6 @@
 
     {% if carga.estado == 'anulada' %}
         <div class="alert alert-dark">
-            <i class="bi bi-slash-circle"></i>
             Carga anulada, no cuenta como información válida.
             <a href="{% url 'registros:cargar' %}">Subir de nuevo</a>.
         </div>
@@ -135,20 +248,18 @@
     {% if carga.estado == 'con_observaciones' and puede_confirmar_carga %}
         {% if avisos_pendientes %}
             <div class="alert alert-warning">
-                <i class="bi bi-lock"></i>
-                Quedan <strong>{{ avisos_pendientes }} aviso{{ avisos_pendientes|pluralize }}</strong> sin revisar más abajo para poder confirmar esta carga.
+                <strong>{{ avisos_pendientes }} aviso{{ avisos_pendientes|pluralize }}</strong> pendiente{{ avisos_pendientes|pluralize }} de revisión antes de confirmar la carga.
             </div>
         {% else %}
             <div class="alert alert-warning d-flex flex-wrap align-items-center justify-content-between gap-2">
                 <div>
-                    <i class="bi bi-info-circle"></i>
-                    Avisos ya revisados{% if carga.registros_con_error %}, quedan {{ carga.registros_con_error }} error{{ carga.registros_con_error|pluralize }}{% endif %}. ¿Confirmar la carga?
+                    Avisos ya revisados{% if carga.registros_con_error %}, quedan {{ carga.registros_con_error }} error{{ carga.registros_con_error|pluralize:"es" }}{% endif %}. ¿Confirmar la carga?
                 </div>
                 <form method="post" action="{% url 'registros:carga_confirmar_validacion' carga.id %}"
-                      onsubmit="return confirm('¿Estás seguro de marcar esta carga como Validado?{% if carga.registros_con_error %} Las {{ carga.registros_con_error }} filas rechazadas quedarán excluidas (seguirán visibles en el detalle).{% endif %} Esta acción queda registrada con tu usuario y no se puede deshacer.');">
+                      onsubmit="return confirm('¿Confirmar la carga como validada?{% if carga.registros_con_error %} Las {{ carga.registros_con_error }} filas rechazadas quedan excluidas.{% endif %} La acción queda registrada y no se puede deshacer.');">
                     {% csrf_token %}
                     <button type="submit" class="btn btn-sm btn-guindo text-nowrap">
-                        <i class="bi bi-patch-check"></i> Confirmar como válida
+                        Confirmar como válida
                     </button>
                 </form>
             </div>
@@ -158,68 +269,252 @@
     {% if carga.estado != 'anulada' and es_administrador %}
         <p class="text-end">
             <a href="{% url 'registros:carga_anular' carga.id %}" class="btn btn-sm btn-outline-danger">
-                <i class="bi bi-slash-circle"></i> ¿Se cargó con la empresa o gestión equivocada? Anular esta carga
+                Anular carga
             </a>
         </p>
     {% endif %}
 
-    {% if registros_pagina or cuenta_filtro or comprobante_filtro %}
+    <nav class="pestanas-carga" aria-label="Secciones de la carga">
+        {% if hay_avisos %}
+            <a href="?pestana=avisos" class="pestana{% if pestana == 'avisos' %} activa{% endif %}"{% if pestana == 'avisos' %} aria-current="page"{% endif %}>
+                Avisos
+                {% if avisos_pendientes %}<span class="pestana-contador aviso" id="pestana-avisos-contador">{{ avisos_pendientes }}</span>{% else %}<span class="pestana-contador listo">revisados</span>{% endif %}
+            </a>
+        {% endif %}
+        <a href="?pestana=errores" class="pestana{% if pestana == 'errores' %} activa{% endif %}"{% if pestana == 'errores' %} aria-current="page"{% endif %}>
+            Errores
+            <span class="pestana-contador{% if carga.registros_con_error %} error{% endif %}">{{ carga.registros_con_error }}</span>
+        </a>
+        <a href="?pestana=registros" class="pestana{% if pestana == 'registros' %} activa{% endif %}"{% if pestana == 'registros' %} aria-current="page"{% endif %}>
+            Registros
+            <span class="pestana-contador">{{ carga.registros_validos }}</span>
+        </a>
+    </nav>
+
+    {% if pestana == 'registros' %}
         <div class="d-flex flex-wrap align-items-end justify-content-between gap-3 mt-4">
             <div>
-                <h2 id="registros" class="h4 text-guindo mb-1"><i class="bi bi-table"></i> Registros cargados</h2>
+                <h2 id="registros" class="h4 text-guindo mb-1">Registros cargados</h2>
                 <p class="text-secondary small mb-0">
                     {{ carga.registros_validos }} fila{{ carga.registros_validos|pluralize }} guardada{{ carga.registros_validos|pluralize }}.
                     Página {{ registros_pagina.number }} de {{ registros_pagina.paginator.num_pages }}.
                 </p>
             </div>
-            <a href="{% url 'registros:exportar_dataset_csv' carga.id %}"
-               class="btn btn-sm btn-outline-secondary text-nowrap"
-               title="Herramienta temporal de prototipado, para probar los algoritmos de detección fuera del sistema">
-                <i class="bi bi-download"></i> Exportar dataset (CSV) <span class="badge text-bg-secondary fw-normal">temporal</span>
-            </a>
-            {% if registros_pagina.paginator.num_pages > 1 %}
-                <form method="get" class="d-flex align-items-center gap-2">
-                    <label for="ir-a-fila" class="form-label small mb-0 text-nowrap">Ir a la fila</label>
-                    <input type="number" min="1" name="fila" id="ir-a-fila" class="form-control form-control-sm"
-                           style="width: 6.5rem;" placeholder="Ej. 760" value="{{ fila_buscada|default:'' }}">
-                    <button type="submit" class="btn btn-sm btn-outline-guindo text-nowrap">
-                        <i class="bi bi-search"></i> Buscar
-                    </button>
-                </form>
-            {% endif %}
+            <div class="herramientas-registros">
+                {% if registros_pagina.paginator.num_pages > 1 %}
+                    <form method="get" class="ir-a-fila">
+                        <input type="hidden" name="pestana" value="registros">
+                        <label for="ir-a-fila" class="form-label small mb-0 text-nowrap">Ir a la fila</label>
+                        <input type="number" min="1" name="fila" id="ir-a-fila" class="form-control form-control-sm"
+                               inputmode="numeric" placeholder="N.º de fila" aria-label="Ir a la fila" value="{{ fila_buscada|default:'' }}">
+                        <button type="submit" class="btn btn-sm btn-outline-guindo text-nowrap">
+                            <i class="bi bi-search"></i><span class="d-none d-sm-inline"> Buscar</span>
+                        </button>
+                    </form>
+                {% endif %}
+                {% if carga.estado != 'anulada' %}
+                    <a href="{% url 'registros:exportar_dataset_csv' carga.id %}"
+                       class="btn btn-sm btn-outline-secondary text-nowrap"
+                       title="Registros de la carga con sus avisos, para la evaluación de los modelos">
+                        <i class="bi bi-download"></i> CSV
+                    </a>
+                {% endif %}
+            </div>
         </div>
+        {% if aviso_origen %}
+            <div class="barra-decision mt-3" id="barra-decision">
+                <div class="small">
+                    <div>
+                        <span class="badge rounded-pill bg-warning-subtle text-warning-emphasis border border-warning-subtle fw-medium">{{ aviso_origen.campo|default:"general" }}</span>
+                        <span class="ms-1">Fila {{ fila_buscada }}{% if fila_relacionada %} (coincide con la fila {{ fila_relacionada }}){% endif %}</span>
+                        <span id="estado-aviso-origen" class="ms-1">
+                            {% if aviso_origen.estado_revision == 'observado' %}<span class="badge text-bg-danger fw-normal">Observado</span>
+                            {% elif aviso_origen.estado_revision == 'valido' %}<span class="badge text-bg-success fw-normal">Válido</span>
+                            {% else %}<span class="badge text-bg-light border text-secondary fw-normal">Pendiente</span>{% endif %}
+                        </span>
+                    </div>
+                    <div class="text-secondary mt-1">{{ aviso_origen.descripcion }}</div>
+                </div>
+                <div class="d-flex flex-wrap gap-2">
+                    {% if carga_admite_revision %}
+                        <button type="button" class="btn btn-sm btn-outline-success boton-decidir" data-estado="valido">
+                            <i class="bi bi-check2"></i> Válido
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-danger boton-decidir" data-estado="observado">
+                            <i class="bi bi-flag"></i> Observado
+                        </button>
+                    {% endif %}
+                    {% if siguiente_aviso_url %}
+                        <a class="btn btn-sm btn-outline-secondary" href="{{ siguiente_aviso_url }}">
+                            Siguiente <i class="bi bi-arrow-right"></i>
+                        </a>
+                    {% endif %}
+                    <a class="btn btn-sm btn-outline-guindo" href="?pestana=avisos&{{ avisos_querystring }}#aviso-fila-{{ desde_aviso }}">
+                        Volver a la lista
+                    </a>
+                </div>
+            </div>
+
+            {% if carga_admite_revision %}
+            {% csrf_token %}
+            <div class="modal fade" id="modalDecisionFila" tabindex="-1" aria-hidden="true">
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title text-guindo">Marcar el aviso de la fila {{ aviso_origen.fila }} como <span id="decision-titulo"></span></h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body">
+                            {% include "registros/_frases_rapidas.html" %}
+                            <label for="decision-comentario" class="form-label small mb-1">Justificación (obligatoria)</label>
+                            <textarea id="decision-comentario" class="form-control" rows="3" data-estado-previo="{{ aviso_origen.estado_revision }}">{{ aviso_origen.comentario_revision }}</textarea>
+                            <div id="decision-error" class="text-danger small mt-1 d-none"></div>
+                            {% if siguiente_aviso_url %}
+                                <div class="form-check mt-2">
+                                    <input class="form-check-input" type="checkbox" id="decision-seguir" checked autocomplete="off">
+                                    <label class="form-check-label small" for="decision-seguir">Al guardar, ir al siguiente aviso pendiente</label>
+                                </div>
+                            {% endif %}
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                            <button type="button" class="btn btn-guindo" id="decision-guardar">Guardar</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <script>
+                document.addEventListener("DOMContentLoaded", function () {
+                    var modalEl = document.getElementById("modalDecisionFila");
+                    document.body.appendChild(modalEl);
+                    var modal = new bootstrap.Modal(modalEl);
+                    var comentario = document.getElementById("decision-comentario");
+                    var error = document.getElementById("decision-error");
+                    var guardar = document.getElementById("decision-guardar");
+                    var seguir = document.getElementById("decision-seguir");
+                    var estadoElegido = null;
+                    var url = "{% url 'registros:aviso_marcar_estado' carga.id aviso_origen.id %}";
+                    var siguiente = "{{ siguiente_aviso_url|escapejs }}";
+
+                    function abrir(estado) {
+                        estadoElegido = estado;
+                        document.getElementById("decision-titulo").textContent = estado === "valido" ? "válido" : "observado";
+                        // Solo las frases de la decisión elegida.
+                        modalEl.querySelectorAll(".grupo-frases").forEach(function (g) {
+                            g.classList.toggle("d-none", g.dataset.estado !== estado);
+                        });
+                        if (comentario.dataset.estadoPrevio !== estado) comentario.value = "";
+                        comentario.dataset.estadoPrevio = estado;
+                        guardar.className = "btn " + (estado === "valido" ? "btn-success" : "btn-danger");
+                        error.classList.add("d-none");
+                        modal.show();
+                        setTimeout(function () { comentario.focus(); }, 300);
+                    }
+                    document.querySelectorAll(".boton-decidir").forEach(function (b) {
+                        b.addEventListener("click", function () { abrir(b.dataset.estado); });
+                    });
+
+                    function enviar() {
+                        var texto = comentario.value.trim();
+                        if (!texto) {
+                            error.textContent = "La justificación es obligatoria.";
+                            error.classList.remove("d-none");
+                            return;
+                        }
+                        guardar.disabled = true;
+                        fetch(url, {
+                            method: "POST",
+                            headers: {
+                                "Content-Type": "application/json",
+                                "X-CSRFToken": document.querySelector("input[name=csrfmiddlewaretoken]").value,
+                            },
+                            body: JSON.stringify({ estado: estadoElegido, comentario: texto }),
+                        })
+                            .then(window.leerRespuestaJson)
+                            .then(function (data) {
+                                if (!data.ok) {
+                                    error.textContent = data.error || "No se pudo marcar.";
+                                    error.classList.remove("d-none");
+                                    return;
+                                }
+                                if (siguiente && seguir && seguir.checked) {
+                                    window.location.href = siguiente;
+                                    return;
+                                }
+                                var badge = document.createElement("span");
+                                badge.className = "badge fw-normal " + (data.estado_revision === "observado" ? "text-bg-danger" : "text-bg-success");
+                                badge.textContent = data.estado_revision === "observado" ? "Observado" : "Válido";
+                                document.getElementById("estado-aviso-origen").replaceChildren(badge);
+                                modal.hide();
+                            })
+                            .catch(function (err) {
+                                error.textContent = window.mensajeFalloRed(err);
+                                error.classList.remove("d-none");
+                            })
+                            .finally(function () { guardar.disabled = false; });
+                    }
+                    guardar.addEventListener("click", enviar);
+                });
+            </script>
+            {% endif %}
+        {% endif %}
         {% if fila_buscada and not fila_encontrada %}
             <div class="alert alert-guindo-suave mt-3 py-2 small">
-                <i class="bi bi-info-circle"></i>
                 {% if motivo_fila_no_encontrada == 'filtrada' %}
-                    La fila {{ fila_buscada }} existe, pero no coincide con el filtro activo. Quita el filtro para verla.
+                    La fila {{ fila_buscada }} no coincide con el filtro activo.
                 {% elif motivo_fila_no_encontrada == 'rechazada' %}
-                    La fila {{ fila_buscada }} no se guardó porque fue rechazada al importar (ver "Errores de validación"). Te dejamos en la página donde caería.
+                    La fila {{ fila_buscada }} fue rechazada al importar (ver pestaña <a href="?pestana=errores">Errores</a>).
                 {% else %}
                     La fila {{ fila_buscada }} no corresponde a ninguna transacción del archivo.
                 {% endif %}
             </div>
         {% endif %}
-        <form method="get" class="row row-cols-lg-auto g-2 align-items-end mt-3 mb-3">
-            <div class="col-12">
+        <form method="get" class="row g-2 align-items-end mt-3 mb-3 filtros-registros">
+            <input type="hidden" name="pestana" value="registros">
+            <div class="col-12 col-sm-6 col-lg-3">
                 <label for="filtro-cuenta" class="form-label small mb-1">Código de cuenta</label>
                 <input type="text" name="cuenta_codigo" id="filtro-cuenta" class="form-control form-control-sm"
-                       style="min-width: 180px;" placeholder="Ej. 1-1-1-01-01" value="{{ cuenta_filtro }}">
+                       placeholder="1-1-1-01-01" value="{{ cuenta_filtro }}">
             </div>
-            <div class="col-12">
+            <div class="col-12 col-sm-6 col-lg-3">
                 <label for="filtro-comprobante" class="form-label small mb-1">N.º de comprobante</label>
                 <input type="text" name="numero_comprobante" id="filtro-comprobante" class="form-control form-control-sm"
-                       style="min-width: 160px;" placeholder="Ej. AD 23010001" value="{{ comprobante_filtro }}">
+                       placeholder="AD 23010001" value="{{ comprobante_filtro }}">
             </div>
-            <div class="col-12">
-                <button type="submit" class="btn btn-sm btn-guindo">
-                    <i class="bi bi-funnel"></i> Filtrar
-                </button>
-                {% if cuenta_filtro or comprobante_filtro %}
-                    <a href="{% url 'registros:detalle_carga' carga.id %}#registros" class="btn btn-sm btn-outline-guindo">
-                        Quitar filtro
-                    </a>
-                {% endif %}
+            <div class="col-12 col-lg-4">
+                <label for="filtro-monto" class="form-label small mb-1">Monto mínimo</label>
+                <div class="d-flex gap-2">
+                    <div class="selector-personalizado selector-columna-monto">
+                        <select name="columna_monto" class="select-oculto" aria-label="Columna del monto">
+                            <option value="cualquiera" {% if columna_monto == 'cualquiera' %}selected{% endif %}>Debe o Haber</option>
+                            <option value="debe" {% if columna_monto == 'debe' %}selected{% endif %}>Debe</option>
+                            <option value="haber" {% if columna_monto == 'haber' %}selected{% endif %}>Haber</option>
+                        </select>
+                        <button type="button" class="form-control form-control-sm selector-boton">
+                            <span class="selector-texto"></span>
+                            <i class="bi bi-chevron-down"></i>
+                        </button>
+                        <ul class="selector-lista d-none" role="listbox">
+                            <li class="selector-opcion" data-valor="cualquiera" role="option">Debe o Haber</li>
+                            <li class="selector-opcion" data-valor="debe" role="option">Debe</li>
+                            <li class="selector-opcion" data-valor="haber" role="option">Haber</li>
+                        </ul>
+                    </div>
+                    <input type="number" name="monto_min" id="filtro-monto" class="form-control form-control-sm flex-fill" min="0" step="0.01"
+                           inputmode="decimal" placeholder="0.00" value="{{ monto_filtro }}">
+                </div>
+            </div>
+            <div class="col-12 col-lg-2">
+                <div class="d-flex gap-2">
+                    <button type="submit" class="btn btn-sm btn-guindo flex-fill text-nowrap">
+                        <i class="bi bi-funnel"></i> Filtrar
+                    </button>
+                    {% if hay_filtro_registros %}
+                        <a href="?pestana=registros" class="btn btn-sm btn-outline-guindo flex-fill text-nowrap" title="Quitar filtro">
+                            <i class="bi bi-x-lg"></i><span class="d-lg-none"> Quitar filtro</span>
+                        </a>
+                    {% endif %}
+                </div>
             </div>
         </form>
         <div class="table-responsive">
@@ -238,28 +533,28 @@
                 </thead>
                 <tbody>
                     {% for registro in registros_pagina %}
-                    <tr {% if registro.fila_origen == fila_buscada %}id="fila-buscada" class="fila-resaltada"{% endif %}>
+                    <tr {% if registro.fila_origen == fila_buscada %}id="fila-buscada" class="fila-resaltada"{% elif fila_relacionada and registro.fila_origen == fila_relacionada %}class="fila-relacionada"{% endif %}>
                         <td>{{ registro.fila_origen }}</td>
                         <td class="text-nowrap">{{ registro.fecha|date:"d/m/Y" }}</td>
                         <td>{{ registro.cuenta.codigo }} · {{ registro.cuenta.nombre }}</td>
                         <td>{{ registro.numero_comprobante|default:"—" }}</td>
                         <td>{{ registro.glosa|default:"—" }}</td>
-                        <td class="text-end">{{ registro.debe }}</td>
-                        <td class="text-end">{{ registro.haber }}</td>
-                        <td class="text-end text-secondary">{{ registro.saldo|default_if_none:"—" }}</td>
+                        <td class="text-end text-nowrap">{{ registro.debe|floatformat:"2g" }}</td>
+                        <td class="text-end text-nowrap">{{ registro.haber|floatformat:"2g" }}</td>
+                        <td class="text-end text-nowrap text-secondary">{% if registro.saldo is None %}—{% else %}{{ registro.saldo|floatformat:"2g" }}{% endif %}</td>
                     </tr>
                     {% empty %}
                     <tr>
                         <td colspan="8" class="text-center text-secondary py-4">
                             Ningún registro coincide con el filtro.
-                            <a href="{% url 'registros:detalle_carga' carga.id %}#registros">Quitar filtro</a>
+                            <a href="?pestana=registros">Quitar filtro</a>
                         </td>
                     </tr>
                     {% endfor %}
                 </tbody>
             </table>
         </div>
-        {% include "_paginacion.html" with pagina_obj=registros_pagina ancla="registros" querystring=registros_querystring %}
+        {% include "_paginacion.html" with pagina_obj=registros_pagina querystring=registros_querystring %}
         {% if fila_buscada %}
             <script>
                 document.addEventListener("DOMContentLoaded", function () {
@@ -270,63 +565,76 @@
         {% endif %}
     {% endif %}
 
+    {% if pestana == 'errores' %}
     {% if errores %}
-        <h2 class="h4 text-danger mt-4" id="errores"><i class="bi bi-x-circle"></i> Errores de validación (filas rechazadas)</h2>
-        <p class="text-secondary small mb-2">
-            Filas rechazadas: no se guardaron como registro.
-        </p>
-        <div class="d-flex flex-wrap gap-2 mb-3">
+        <div class="encabezado-errores mt-4">
+            <div class="icono-errores"><i class="bi bi-exclamation-octagon"></i></div>
+            <div>
+                <h2 class="h4 text-guindo mb-1" id="errores">Errores: filas que no se guardaron</h2>
+                <p class="text-secondary small mb-0">
+                    {{ total_errores }} problema{{ total_errores|pluralize }} en el archivo. Se corrigen en el
+                    archivo original y se vuelve a subir.
+                </p>
+            </div>
+        </div>
+
+        <div class="tipos-error" role="group" aria-label="Filtrar por tipo de error">
+            <a href="?pestana=errores" class="tipo-error{% if not campo_error_filtro %} activo{% endif %}"
+               {% if not campo_error_filtro %}aria-current="true"{% endif %}>
+                <span class="tipo-error-total">{{ total_errores }}</span>
+                <span class="tipo-error-nombre">Todos</span>
+            </a>
             {% for item in resumen_errores %}
-                <span class="badge rounded-pill bg-danger-subtle text-danger-emphasis border border-danger-subtle fw-medium py-2 px-3">
-                    <i class="bi {% if item.campo == 'fecha' %}bi-calendar-x{% elif item.campo == 'debe/haber' %}bi-cash-coin{% elif item.campo == 'cuenta' %}bi-wallet2{% elif item.campo == 'comprobante' %}bi-file-earmark-text{% else %}bi-file-earmark-x{% endif %}"></i>
-                    {{ item.campo|default:"archivo" }} <span class="opacity-75">·</span> {{ item.total }}
-                </span>
+                <a href="?pestana=errores&campo_error={{ item.campo|urlencode }}"
+                   class="tipo-error{% if campo_error_filtro == item.campo %} activo{% endif %}"
+                   {% if campo_error_filtro == item.campo %}aria-current="true"{% endif %}
+                   title="{{ item.criterio }}">
+                    <span class="tipo-error-total">{{ item.total }}</span>
+                    <span class="tipo-error-nombre">{{ item.nombre }}</span>
+                    <span class="tipo-error-criterio">{{ item.criterio }}</span>
+                </a>
             {% endfor %}
         </div>
-        <div class="table-responsive">
-            <table class="table table-hover table-striped align-middle tabla-avisos">
-                <thead>
-                    <tr>
-                        <th style="width:1%;white-space:nowrap;">Fila</th>
-                        <th style="width:1%;white-space:nowrap;">Campo</th>
-                        <th>Descripción</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for error in errores %}
-                    <tr>
-                        <td class="text-nowrap fw-semibold">{{ error.fila }}</td>
-                        <td class="text-nowrap">
-                            <span class="badge rounded-pill bg-danger-subtle text-danger-emphasis border border-danger-subtle fw-medium">
-                                <i class="bi {% if error.campo == 'fecha' %}bi-calendar-x{% elif error.campo == 'debe/haber' %}bi-cash-coin{% elif error.campo == 'cuenta' %}bi-wallet2{% elif error.campo == 'comprobante' %}bi-file-earmark-text{% else %}bi-file-earmark-x{% endif %}"></i>
-                                {{ error.campo|default:"archivo" }}
-                            </span>
-                        </td>
-                        <td class="celda-descripcion">{{ error.descripcion }}</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+
+        <div class="lista-errores">
+            {% regroup errores by fila as errores_por_fila %}
+            {% for grupo in errores_por_fila %}
+                <article class="tarjeta-error">
+                    <div class="tarjeta-error-fila">
+                        {% if grupo.grouper %}
+                            <span class="etiqueta-fila">Fila</span>
+                            <span class="numero-fila">{{ grupo.grouper }}</span>
+                        {% else %}
+                            <i class="bi bi-file-earmark-x fs-4"></i>
+                            <span class="etiqueta-fila">Archivo</span>
+                        {% endif %}
+                    </div>
+                    <ul class="tarjeta-error-problemas">
+                        {% for error in grupo.list %}
+                            <li>
+                                <div class="problema">
+                                    <span class="badge rounded-pill bg-danger-subtle text-danger-emphasis border border-danger-subtle fw-medium">{{ error.nombre_tipo }}</span>
+                                    <span class="problema-texto">{{ error.descripcion }}</span>
+                                </div>
+                                {% if error.que_hacer %}
+                                    <div class="que-hacer"><i class="bi bi-arrow-return-right"></i> {{ error.que_hacer }}</div>
+                                {% endif %}
+                            </li>
+                        {% endfor %}
+                    </ul>
+                </article>
+            {% endfor %}
         </div>
-        {% if errores.paginator.num_pages > 1 %}
-        <nav aria-label="Paginación de errores" class="mb-4">
-            <ul class="pagination pagination-sm mb-0 flex-wrap">
-                {% for numero in errores.paginator.page_range %}
-                    <li class="page-item {% if numero == errores.number %}active{% endif %}">
-                        <a class="page-link" href="?pagina_errores={{ numero }}#errores">{{ numero }}</a>
-                    </li>
-                {% endfor %}
-            </ul>
-        </nav>
-        {% endif %}
+        {% include "_paginacion.html" with pagina_obj=errores querystring=paginacion_errores_qs parametro="pagina_errores" %}
     {% else %}
         <div class="alert alert-success mt-3" id="errores">
-            <i class="bi bi-check-circle-fill"></i> No se registraron errores de validación en esta carga.
+            No se registraron errores de validación en esta carga.
         </div>
     {% endif %}
+    {% endif %}
 
-    {% if avisos %}
-        <h2 id="avisos" class="h4 text-guindo mt-4"><i class="bi bi-info-circle"></i> Avisos (filas guardadas, pero a revisar)</h2>
+    {% if pestana == 'avisos' %}
+        <h2 id="avisos" class="h4 text-guindo mt-4">Avisos (filas guardadas, pero a revisar)</h2>
         <p class="text-secondary small mb-3">
             Filas guardadas, con algo puntual para revisar.
         </p>
@@ -343,8 +651,8 @@
                 <tbody>
                     <tr class="{% if not campo_aviso_filtro %}table-primary-subtle{% endif %}">
                         <td>
-                            <a href="?{% if campo_aviso_filtro %}{% else %}#avisos{% endif %}" class="text-decoration-none fw-semibold {% if not campo_aviso_filtro %}text-guindo{% else %}text-body{% endif %}">
-                                <i class="bi bi-list-ul"></i> Todos los tipos
+                            <a href="?pestana=avisos&estado_aviso={{ estado_aviso }}" class="text-decoration-none fw-semibold {% if not campo_aviso_filtro %}text-guindo{% else %}text-body{% endif %}">
+                                Todos los tipos
                             </a>
                         </td>
                         <td class="text-end"><span id="avisos-pendientes-num">{{ avisos_pendientes }}</span></td>
@@ -353,17 +661,16 @@
                     {% for item in resumen_avisos %}
                     <tr class="grupo-aviso-fila {% if campo_aviso_filtro == item.campo %}table-primary-subtle{% endif %}" data-campo="{{ item.campo }}">
                         <td>
-                            <a href="?campo_aviso={{ item.campo|urlencode }}#avisos" class="text-decoration-none {% if campo_aviso_filtro == item.campo %}text-guindo fw-semibold{% else %}text-body{% endif %}">
-                                <i class="bi {% if item.campo == 'fecha' %}bi-calendar-week{% elif item.campo == 'cuenta' %}bi-wallet2{% elif item.campo == 'duplicado' %}bi-files{% elif item.campo == 'comprobante' %}bi-file-earmark-text{% else %}bi-info-circle{% endif %}"></i>
+                            <a href="?pestana=avisos&estado_aviso={{ estado_aviso }}&campo_aviso={{ item.campo|urlencode }}" class="text-decoration-none {% if campo_aviso_filtro == item.campo %}text-guindo fw-semibold{% else %}text-body{% endif %}">
                                 {{ item.campo|default:"general" }}
                             </a>
                         </td>
                         <td class="text-end grupo-aviso-total">{{ item.total }}</td>
                         <td class="text-end">
                             {% if carga_admite_revision %}
-                            <button type="button" class="btn btn-sm btn-outline-guindo btn-marcar-grupo" data-campo="{{ item.campo }}"
-                                    title="Marca como válidos (falso positivo) todos los pendientes de este tipo. Si ya marcaste alguno como observado individualmente, ese no se toca.">
-                                <i class="bi bi-check2-all"></i> Marcar todos válidos
+                            <button type="button" class="btn btn-sm btn-outline-guindo btn-marcar-grupo text-nowrap" data-campo="{{ item.campo }}"
+                                    title="Marca como válidos los avisos pendientes de este tipo. Los ya revisados no cambian.">
+                                <i class="bi bi-check2-all"></i><span class="d-none d-sm-inline"> Marcar todos válidos</span><span class="d-sm-none"> Todos</span>
                             </button>
                             {% endif %}
                         </td>
@@ -373,48 +680,60 @@
             </table>
         </div>
 
-        {% if filtro_ya_revisado %}
-            <div class="alert alert-success py-2 small">
-                <i class="bi bi-check-circle"></i> Ya revisaste todos los avisos de tipo "{{ campo_aviso_filtro }}". Mostrando su historial abajo.
-            </div>
-        {% endif %}
+        <nav class="estados-aviso" aria-label="Estado de revisión">
+            <a href="?pestana=avisos&estado_aviso=pendientes{% if campo_aviso_filtro %}&campo_aviso={{ campo_aviso_filtro|urlencode }}{% endif %}"
+               class="{% if estado_aviso == 'pendientes' %}activo{% endif %}">Pendientes <span id="conteo-pendientes">{{ avisos_pendientes }}</span></a>
+            <a href="?pestana=avisos&estado_aviso=observados{% if campo_aviso_filtro %}&campo_aviso={{ campo_aviso_filtro|urlencode }}{% endif %}"
+               class="{% if estado_aviso == 'observados' %}activo{% endif %}">Observados <span id="conteo-observados">{{ avisos_observados }}</span></a>
+            <a href="?pestana=avisos&estado_aviso=validos{% if campo_aviso_filtro %}&campo_aviso={{ campo_aviso_filtro|urlencode }}{% endif %}"
+               class="{% if estado_aviso == 'validos' %}activo{% endif %}">Válidos <span id="conteo-validos">{{ avisos_validos }}</span></a>
+        </nav>
         <div class="table-responsive">
             <table class="table table-hover table-striped align-middle tabla-avisos">
                 <thead>
                     <tr>
                         <th style="width:1%;white-space:nowrap;">Fila</th>
                         <th style="width:1%;white-space:nowrap;">Campo</th>
-                        <th>Descripción</th>
+                        <th style="width:30%;">Descripción</th>
+                        <th style="width:1%;white-space:nowrap;">Comprobante</th>
+                        <th class="col-criterio">Qué se verifica</th>
                         <th style="width:1%;white-space:nowrap;">Estado</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for aviso in avisos %}
-                    <tr id="aviso-fila-{{ aviso.id }}" class="{% if aviso.estado_revision == 'observado' %}table-danger-subtle{% elif aviso.revisado %}table-success-subtle{% endif %}">
-                        <td class="text-nowrap fw-semibold">{{ aviso.fila }}</td>
+                    <tr id="aviso-fila-{{ aviso.id }}" data-campo="{{ aviso.campo }}" class="{% if aviso.estado_revision == 'observado' %}table-danger-subtle{% elif aviso.revisado %}table-success-subtle{% endif %}">
+                        <td class="text-nowrap fw-semibold">
+                            <a class="enlace-fila" title="Ver esta fila en Registros cargados"
+                               href="?pestana=registros&{{ avisos_querystring }}&fila={{ aviso.fila }}{% if aviso.fila_relacionada %}&relacionada={{ aviso.fila_relacionada }}{% endif %}&desde_aviso={{ aviso.id }}#fila-buscada">
+                                {{ aviso.fila }} <i class="bi bi-box-arrow-in-up-right"></i>
+                            </a>
+                        </td>
                         <td class="text-nowrap">
                             <span class="badge rounded-pill bg-warning-subtle text-warning-emphasis border border-warning-subtle fw-medium">
-                                <i class="bi {% if aviso.campo == 'fecha' %}bi-calendar-week{% elif aviso.campo == 'cuenta' %}bi-wallet2{% elif aviso.campo == 'duplicado' %}bi-files{% elif aviso.campo == 'comprobante' %}bi-file-earmark-text{% else %}bi-info-circle{% endif %}"></i>
                                 {{ aviso.campo|default:"general" }}
                             </span>
                         </td>
-                        <td class="celda-descripcion">{{ aviso.descripcion }}</td>
+                        <td class="celda-descripcion">{{ aviso.descripcion_corta }}</td>
+                        <td class="text-nowrap">{{ aviso.comprobante|default:"—" }}</td>
+                        <td class="celda-criterio col-criterio">{{ aviso.criterio }}</td>
                         <td class="text-nowrap aviso-estado">
                             {% if aviso.revisado %}
-                                {% if aviso.estado_revision == 'observado' %}
-                                    <span class="badge text-bg-danger fw-normal" title="{{ aviso.comentario_revision }} ({{ aviso.revisado_por.username }})">
-                                        <i class="bi bi-flag-fill"></i> Observado
-                                    </span>
-                                {% else %}
-                                    <span class="badge text-bg-success fw-normal" title="{{ aviso.comentario_revision }} ({{ aviso.revisado_por.username }})">
-                                        <i class="bi bi-check-circle-fill"></i> Válido
-                                    </span>
+                                <span class="badge fw-normal {% if aviso.estado_revision == 'observado' %}text-bg-danger{% else %}text-bg-success{% endif %}"
+                                      title="{{ aviso.comentario_revision }} ({{ aviso.revisado_por.username }})">
+                                    {% if aviso.estado_revision == 'observado' %}Observado{% else %}Válido{% endif %}
+                                </span>
+                                {% if carga_admite_revision %}
+                                    <button type="button" class="btn btn-link btn-sm p-0 ms-2 align-baseline enlace-corregir aviso-marcar-individual"
+                                            data-id="{{ aviso.id }}" data-estado="{{ aviso.estado_revision }}" data-comentario="{{ aviso.comentario_revision }}">
+                                        Corregir
+                                    </button>
                                 {% endif %}
                             {% else %}
                                 {% if carga_admite_revision %}
-                                    <button type="button" class="btn btn-sm btn-outline-secondary py-0 aviso-marcar-individual"
-                                            data-id="{{ aviso.id }}" title="Justificar (válido u observado)">
-                                        <i class="bi bi-pencil-square"></i> Pendiente
+                                    <button type="button" class="btn btn-sm btn-outline-guindo boton-revisar aviso-marcar-individual"
+                                            data-id="{{ aviso.id }}" title="Decidir si es válido u observado">
+                                        <i class="bi bi-pencil-square"></i> Revisar
                                     </button>
                                 {% else %}
                                     <span class="badge text-bg-light text-secondary fw-normal border">Pendiente</span>
@@ -422,39 +741,21 @@
                             {% endif %}
                         </td>
                     </tr>
+                    {% empty %}
+                    <tr class="fila-sin-avisos">
+                        <td colspan="6" class="text-center text-secondary py-4">
+                            {% if estado_aviso == 'pendientes' %}No quedan avisos pendientes{% elif estado_aviso == 'observados' %}No hay avisos observados{% else %}No hay avisos marcados como válidos{% endif %}{% if campo_aviso_filtro %} de tipo "{{ campo_aviso_filtro }}"{% endif %}.
+                        </td>
+                    </tr>
                     {% endfor %}
                 </tbody>
             </table>
         </div>
-        {% if avisos.paginator.num_pages > 1 %}
-        <nav aria-label="Paginación de avisos" class="mb-3">
-            <ul class="pagination pagination-sm mb-0 flex-wrap">
-                <li class="page-item {% if not avisos.has_previous %}disabled{% endif %}">
-                    {% if avisos.has_previous %}
-                        <a class="page-link" href="?{% if campo_aviso_filtro %}campo_aviso={{ campo_aviso_filtro|urlencode }}&{% endif %}pagina_avisos={{ avisos.previous_page_number }}#avisos"><i class="bi bi-chevron-left"></i></a>
-                    {% else %}
-                        <span class="page-link"><i class="bi bi-chevron-left"></i></span>
-                    {% endif %}
-                </li>
-                {% for numero in avisos.paginator.page_range %}
-                    <li class="page-item {% if numero == avisos.number %}active{% endif %}">
-                        <a class="page-link" href="?{% if campo_aviso_filtro %}campo_aviso={{ campo_aviso_filtro|urlencode }}&{% endif %}pagina_avisos={{ numero }}#avisos">{{ numero }}</a>
-                    </li>
-                {% endfor %}
-                <li class="page-item {% if not avisos.has_next %}disabled{% endif %}">
-                    {% if avisos.has_next %}
-                        <a class="page-link" href="?{% if campo_aviso_filtro %}campo_aviso={{ campo_aviso_filtro|urlencode }}&{% endif %}pagina_avisos={{ avisos.next_page_number }}#avisos"><i class="bi bi-chevron-right"></i></a>
-                    {% else %}
-                        <span class="page-link"><i class="bi bi-chevron-right"></i></span>
-                    {% endif %}
-                </li>
-            </ul>
-        </nav>
-        {% endif %}
+        {% include "_paginacion.html" with pagina_obj=avisos querystring=paginacion_avisos_qs parametro="pagina_avisos" %}
 
         {% csrf_token %}
 
-        <!-- Modal para "Marcar todos" por grupo (reemplaza el prompt() nativo del navegador) -->
+        <!-- Modal para marcar todo un tipo de aviso. -->
         <div class="modal fade" id="modalMarcarGrupo" tabindex="-1" aria-hidden="true">
             <div class="modal-dialog">
                 <div class="modal-content">
@@ -465,18 +766,17 @@
                     <div class="modal-body">
                         <p id="modal-marcar-grupo-texto" class="mb-3"></p>
                         <p class="text-secondary small">
-                            Si ya marcaste alguno como <strong>observado</strong> de forma individual, ese caso no se toca.
-                            Esto solo afecta a los que siguen pendientes.
+                            Solo cambian los avisos pendientes; los ya marcados como <strong>observados</strong> se mantienen.
                         </p>
+                        {% include "registros/_frases_rapidas.html" %}
                         <label for="modal-comentario-grupo" class="form-label small mb-1">Justificación (obligatoria)</label>
-                        <input type="text" id="modal-comentario-grupo" class="form-control"
-                               placeholder="Ej. cuentas nuevas del rubro, confirmadas con el cliente">
+                        <input type="text" id="modal-comentario-grupo" class="form-control">
                         <div id="modal-grupo-error" class="text-danger small mt-1 d-none">La justificación es obligatoria.</div>
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
                         <button type="button" id="modal-confirmar-grupo" class="btn btn-guindo">
-                            <i class="bi bi-check2-all"></i> Confirmar
+                            Confirmar
                         </button>
                     </div>
                 </div>
@@ -488,23 +788,24 @@
             <div class="modal-dialog">
                 <div class="modal-content">
                     <div class="modal-header">
-                        <h5 class="modal-title text-guindo">Justificar aviso de la fila <span id="modal-individual-fila"></span></h5>
+                        <h5 class="modal-title text-guindo"><span id="modal-individual-accion">Justificar aviso</span> de la fila <span id="modal-individual-fila"></span></h5>
                         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                     </div>
                     <div class="modal-body">
                         <p id="modal-individual-descripcion" class="mb-3 text-secondary small"></p>
+                        <div class="selector-decision mb-3" role="group" aria-label="Decisión">
+                            <button type="button" class="opcion-decision" data-estado="valido"><i class="bi bi-check2-circle"></i> Válido</button>
+                            <button type="button" class="opcion-decision" data-estado="observado"><i class="bi bi-flag"></i> Observado</button>
+                        </div>
+                        <div id="frases-individual" class="d-none">{% include "registros/_frases_rapidas.html" %}</div>
                         <label for="modal-comentario-individual" class="form-label small mb-1">Justificación (obligatoria)</label>
-                        <textarea id="modal-comentario-individual" class="form-control" rows="3"
-                                  placeholder="Ej. monto alto pero corresponde a una compra de equipo autorizada."></textarea>
+                        <textarea id="modal-comentario-individual" class="form-control" rows="3"></textarea>
                         <div id="modal-individual-error" class="text-danger small mt-1 d-none"></div>
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-                        <button type="button" id="modal-marcar-valido" class="btn btn-outline-success">
-                            <i class="bi bi-check-circle"></i> Marcar válido
-                        </button>
-                        <button type="button" id="modal-marcar-observado" class="btn btn-danger">
-                            <i class="bi bi-flag"></i> Marcar observado
+                        <button type="button" id="modal-guardar-individual" class="btn btn-guindo" disabled>
+                            Guardar
                         </button>
                     </div>
                 </div>
@@ -518,17 +819,78 @@
                     return input ? input.value : "";
                 }
 
+                var leerJson = window.leerRespuestaJson;
+                var mensajeFallo = window.mensajeFalloRed;
+
+                function actualizarContadores(data) {
+                    var valores = {
+                        "avisos-pendientes-num": data.avisos_pendientes,
+                        "conteo-pendientes": data.avisos_pendientes,
+                        "pestana-avisos-contador": data.avisos_pendientes,
+                        "conteo-observados": data.avisos_observados,
+                        "conteo-validos": data.avisos_validos,
+                    };
+                    Object.keys(valores).forEach(function (id) {
+                        var el = document.getElementById(id);
+                        if (!el || valores[id] === undefined || el.textContent === String(valores[id])) return;
+                        el.textContent = valores[id];
+                        // Pequeño pulso para que se note qué contador cambió.
+                        el.classList.remove("contador-cambio");
+                        void el.offsetWidth;
+                        el.classList.add("contador-cambio");
+                    });
+                }
+
+                // Estado que muestra la pestaña actual (pendientes, observados o válidos).
+                var ESTADO_VISTA = { pendientes: "pendiente", observados: "observado", validos: "valido" }["{{ estado_aviso|escapejs }}"];
+
+                // Una fila que ya no corresponde a la vista se desvanece y se quita.
+                function sacarSiNoCorresponde(filaTr, estado) {
+                    if (!filaTr || !ESTADO_VISTA || estado === ESTADO_VISTA) return;
+                    filaTr.style.transition = "opacity .3s ease";
+                    filaTr.style.opacity = "0";
+                    setTimeout(function () {
+                        var cuerpo = filaTr.parentNode;
+                        filaTr.remove();
+                        if (cuerpo && !cuerpo.querySelector("tr[id^='aviso-fila-']") && !cuerpo.querySelector(".fila-sin-avisos")) {
+                            var vacia = document.createElement("tr");
+                            vacia.className = "fila-sin-avisos";
+                            var celda = document.createElement("td");
+                            celda.colSpan = 6;
+                            celda.className = "text-center text-secondary py-4";
+                            celda.textContent = "No quedan avisos en esta página.";
+                            vacia.appendChild(celda);
+                            cuerpo.appendChild(vacia);
+                        }
+                    }, 300);
+                }
+
+                // Resta uno al pendiente del tipo de aviso en la tabla resumen.
+                function descontarGrupo(campo) {
+                    document.querySelectorAll(".grupo-aviso-fila").forEach(function (fila) {
+                        if (fila.dataset.campo !== campo) return;
+                        var total = fila.querySelector(".grupo-aviso-total");
+                        var restante = Math.max(0, (parseInt(total.textContent, 10) || 0) - 1);
+                        if (restante === 0) fila.remove(); else total.textContent = restante;
+                    });
+                }
+
                 // Badge de estado armado con el DOM, sin innerHTML con texto del usuario.
                 function pintarEstado(filaTr, estado, etiqueta, comentario) {
                     var celda = filaTr.querySelector(".aviso-estado");
                     var badge = document.createElement("span");
                     badge.className = "badge fw-normal " + (estado === "observado" ? "text-bg-danger" : "text-bg-success");
                     badge.title = comentario;
-                    var icono = document.createElement("i");
-                    icono.className = "bi " + (estado === "observado" ? "bi-flag-fill" : "bi-check-circle-fill");
-                    badge.appendChild(icono);
-                    badge.appendChild(document.createTextNode(" " + etiqueta));
-                    celda.replaceChildren(badge);
+                    badge.textContent = etiqueta;
+                    var corregir = document.createElement("button");
+                    corregir.type = "button";
+                    corregir.className = "btn btn-link btn-sm p-0 ms-1 align-baseline enlace-corregir aviso-marcar-individual";
+                    corregir.dataset.id = filaTr.id.replace("aviso-fila-", "");
+                    corregir.dataset.estado = estado;
+                    corregir.dataset.comentario = comentario;
+                    corregir.textContent = "Corregir";
+                    corregir.classList.add("ms-2");
+                    celda.replaceChildren(badge, corregir);
                 }
 
                 function enviarMarcado(payload, btn) {
@@ -548,7 +910,7 @@
                         },
                         body: JSON.stringify(payload),
                     })
-                        .then(function (r) { return r.json(); })
+                        .then(leerJson)
                         .then(function (data) {
                             if (!data.ok) {
                                 alert(data.error || "No se pudo marcar.");
@@ -559,17 +921,18 @@
                                 if (!fila) return;
                                 fila.classList.add("table-success-subtle");
                                 pintarEstado(fila, "valido", "Válido", payload.comentario || "");
+                                sacarSiNoCorresponde(fila, "valido");
                             });
-                            document.getElementById("avisos-pendientes-num").textContent = data.avisos_pendientes;
+                            actualizarContadores(data);
                             if (data.avisos_pendientes === 0) {
                                 // Sin pendientes: recarga para mostrar el bloque de confirmación.
-                                window.location.reload();
+                                var destino = new URL(window.location.href); destino.searchParams.set("pestana", "avisos"); window.location.href = destino.toString();
                             }
                             return data;
                         })
                         .catch(function (err) {
                             console.error("Error al marcar avisos:", err);
-                            alert("No se pudo conectar con el servidor. Prueba de nuevo.");
+                            alert(mensajeFallo(err));
                         })
                         .finally(function () {
                             btn.disabled = false;
@@ -594,9 +957,13 @@
                         var total = fila.querySelector(".grupo-aviso-total").textContent;
                         grupoActivo = { campo: campo, fila: fila };
                         modalTexto.textContent =
-                            "Vas a marcar como válidos los " + total + " avisos pendientes de tipo \"" +
-                            (campo || "general") + "\" en esta carga, en todas las páginas.";
+                            "Se marcarán como válidos los " + total + " avisos pendientes de tipo \"" +
+                            (campo || "general") + "\" de esta carga, en todas las páginas.";
                         modalComentario.value = "";
+                        // Marcar en grupo siempre es "válido": solo esas frases.
+                        modalMarcarGrupoEl.querySelectorAll(".grupo-frases").forEach(function (g) {
+                            g.classList.toggle("d-none", g.dataset.estado !== "valido");
+                        });
                         document.getElementById("modal-grupo-error").classList.add("d-none");
                         modalMarcarGrupo.show();
                     });
@@ -610,25 +977,54 @@
                 var modalIndividualDescripcion = document.getElementById("modal-individual-descripcion");
                 var modalComentarioIndividual = document.getElementById("modal-comentario-individual");
                 var modalIndividualError = document.getElementById("modal-individual-error");
-                var btnMarcarValido = document.getElementById("modal-marcar-valido");
-                var btnMarcarObservado = document.getElementById("modal-marcar-observado");
-                var avisoActivo = null; // { id, span, fila_tr }
+                var btnGuardarIndividual = document.getElementById("modal-guardar-individual");
+                var frasesIndividual = document.getElementById("frases-individual");
+                var decisionIndividual = null;
+
+                // Primero se elige la decisión; después aparecen solo sus frases.
+                function elegirDecision(estado) {
+                    decisionIndividual = estado;
+                    modalMarcarIndividualEl.querySelectorAll(".opcion-decision").forEach(function (b) {
+                        b.classList.toggle("activa", b.dataset.estado === estado);
+                    });
+                    frasesIndividual.classList.toggle("d-none", !estado);
+                    frasesIndividual.querySelectorAll(".grupo-frases").forEach(function (g) {
+                        // Si el texto es una frase de la otra decisión, se borra.
+                        if (g.dataset.estado !== estado) {
+                            g.querySelectorAll(".frase-rapida").forEach(function (f) {
+                                if (f.dataset.frase === modalComentarioIndividual.value.trim()) modalComentarioIndividual.value = "";
+                            });
+                        }
+                        g.classList.toggle("d-none", g.dataset.estado !== estado);
+                    });
+                    btnGuardarIndividual.disabled = !estado;
+                    btnGuardarIndividual.className = "btn " + (estado === "observado" ? "btn-danger" : estado === "valido" ? "btn-success" : "btn-guindo");
+                    btnGuardarIndividual.textContent = estado === "observado" ? "Guardar como observado" : estado === "valido" ? "Guardar como válido" : "Guardar";
+                }
+                modalMarcarIndividualEl.querySelectorAll(".opcion-decision").forEach(function (b) {
+                    b.addEventListener("click", function () { elegirDecision(b.dataset.estado); });
+                });
+                var avisoActivo = null; // { id, fila_tr, corrigiendo }
 
                 function urlEstadoAviso(avisoId) {
                     // URL con id de relleno que se reemplaza.
                     return "{% url 'registros:aviso_marcar_estado' carga.id 999999 %}".replace("999999", avisoId);
                 }
 
-                document.querySelectorAll(".aviso-marcar-individual").forEach(function (span) {
-                    span.addEventListener("click", function () {
-                        var fila_tr = document.getElementById("aviso-fila-" + span.dataset.id);
-                        avisoActivo = { id: span.dataset.id, span: span, fila_tr: fila_tr };
-                        modalIndividualFila.textContent = fila_tr ? fila_tr.querySelector("td").textContent.trim() : "";
-                        modalIndividualDescripcion.textContent = fila_tr ? fila_tr.querySelector(".celda-descripcion").textContent.trim() : "";
-                        modalComentarioIndividual.value = "";
-                        modalIndividualError.classList.add("d-none");
-                        modalMarcarIndividual.show();
-                    });
+                // Abre el modal para justificar un aviso pendiente o corregir uno ya revisado.
+                document.addEventListener("click", function (e) {
+                    var boton = e.target.closest(".aviso-marcar-individual");
+                    if (!boton) return;
+                    var fila_tr = document.getElementById("aviso-fila-" + boton.dataset.id);
+                    var corrigiendo = boton.dataset.estado !== undefined;
+                    avisoActivo = { id: boton.dataset.id, fila_tr: fila_tr, corrigiendo: corrigiendo };
+                    modalIndividualFila.textContent = fila_tr ? fila_tr.querySelector("td").textContent.trim() : "";
+                    modalIndividualDescripcion.textContent = fila_tr ? fila_tr.querySelector(".celda-descripcion").textContent.trim() : "";
+                    modalComentarioIndividual.value = corrigiendo ? (boton.dataset.comentario || "") : "";
+                    document.getElementById("modal-individual-accion").textContent = corrigiendo ? "Corregir revisión" : "Justificar aviso";
+                    elegirDecision(corrigiendo ? boton.dataset.estado : null);
+                    modalIndividualError.classList.add("d-none");
+                    modalMarcarIndividual.show();
                 });
 
                 function enviarEstadoIndividual(estado, btn) {
@@ -648,14 +1044,20 @@
                         },
                         body: JSON.stringify({ estado: estado, comentario: comentario }),
                     })
-                        .then(function (r) { return r.json(); })
+                        .then(leerJson)
                         .then(function (data) {
                             if (!data.ok) {
                                 modalIndividualError.textContent = data.error || "No se pudo marcar.";
                                 modalIndividualError.classList.remove("d-none");
                                 return;
                             }
+                            if (data.estado_revision === "pendiente") {
+                                window.location.reload();
+                                return;
+                            }
+                            var eraPendiente = !avisoActivo.corrigiendo;
                             if (avisoActivo.fila_tr) {
+                                avisoActivo.fila_tr.classList.remove("table-danger-subtle", "table-success-subtle");
                                 avisoActivo.fila_tr.classList.add(
                                     data.estado_revision === "observado" ? "table-danger-subtle" : "table-success-subtle"
                                 );
@@ -664,17 +1066,19 @@
                                     data.estado_revision === "observado" ? "Observado" : "Válido",
                                     comentario
                                 );
+                                sacarSiNoCorresponde(avisoActivo.fila_tr, data.estado_revision);
                             }
-                            document.getElementById("avisos-pendientes-num").textContent = data.avisos_pendientes;
+                            if (eraPendiente) descontarGrupo(data.campo);
+                            actualizarContadores(data);
                             modalMarcarIndividual.hide();
                             avisoActivo = null;
-                            if (data.avisos_pendientes === 0) {
-                                window.location.reload();
+                            if (eraPendiente && data.avisos_pendientes === 0) {
+                                var destino = new URL(window.location.href); destino.searchParams.set("pestana", "avisos"); window.location.href = destino.toString();
                             }
                         })
                         .catch(function (err) {
                             console.error("Error al justificar aviso:", err);
-                            modalIndividualError.textContent = "No se pudo conectar con el servidor. Prueba de nuevo.";
+                            modalIndividualError.textContent = mensajeFallo(err);
                             modalIndividualError.classList.remove("d-none");
                         })
                         .finally(function () {
@@ -682,8 +1086,9 @@
                         });
                 }
 
-                btnMarcarValido.addEventListener("click", function () { enviarEstadoIndividual("valido", btnMarcarValido); });
-                btnMarcarObservado.addEventListener("click", function () { enviarEstadoIndividual("observado", btnMarcarObservado); });
+                btnGuardarIndividual.addEventListener("click", function () {
+                    if (decisionIndividual) enviarEstadoIndividual(decisionIndividual, btnGuardarIndividual);
+                });
 
                 modalBtnConfirmar.addEventListener("click", function () {
                     if (!grupoActivo) return;
@@ -706,52 +1111,69 @@
             });
         </script>
     {% endif %}
-    <span id="fin-carga"></span>
 
+    <!-- Burbuja flotante: arriba, filas marcadas y abajo. -->
+    <div class="burbuja-nav" id="burbuja-nav" aria-label="Navegación rápida">
+        <button type="button" class="secundario oculto" id="nav-arriba" title="Ir arriba"><i class="bi bi-arrow-up"></i></button>
+        <button type="button" class="d-none" id="nav-marcadas" title="Ir a la fila marcada"><i class="bi bi-crosshair"></i></button>
+        <button type="button" class="secundario" id="nav-abajo" title="Ir abajo"><i class="bi bi-arrow-down"></i></button>
+    </div>
     <script>
         (function () {
-            var nav = document.getElementById("nav-secciones");
-            if (!nav) return;
-            // Se mueve a <body>: el backdrop-filter de la tarjeta atraparía el position: fixed.
-            document.body.appendChild(nav);
+            // Directo en <body>, para que siempre acompañe a la pantalla al desplazarse.
+            document.body.appendChild(document.getElementById("burbuja-nav"));
+            var suave = window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth";
+            var arriba = document.getElementById("nav-arriba");
+            var abajo = document.getElementById("nav-abajo");
+            var botonMarcadas = document.getElementById("nav-marcadas");
 
-            var arriba = nav.querySelector('[data-seccion="inicio-carga"]');
-            var abajo = nav.querySelector('[data-seccion="fin-carga"]');
-            var enlaces = Array.prototype.slice.call(nav.querySelectorAll("a[data-seccion]"));
-            var suave = !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-
-            enlaces.forEach(function (enlace) {
-                enlace.addEventListener("click", function (e) {
-                    var destino = document.getElementById(enlace.dataset.seccion);
-                    if (!destino) return;
-                    e.preventDefault();
-                    destino.scrollIntoView({ behavior: suave ? "smooth" : "auto", block: "start" });
-                    history.replaceState(null, "", "#" + enlace.dataset.seccion);
-                });
+            arriba.addEventListener("click", function () { window.scrollTo({ top: 0, behavior: suave }); });
+            abajo.addEventListener("click", function () {
+                window.scrollTo({ top: document.documentElement.scrollHeight, behavior: suave });
             });
-
-            var pendiente = false;
-            var actualizar = function () {
-                pendiente = false;
+            function actualizar() {
                 var y = window.scrollY;
-                var alto = document.documentElement.scrollHeight - window.innerHeight;
-                arriba.toggleAttribute("data-oculto", y < 300);
-                abajo.toggleAttribute("data-oculto", y > alto - 300);
-
-                // Marca la sección visible.
-                var actual = null;
-                enlaces.forEach(function (enlace) {
-                    var id = enlace.dataset.seccion;
-                    if (id === "inicio-carga" || id === "fin-carga") return;
-                    var el = document.getElementById(id);
-                    if (el && el.getBoundingClientRect().top < window.innerHeight * 0.4) actual = enlace;
-                });
-                enlaces.forEach(function (enlace) { enlace.classList.toggle("activa", enlace === actual); });
-            };
-            window.addEventListener("scroll", function () {
-                if (!pendiente) { pendiente = true; window.requestAnimationFrame(actualizar); }
-            }, { passive: true });
+                var fin = document.documentElement.scrollHeight - window.innerHeight;
+                arriba.classList.toggle("oculto", y < 300);
+                abajo.classList.toggle("oculto", fin - y < 300);
+            }
+            window.addEventListener("scroll", actualizar, { passive: true });
             actualizar();
+
+            function destacar(fila) {
+                fila.scrollIntoView({ behavior: suave, block: "center" });
+                fila.classList.remove("destello");
+                void fila.offsetWidth;
+                fila.classList.add("destello");
+            }
+
+            // Filas marcadas (la revisada y la que coincide): cada clic va a la siguiente.
+            var marcadas = Array.prototype.slice.call(document.querySelectorAll("tr.fila-resaltada, tr.fila-relacionada"));
+            var indice = -1;
+            if (marcadas.length) {
+                botonMarcadas.classList.remove("d-none");
+                botonMarcadas.addEventListener("click", function () {
+                    indice = (indice + 1) % marcadas.length;
+                    destacar(marcadas[indice]);
+                });
+            }
+
+            // Justificaciones frecuentes: escriben la frase en el campo del mismo modal.
+            document.addEventListener("click", function (e) {
+                var boton = e.target.closest(".frase-rapida");
+                if (!boton) return;
+                var campo = boton.closest(".modal-body").querySelector("textarea, input[type=text]");
+                if (!campo) return;
+                // Cursor al final, para agregar la referencia del documento revisado.
+                campo.value = boton.dataset.frase + " ";
+                campo.focus();
+                campo.setSelectionRange(campo.value.length, campo.value.length);
+            });
         })();
     </script>
+    <style>
+        .table tbody tr.destello > * { animation: destello-fila 1.2s ease-out; }
+        @keyframes destello-fila { 0%, 30% { box-shadow: inset 0 0 0 9999px rgba(110,27,63,.22); } }
+        @media (prefers-reduced-motion: reduce) { .table tbody tr.destello > * { animation: none; } }
+    </style>
 {% endblock %}

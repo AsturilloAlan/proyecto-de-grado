@@ -3,113 +3,165 @@
 {% block content %}
     <h1 class="text-guindo mb-4">Mi perfil</h1>
 
-    <div class="row g-4">
-        <div class="col-md-4 text-center">
-            {% if user.perfil.avatar %}
-                <img src="{{ user.perfil.avatar.url }}" alt="Foto de perfil"
-                     class="rounded-circle shadow-sm mb-3" style="width:140px;height:140px;object-fit:cover;">
-            {% elif user.perfil.avatar_preset %}
-                <div class="rounded-circle shadow-sm mb-3 mx-auto d-flex align-items-center justify-content-center"
-                     style="width:140px;height:140px;background:{{ user.perfil.avatar_preset_color }};color:#fff;font-size:3rem;">
-                    <i class="bi {{ user.perfil.avatar_preset_icono }}"></i>
+    <div class="row g-4 align-items-start">
+        <!-- Tarjeta del usuario: fija al desplazarse en pantallas grandes. -->
+        <div class="col-lg-4">
+            <aside class="tarjeta-usuario">
+                <div class="avatar-grande" id="avatar-vista">
+                    {% if user.perfil.avatar %}
+                        <img src="{{ user.perfil.avatar.url }}" alt="Foto de perfil">
+                    {% elif user.perfil.avatar_preset %}
+                        <span style="background:{{ user.perfil.avatar_preset_color }};"><i class="bi {{ user.perfil.avatar_preset_icono }}"></i></span>
+                    {% else %}
+                        <span style="background:var(--guindo);">{{ user.username|slice:":1"|upper }}</span>
+                    {% endif %}
                 </div>
-            {% else %}
-                <div class="rounded-circle shadow-sm mb-3 mx-auto d-flex align-items-center justify-content-center"
-                     style="width:140px;height:140px;background:var(--guindo);color:#fff;font-size:3rem;">
-                    {{ user.username|slice:":1"|upper }}
-                </div>
-            {% endif %}
-            <h2 class="h5 mb-0">{{ user.username }}</h2>
-            <p class="text-secondary small mb-2">{{ user.email|default:"Sin correo registrado" }}</p>
-            <span class="badge {% if es_administrador %}text-bg-dark{% else %}text-bg-secondary{% endif %}">
-                {% if es_administrador %}Administrador{% else %}Auditor{% endif %}
-            </span>
+                <h2 class="h5 mb-1 text-break">{{ user.username }}</h2>
+                <p class="text-secondary small mb-2 text-break">{{ user.email|default:"Sin correo registrado" }}</p>
+                <span class="badge rounded-pill {% if es_administrador %}text-bg-dark{% else %}text-bg-secondary{% endif %}">
+                    {% if es_administrador %}Administrador{% else %}Auditor{% endif %}
+                </span>
+                <nav class="enlaces-perfil" aria-label="Secciones del perfil">
+                    <a href="#seccion-cuenta"><i class="bi bi-envelope"></i> Correo</a>
+                    <a href="#seccion-avatar"><i class="bi bi-person-circle"></i> Avatar</a>
+                    <a href="#seccion-seguridad"><i class="bi bi-shield-lock"></i> Seguridad</a>
+                </nav>
+            </aside>
         </div>
 
-        <div class="col-md-8">
-            <div class="p-3 rounded border mb-3">
-                <h2 class="h6 text-guindo text-uppercase mb-3">
-                    <i class="bi bi-envelope"></i> Datos de la cuenta
-                </h2>
+        <div class="col-lg-8 d-flex flex-column gap-3">
+            <section class="seccion-perfil" id="seccion-cuenta">
+                <h2 class="titulo-seccion"><i class="bi bi-envelope"></i> Datos de la cuenta</h2>
                 <p class="text-secondary small mb-3">
-                    Es solo un dato de contacto (para que te ubiquen, no para entrar al sistema).
-                    Para iniciar sesión siempre se usa tu <strong>nombre de usuario</strong>; el correo no
-                    interviene en el inicio de sesión ni en recuperar la contraseña.
+                    El código de verificación del inicio de sesión se envía a este correo.
                 </p>
                 <form method="post">
                     {% csrf_token %}
                     <input type="hidden" name="accion" value="datos">
-                    <div class="mb-3">
-                        <label for="{{ form_datos.email.id_for_label }}" class="form-label">{{ form_datos.email.label }}</label>
-                        {{ form_datos.email }}
-                        {% for error in form_datos.email.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label for="{{ form_datos.email.id_for_label }}" class="form-label">{{ form_datos.email.label }}</label>
+                            {{ form_datos.email }}
+                            {% for error in form_datos.email.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+                        </div>
+                        <div class="col-md-6">
+                            <label for="{{ form_datos.clave_actual.id_for_label }}" class="form-label">{{ form_datos.clave_actual.label }}</label>
+                            {{ form_datos.clave_actual }}
+                            <div class="form-text">{{ form_datos.clave_actual.help_text }}</div>
+                            {% for error in form_datos.clave_actual.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+                        </div>
                     </div>
-                    <div class="mb-3">
-                        <label for="{{ form_datos.clave_actual.id_for_label }}" class="form-label">{{ form_datos.clave_actual.label }}</label>
-                        {{ form_datos.clave_actual }}
-                        <div class="form-text">{{ form_datos.clave_actual.help_text }}</div>
-                        {% for error in form_datos.clave_actual.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+                    <div class="acciones-seccion">
+                        <button class="btn btn-guindo" type="submit">Guardar correo</button>
                     </div>
-                    <button class="btn btn-guindo" type="submit">
-                        <i class="bi bi-check-lg"></i> Guardar correo
-                    </button>
                 </form>
-            </div>
+            </section>
 
-            <div class="p-3 rounded border mb-3">
-                <h2 class="h6 text-guindo text-uppercase mb-3">
-                    <i class="bi bi-image"></i> Avatar
-                </h2>
+            <section class="seccion-perfil" id="seccion-avatar">
+                <h2 class="titulo-seccion"><i class="bi bi-person-circle"></i> Avatar</h2>
                 <form method="post" enctype="multipart/form-data" id="formAvatar">
                     {% csrf_token %}
                     <input type="hidden" name="accion" value="avatar">
                     {{ form.avatar_preset }}
 
-                    <p class="text-secondary small mb-2">Elige uno de estos avatares...</p>
-                    <div class="d-flex flex-wrap gap-2 mb-3" id="galeriaAvatares">
+                    <p class="text-secondary small mb-2">Elegir un avatar:</p>
+                    <div class="galeria-avatares mb-3" id="galeriaAvatares">
                         {% for clave, color, icono in presets_avatar %}
                             <button type="button"
-                                    class="btn-avatar-preset rounded-circle d-flex align-items-center justify-content-center border-0 {% if user.perfil.avatar_preset == clave and not user.perfil.avatar %}seleccionado{% endif %}"
-                                    data-preset="{{ clave }}"
-                                    style="width:52px;height:52px;background:{{ color }};color:#fff;font-size:1.3rem;"
-                                    title="{{ clave }}">
+                                    class="btn-avatar-preset {% if user.perfil.avatar_preset == clave and not user.perfil.avatar %}seleccionado{% endif %}"
+                                    data-preset="{{ clave }}" data-color="{{ color }}" data-icono="{{ icono }}"
+                                    style="background:{{ color }};" aria-label="Avatar {{ forloop.counter }}">
                                 <i class="bi {{ icono }}"></i>
                             </button>
                         {% endfor %}
                     </div>
 
-                    <p class="text-secondary small mb-2">...o sube tu propia foto:</p>
-                    <div class="mb-3">
-                        {{ form.avatar }}
-                        {% if form.avatar.help_text %}<div class="form-text">{{ form.avatar.help_text }}</div>{% endif %}
-                        {% for error in form.avatar.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
-                    </div>
-                    <button class="btn btn-guindo" type="submit">
-                        <i class="bi bi-check-lg"></i> Guardar avatar
-                    </button>
-                </form>
-            </div>
+                    <p class="text-secondary small mb-2">O subir una foto propia:</p>
+                    <label class="subir-foto" for="{{ form.avatar.id_for_label }}">
+                        <i class="bi bi-image fs-4"></i>
+                        <span>
+                            <span class="d-block fw-semibold" id="nombre-foto">
+                                {% if user.perfil.avatar %}Foto actual cargada · elegir otra{% else %}Elegir una imagen{% endif %}
+                            </span>
+                            <span class="d-block small text-secondary">JPG o PNG{% if form.avatar.help_text %} · {{ form.avatar.help_text }}{% endif %}</span>
+                        </span>
+                    </label>
+                    {{ form.avatar }}
+                    {% for error in form.avatar.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
 
-            <div class="p-3 rounded border">
-                <h2 class="h6 text-guindo text-uppercase mb-3">
-                    <i class="bi bi-shield-lock"></i> Seguridad
-                </h2>
-                <p class="text-secondary small mb-3">
-                    Cambia tu contraseña periódicamente, sobre todo al tratarse de un sistema con información contable sensible.
-                </p>
-                <a class="btn btn-outline-guindo" href="{% url 'cambiar_clave' %}">
-                    <i class="bi bi-key"></i> Cambiar contraseña
-                </a>
-            </div>
+                    <div class="acciones-seccion">
+                        <button class="btn btn-guindo" type="submit">Guardar avatar</button>
+                        <span class="small text-secondary d-none" id="aviso-sin-guardar">Vista previa: falta guardar.</span>
+                    </div>
+                </form>
+            </section>
+
+            <section class="seccion-perfil" id="seccion-seguridad">
+                <h2 class="titulo-seccion"><i class="bi bi-shield-lock"></i> Seguridad</h2>
+                <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
+                    <p class="text-secondary small mb-0">Se recomienda cambiar la contraseña periódicamente.</p>
+                    <a class="btn btn-outline-guindo" href="{% url 'cambiar_clave' %}">Cambiar contraseña</a>
+                </div>
+            </section>
         </div>
     </div>
 {% endblock %}
 
 {% block extra_head %}
     <style>
-        .btn-avatar-preset { opacity: .55; transition: opacity .15s ease, box-shadow .15s ease; cursor: pointer; }
-        .btn-avatar-preset:hover { opacity: .85; }
-        .btn-avatar-preset.seleccionado { opacity: 1; box-shadow: 0 0 0 3px var(--guindo); }
+        .tarjeta-usuario {
+            text-align: center; padding: 1.75rem 1.25rem; border-radius: 1rem;
+            border: 1px solid var(--bs-border-color); background: rgba(110,27,63,.03);
+            position: sticky; top: 1.5rem;
+        }
+        [data-bs-theme="dark"] .tarjeta-usuario { background: rgba(255,255,255,.03); }
+        .avatar-grande { width: 128px; height: 128px; margin: 0 auto 1rem; border-radius: 50%; overflow: hidden; box-shadow: 0 6px 18px rgba(74,17,41,.18); }
+        .avatar-grande img, .avatar-grande span {
+            width: 100%; height: 100%; object-fit: cover; display: flex; align-items: center; justify-content: center;
+            color: #fff; font-size: 3rem; animation: aparecer-avatar .25s ease;
+        }
+        @keyframes aparecer-avatar { from { opacity: .4; transform: scale(.94); } }
+        .enlaces-perfil { display: flex; flex-direction: column; gap: .15rem; margin-top: 1.25rem; padding-top: 1rem; border-top: 1px solid var(--bs-border-color); text-align: left; }
+        .enlaces-perfil a { padding: .45rem .6rem; border-radius: .5rem; text-decoration: none; color: var(--bs-body-color); }
+        .enlaces-perfil a:hover { background: rgba(110,27,63,.07); color: var(--guindo); }
+        .enlaces-perfil .bi { margin-right: .4rem; color: var(--guindo); }
+        [data-bs-theme="dark"] .enlaces-perfil .bi { color: #e7b8cd; }
+
+        .seccion-perfil { padding: 1.25rem 1.5rem; border-radius: 1rem; border: 1px solid var(--bs-border-color); scroll-margin-top: 1.5rem; }
+        .titulo-seccion { font-size: 1rem; font-weight: 700; color: var(--guindo-oscuro); margin-bottom: .75rem; }
+        .titulo-seccion .bi { margin-right: .35rem; }
+        [data-bs-theme="dark"] .titulo-seccion { color: #e7b8cd; }
+        .acciones-seccion { display: flex; flex-wrap: wrap; align-items: center; gap: .75rem; margin-top: 1rem; }
+
+        .galeria-avatares { display: flex; flex-wrap: wrap; gap: .6rem; }
+        .btn-avatar-preset {
+            width: 52px; height: 52px; border-radius: 50%; border: none; color: #fff; font-size: 1.3rem;
+            display: grid; place-items: center; opacity: .6; cursor: pointer;
+            transition: opacity .15s ease, box-shadow .15s ease, transform .15s ease;
+        }
+        .btn-avatar-preset:hover { opacity: .9; transform: translateY(-2px); }
+        .btn-avatar-preset.seleccionado { opacity: 1; box-shadow: 0 0 0 3px var(--bs-body-bg), 0 0 0 5px var(--guindo); }
+
+        .subir-foto {
+            display: flex; align-items: center; gap: .9rem; padding: .85rem 1rem; cursor: pointer;
+            border: 2px dashed rgba(110,27,63,.3); border-radius: .75rem; color: var(--guindo);
+            transition: border-color .15s ease, background-color .15s ease;
+        }
+        .subir-foto:hover { border-color: var(--guindo); background: rgba(110,27,63,.04); }
+        [data-bs-theme="dark"] .subir-foto { color: #e7b8cd; border-color: rgba(231,184,205,.3); }
+
+        @media (max-width: 991.98px) {
+            .tarjeta-usuario { position: static; display: grid; grid-template-columns: auto 1fr; column-gap: 1rem; text-align: left; align-items: center; padding: 1rem; }
+            .avatar-grande { width: 72px; height: 72px; margin: 0; grid-row: span 3; }
+            .avatar-grande img, .avatar-grande span { font-size: 1.8rem; }
+            .tarjeta-usuario .badge { justify-self: start; }
+            .enlaces-perfil { grid-column: 1 / -1; flex-direction: row; flex-wrap: wrap; justify-content: center; }
+        }
+        @media (max-width: 575.98px) {
+            .seccion-perfil { padding: 1rem; }
+            .acciones-seccion .btn { width: 100%; }
+            .btn-avatar-preset { width: 46px; height: 46px; }
+        }
     </style>
 {% endblock %}
 
@@ -118,7 +170,16 @@
         (function () {
             var botones = document.querySelectorAll(".btn-avatar-preset");
             var campoOculto = document.getElementById("{{ form.avatar_preset.id_for_label }}");
-            var campoArchivo = document.querySelector("#formAvatar input[type=file]");
+            var campoArchivo = document.getElementById("{{ form.avatar.id_for_label }}");
+            var vista = document.getElementById("avatar-vista");
+            var nombreFoto = document.getElementById("nombre-foto");
+            var avisoSinGuardar = document.getElementById("aviso-sin-guardar");
+
+            // Vista previa en la tarjeta del usuario hasta que se guarde.
+            function previsualizar(nodo) {
+                vista.replaceChildren(nodo);
+                avisoSinGuardar.classList.remove("d-none");
+            }
 
             botones.forEach(function (boton) {
                 boton.addEventListener("click", function () {
@@ -126,16 +187,25 @@
                     boton.classList.add("seleccionado");
                     campoOculto.value = boton.dataset.preset;
                     if (campoArchivo) campoArchivo.value = "";
+                    var span = document.createElement("span");
+                    span.style.background = boton.dataset.color;
+                    var icono = document.createElement("i");
+                    icono.className = "bi " + boton.dataset.icono;
+                    span.appendChild(icono);
+                    previsualizar(span);
                 });
             });
 
-            // Si el usuario sube una foto, se deselecciona el preset visualmente
-            // (la vista ya decide en el servidor cuál gana).
             if (campoArchivo) {
                 campoArchivo.addEventListener("change", function () {
-                    if (campoArchivo.files.length) {
-                        botones.forEach(function (b) { b.classList.remove("seleccionado"); });
-                    }
+                    if (!campoArchivo.files.length) return;
+                    var archivo = campoArchivo.files[0];
+                    botones.forEach(function (b) { b.classList.remove("seleccionado"); });
+                    nombreFoto.textContent = archivo.name;
+                    var img = document.createElement("img");
+                    img.alt = "Vista previa";
+                    img.src = URL.createObjectURL(archivo);
+                    previsualizar(img);
                 });
             }
         })();

@@ -1,0 +1,20 @@
+{% autoescape off %}ST&S AUDITORES Y CONSULTORES S.R.L.
+Sistema de apoyo a la auditoría externa
+
+Código de verificación para {{ nombre }}:
+
+    {{ codigo }}
+
+Vence a las {{ vence|date:"H:i" }} ({{ minutos }} minutos). Uso único.
+
+Detalle de la solicitud
+- Usuario: {{ usuario }}
+- Fecha y hora: {{ fecha_solicitud|date:"d/m/Y H:i" }}
+- Dispositivo: {{ dispositivo }}
+- Dirección IP: {{ ip }}
+
+Si el acceso no fue solicitado por el titular de la cuenta, ignorar este correo y cambiar la contraseña.
+ST&S nunca solicita este código por teléfono, correo o mensaje.
+
+Correo automático, no responder.
+{% endautoescape %}

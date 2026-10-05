@@ -1,31 +1,75 @@
 """Verificación en dos pasos (2FA) por correo, al iniciar sesión."""
 import hmac
+from datetime import timedelta
+from email.mime.image import MIMEImage
+from pathlib import Path
 
 from django.conf import settings
-from django.core.mail import send_mail
+from django.core.mail import EmailMultiAlternatives
 from django.db.models import F
+from django.template.loader import render_to_string
+from django.utils import timezone
 
-from .models import MAXIMO_INTENTOS_CODIGO, CodigoVerificacion
+from .models import MAXIMO_INTENTOS_CODIGO, MINUTOS_VALIDEZ_CODIGO, CodigoVerificacion
 
 CLAVE_SESION_USUARIO_PENDIENTE = "sesion_2fa_pendiente"
 
 
-def enviar_codigo(usuario):
-    """Genera un código nuevo para el usuario y lo envía por correo.
+def _dispositivo(request):
+    """Descripción corta del navegador y sistema operativo, a partir del User-Agent."""
+    agente = (request.META.get("HTTP_USER_AGENT", "") if request else "").lower()
+    navegador = next(
+        (nombre for clave, nombre in (
+            ("edg/", "Edge"), ("opr/", "Opera"), ("chrome/", "Chrome"),
+            ("firefox/", "Firefox"), ("safari/", "Safari"),
+        ) if clave in agente),
+        "Navegador desconocido",
+    )
+    sistema = next(
+        (nombre for clave, nombre in (
+            ("windows", "Windows"), ("android", "Android"), ("iphone", "iPhone"),
+            ("mac os", "macOS"), ("linux", "Linux"),
+        ) if clave in agente),
+        "sistema desconocido",
+    )
+    return f"{navegador} en {sistema}"
+
+
+def enviar_codigo(usuario, request=None):
+    """Genera un código nuevo para el usuario y lo envía por correo (HTML con texto de respaldo).
     Devuelve el objeto CodigoVerificacion creado."""
     codigo = CodigoVerificacion.generar_para(usuario)
-    send_mail(
-        subject="Tu código de verificación - ST&S Auditores",
-        message=(
-            f"Hola {usuario.first_name or usuario.username},\n\n"
-            f"Tu código de verificación para iniciar sesión es: {codigo.codigo}\n\n"
-            f"Este código vence en {codigo.creado.strftime('%H:%M')} + "
-            "5 minutos. Si no intentaste iniciar sesión, ignora este correo."
-        ),
+    ahora = timezone.localtime(codigo.creado)
+    vence = timezone.localtime(codigo.creado + timedelta(minutes=MINUTOS_VALIDEZ_CODIGO))
+    contexto = {
+        "nombre": usuario.first_name or usuario.username,
+        "usuario": usuario.username,
+        "codigo": codigo.codigo,
+        "digitos": list(codigo.codigo),
+        "minutos": MINUTOS_VALIDEZ_CODIGO,
+        "vence": vence,
+        "fecha_solicitud": ahora,
+        "ip": (request.META.get("REMOTE_ADDR", "") if request else "") or "No disponible",
+        "dispositivo": _dispositivo(request),
+    }
+    texto = render_to_string("usuarios/correo_codigo.txt", contexto)
+    html = render_to_string("usuarios/correo_codigo.html", contexto)
+
+    correo = EmailMultiAlternatives(
+        subject="Código de verificación - ST&S Auditores",
+        body=texto,
         from_email=settings.DEFAULT_FROM_EMAIL,
-        recipient_list=[usuario.email],
-        fail_silently=False,
+        to=[usuario.email],
     )
+    correo.attach_alternative(html, "text/html")
+    correo.mixed_subtype = "related"
+    ruta_logo = Path(settings.BASE_DIR) / "static" / "img" / "logo-sts-claro.png"
+    if ruta_logo.exists():
+        imagen = MIMEImage(ruta_logo.read_bytes())
+        imagen.add_header("Content-ID", "<logo_sts>")
+        imagen.add_header("Content-Disposition", "inline", filename="logo-sts.png")
+        correo.attach(imagen)
+    correo.send(fail_silently=False)
     return codigo
 
 

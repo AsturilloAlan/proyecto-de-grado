@@ -4,7 +4,7 @@
 {% block content %}
     <div>
         <h1 class="text-guindo mb-1 h3">Cambiar contraseña</h1>
-        <p class="text-secondary mb-4">Ingresa tu contraseña actual y la nueva contraseña.</p>
+        <p class="text-secondary mb-4">Se requiere la contraseña actual.</p>
 
         <form method="post" autocomplete="off" novalidate>
             {% csrf_token %}
@@ -32,7 +32,7 @@
             </div>
 
             <button class="btn btn-guindo w-100" type="submit">
-                <i class="bi bi-check-lg"></i> Cambiar contraseña
+                Cambiar contraseña
             </button>
         </form>
     </div>

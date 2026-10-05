@@ -10,7 +10,7 @@
             <h1 class="text-guindo mb-0 h3">Usuarios del sistema</h1>
         </div>
         <a class="btn btn-guindo" href="{% url 'usuario_crear' %}">
-            <i class="bi bi-person-plus"></i> Crear nuevo usuario
+            Crear nuevo usuario
         </a>
     </div>
 
@@ -45,7 +45,7 @@
                         </td>
                         <td>
                             <a class="btn btn-sm btn-outline-guindo" href="{% url 'usuario_editar' item.objeto.id %}">
-                                <i class="bi bi-pencil"></i> Editar
+                                Editar
                             </a>
                         </td>
                     </tr>
@@ -54,16 +54,16 @@
             </table>
         </div>
         <p class="text-secondary small">
-            Tu propia cuenta no aparece aquí. Para cambiar tu contraseña o tu correo, usa
+            La cuenta propia no aparece en esta lista; se gestiona desde
             <a href="{% url 'perfil' %}">Mi perfil</a>.
         </p>
     {% else %}
         <div class="estado-vacio">
             <div class="estado-vacio-icono"><i class="bi bi-person-plus"></i></div>
             <h3 class="text-guindo">Todavía no hay otros usuarios</h3>
-            <p class="text-secondary">Creá cuentas para el resto del equipo de auditoría.</p>
+            <p class="text-secondary">Todavía no hay otras cuentas registradas.</p>
             <a class="btn btn-guindo btn-sm mt-2" href="{% url 'usuario_crear' %}">
-                <i class="bi bi-person-plus"></i> Crear nuevo usuario
+                Crear nuevo usuario
             </a>
         </div>
     {% endif %}

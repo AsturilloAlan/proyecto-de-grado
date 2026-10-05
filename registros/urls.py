@@ -13,6 +13,7 @@ urlpatterns = [
         name="carga_confirmar_validacion",
     ),
     path("cargar/<int:carga_id>/anular/", views.carga_anular, name="carga_anular"),
+    path("cargar/<int:carga_id>/estado/", views.carga_estado, name="carga_estado"),
     path(
         "cargar/<int:carga_id>/avisos/marcar-revisados/",
         views.avisos_marcar_revisados,

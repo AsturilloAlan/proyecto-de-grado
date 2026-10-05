@@ -296,7 +296,7 @@ class RolRequeridoTests(TestCase):
         respuesta = self.client.get(reverse("registros:empresas_lista"), follow=True)
         self.assertRedirects(respuesta, reverse("home"))
         mensajes = [str(m) for m in respuesta.context["messages"]]
-        self.assertTrue(any("rol necesario" in m for m in mensajes))
+        self.assertTrue(any("Acceso restringido" in m for m in mensajes))
 
     def test_superusuario_entra_sin_pertenecer_al_grupo(self):
         self.client.login(username="root1", password="Clave-Segura123")

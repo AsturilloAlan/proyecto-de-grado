@@ -28,10 +28,7 @@ class EmpresaAuditadaForm(forms.ModelForm):
         max_value=2100,
         widget=forms.NumberInput(attrs={"class": "form-control", "min": 2000, "max": 2100}),
         help_text=(
-            "Las fechas se calculan solas según la categoría de cierre elegida "
-            "abajo (por defecto, año calendario 01/01 - 31/12). Si hace falta "
-            "ajustarlas a mano, se puede después desde \"Cargar registros\" → "
-            "\"Agregar gestión\"."
+            "Las fechas se calculan según la categoría de cierre."
         ),
     )
 
@@ -82,7 +79,7 @@ class EmpresaAuditadaForm(forms.ModelForm):
         # El nombre del representante legal no lleva dígitos.
         if contacto_nombre and any(caracter.isdigit() for caracter in contacto_nombre):
             raise forms.ValidationError(
-                "El nombre de contacto no debería contener números."
+                "El nombre del representante legal no debe contener números."
             )
         return contacto_nombre
 
@@ -95,10 +92,8 @@ class EmpresaAuditadaForm(forms.ModelForm):
             NIT_MINIMO_DIGITOS <= digitos <= NIT_MAXIMO_DIGITOS
         ):
             raise forms.ValidationError(
-                "Ingresa un NIT válido: solo números, con puntos o guiones como "
-                f"separadores si quieres (entre {NIT_MINIMO_DIGITOS} y "
-                f"{NIT_MAXIMO_DIGITOS} dígitos). Ej.: 1023456021, 1023456021-0 "
-                "o 619.7772.443-0."
+                f"NIT no válido: de {NIT_MINIMO_DIGITOS} a {NIT_MAXIMO_DIGITOS} dígitos, "
+                "con puntos o guiones opcionales."
             )
         return nit
 
@@ -106,8 +101,7 @@ class EmpresaAuditadaForm(forms.ModelForm):
         telefono = self.cleaned_data.get("contacto_telefono", "").strip()
         if telefono and not PATRON_TELEFONO.match(telefono):
             raise forms.ValidationError(
-                "Ingresa un teléfono válido (solo números, espacios, +, - o "
-                "paréntesis, entre 6 y 20 caracteres)."
+                "Teléfono no válido: de 6 a 20 caracteres entre números, espacios, +, - o paréntesis."
             )
         return telefono
 
@@ -118,12 +112,10 @@ class GestionForm(forms.ModelForm):
     empresa = forms.ModelChoiceField(
         queryset=EmpresaAuditada.objects.all(),
         required=False,
-        label="Empresa (para sugerir las fechas según su categoría de cierre SIN)",
+        label="Empresa (opcional)",
         widget=forms.Select(attrs={"class": "form-select"}),
         help_text=(
-            "Autocompleta fecha de inicio/fin según la categoría de cierre de "
-            "esa empresa. El resultado se puede corregir a mano igual. Si se "
-            "deja sin elegir, se usa el año calendario de siempre."
+            "Sugiere las fechas según su categoría de cierre. Sin empresa se usa el año calendario."
         ),
     )
 
@@ -149,7 +141,7 @@ class GestionForm(forms.ModelForm):
     def clean_anio(self):
         anio = self.cleaned_data["anio"]
         if anio < 2000 or anio > 2100:
-            raise forms.ValidationError("Ingresa un año válido (entre 2000 y 2100).")
+            raise forms.ValidationError("Año no válido (entre 2000 y 2100).")
         # No se admite una gestión que todavía no empezó.
         limite_superior = date.today().year + 1
         if anio > limite_superior:
@@ -198,16 +190,38 @@ class GestionForm(forms.ModelForm):
 
 
 class AnulacionForm(forms.Form):
-    """Motivo obligatorio para anular una carga."""
+    """Motivo de anulación: una causa de la lista y, si hace falta, un detalle."""
 
-    motivo = forms.CharField(
-        label="Motivo de la anulación",
-        widget=forms.Textarea(attrs={"class": "form-control", "rows": 3}),
-        min_length=10,
-        error_messages={
-            "min_length": "Escribe un motivo un poco más detallado (mínimo 10 caracteres); queda en el historial de auditoría.",
-        },
+    MOTIVOS = [
+        ("gestion", "Gestión equivocada"),
+        ("empresa", "Empresa equivocada"),
+        ("archivo", "Archivo incorrecto o incompleto"),
+        ("duplicada", "Carga repetida"),
+        ("otro", "Otro motivo"),
+    ]
+
+    tipo_motivo = forms.ChoiceField(
+        label="Motivo",
+        choices=MOTIVOS,
+        widget=forms.RadioSelect(attrs={"class": "form-check-input"}),
     )
+    detalle = forms.CharField(
+        label="Detalle",
+        required=False,
+        max_length=300,
+        widget=forms.Textarea(attrs={"class": "form-control", "rows": 2}),
+    )
+
+    def clean(self):
+        datos = super().clean()
+        tipo = datos.get("tipo_motivo")
+        detalle = (datos.get("detalle") or "").strip()
+        if tipo == "otro" and len(detalle) < 10:
+            self.add_error("detalle", "Para \"Otro motivo\" se requiere un detalle de al menos 10 caracteres.")
+        if tipo:
+            texto = dict(self.MOTIVOS)[tipo]
+            datos["motivo"] = f"{texto}. {detalle}" if detalle else texto
+        return datos
 
 
 class CargaArchivoForm(forms.ModelForm):
@@ -230,8 +244,7 @@ class CargaArchivoForm(forms.ModelForm):
         extension = os.path.splitext(archivo.name)[1].lower()
         if extension not in EXTENSIONES_PERMITIDAS:
             raise forms.ValidationError(
-                "Formato no soportado. Sube un archivo .xlsx, .xls, .csv o .pdf "
-                "(Libro Diario exportado en PDF)."
+                "Formato no soportado. Se aceptan archivos .xlsx, .xls, .csv o .pdf."
             )
         if archivo.size > TAMANO_MAXIMO_BYTES:
             raise forms.ValidationError(

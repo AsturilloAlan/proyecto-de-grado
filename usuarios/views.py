@@ -41,7 +41,7 @@ def _clave_bloqueo_login(username):
 
 
 CLAVE_SESION_BLOQUEO = "login_bloqueo_hasta"
-MENSAJE_BLOQUEO = "Demasiados intentos fallidos. Espera a que termine el contador para volver a intentar."
+MENSAJE_BLOQUEO = "Demasiados intentos fallidos. Acceso bloqueado temporalmente."
 
 
 class LoginSiempreInicioView(LoginView):
@@ -114,8 +114,8 @@ class LoginSiempreInicioView(LoginView):
         if not usuario.email:
             messages.error(
                 self.request,
-                "Tu cuenta no tiene un correo registrado, necesario para el "
-                "código de verificación. Contacta con el administrador del sistema.",
+                "La cuenta no tiene correo registrado para el código de verificación. "
+                "Contactar al administrador del sistema.",
             )
             return redirect("login")
 
@@ -129,7 +129,7 @@ class LoginSiempreInicioView(LoginView):
             return redirect("login")
         messages.info(
             self.request,
-            f"Te enviamos un código de verificación a {usuario.email}.",
+            f"Código de verificación enviado a {usuario.email}.",
         )
         return redirect("verificar_codigo")
 
@@ -155,14 +155,14 @@ def _limpiar_sesion_2fa(request):
 def _enviar_codigo_seguro(request, usuario):
     """Envía el código 2FA; si el correo falla muestra un mensaje y no inicia sesión."""
     try:
-        enviar_codigo(usuario)
+        enviar_codigo(usuario, request)
         return True
     except Exception:
         logger.exception("No se pudo enviar el código 2FA al usuario %s", usuario.pk)
         messages.error(
             request,
-            "No se pudo enviar el código de verificación por correo. Intenta de nuevo "
-            "en unos minutos; si el problema sigue, avisa al administrador del sistema.",
+            "No se pudo enviar el código de verificación. Intentar de nuevo en unos "
+            "minutos o contactar al administrador del sistema.",
         )
         return False
 
@@ -177,7 +177,7 @@ def verificar_codigo(request):
     """Segundo paso del login: pide el código de 6 dígitos enviado por correo."""
     usuario_id = request.session.get(CLAVE_SESION_USUARIO_PENDIENTE)
     if not usuario_id:
-        messages.error(request, "Tu sesión de verificación expiró. Inicia sesión de nuevo.")
+        messages.error(request, "La verificación expiró. Iniciar sesión de nuevo.")
         return redirect("login")
 
     usuario = User.objects.filter(pk=usuario_id).first()
@@ -189,7 +189,7 @@ def verificar_codigo(request):
     ):
         # Paso pendiente vencido, o la cuenta se desactivó mientras tanto.
         _limpiar_sesion_2fa(request)
-        messages.error(request, "Tu sesión de verificación expiró. Inicia sesión de nuevo.")
+        messages.error(request, "La verificación expiró. Iniciar sesión de nuevo.")
         return redirect("login")
 
     if request.method == "POST":
@@ -199,16 +199,16 @@ def verificar_codigo(request):
             if reenvios >= MAXIMO_REENVIOS_2FA:
                 messages.error(
                     request,
-                    "Alcanzaste el máximo de reenvíos. Inicia sesión de nuevo para recibir otro código.",
+                    "Máximo de reenvíos alcanzado. Iniciar sesión de nuevo.",
                 )
             elif ultimo and (timezone.now() - ultimo.creado).total_seconds() < SEGUNDOS_ESPERA_REENVIO:
                 messages.warning(
                     request,
-                    f"Espera {SEGUNDOS_ESPERA_REENVIO} segundos entre reenvíos del código.",
+                    f"Deben pasar {SEGUNDOS_ESPERA_REENVIO} segundos entre reenvíos.",
                 )
             elif _enviar_codigo_seguro(request, usuario):
                 request.session[CLAVE_SESION_REENVIOS_2FA] = reenvios + 1
-                messages.info(request, f"Te enviamos un nuevo código a {usuario.email}.")
+                messages.info(request, f"Nuevo código enviado a {usuario.email}.")
             return redirect("verificar_codigo")
 
         form = CodigoVerificacionForm(request.POST)
@@ -229,7 +229,7 @@ def verificar_codigo(request):
                 _limpiar_sesion_2fa(request)
                 messages.error(
                     request,
-                    "Demasiados códigos incorrectos. Inicia sesión de nuevo.",
+                    "Demasiados códigos incorrectos. Iniciar sesión de nuevo.",
                 )
                 return redirect("login")
             messages.error(request, error)
@@ -246,7 +246,7 @@ def verificar_codigo(request):
 @login_required
 def home(request):
     """Página principal tras iniciar sesión: funciona como panel/dashboard."""
-    from registros.models import CargaArchivo, EmpresaAuditada  # import local: evita acoplar usuarios <-> registros a nivel de módulo
+    from registros.models import CargaArchivo, EmpresaAuditada  # import local: evita acoplar usuarios - registros a nivel de módulo
 
     total_empresas = EmpresaAuditada.objects.count()
     cargas = CargaArchivo.objects.select_related("empresa", "gestion", "usuario")
@@ -288,13 +288,14 @@ def _registrar_y_avisar_cambio_correo(usuario, correo_anterior, autor):
     )
     if correo_anterior:
         send_mail(
-            subject="Se cambió el correo de tu cuenta - ST&S Auditores",
+            subject="Cambio de correo de la cuenta - ST&S Auditores",
             message=(
-                f"Hola {usuario.first_name or usuario.username},\n\n"
-                "El correo asociado a tu cuenta del sistema de apoyo a la auditoría "
+                f"Cuenta: {usuario.username}\n\n"
+                "El correo asociado a la cuenta del sistema de apoyo a la auditoría "
                 f"se cambió a {usuario.email}. Los códigos de verificación llegarán "
                 "ahora a esa dirección.\n\n"
-                "Si no hiciste este cambio, contacta de inmediato al administrador del sistema."
+                "Si el cambio no fue realizado por el titular de la cuenta, comunicarlo de "
+                "inmediato al administrador del sistema."
             ),
             from_email=settings.DEFAULT_FROM_EMAIL,
             recipient_list=[correo_anterior],
@@ -372,13 +373,13 @@ class CambiarClaveView(PasswordChangeView):
         )
         if usuario.email:
             send_mail(
-                subject="Tu contraseña fue cambiada - ST&S Auditores",
+                subject="Cambio de contraseña - ST&S Auditores",
                 message=(
-                    f"Hola {usuario.first_name or usuario.username},\n\n"
-                    "Tu contraseña del sistema de apoyo a la auditoría acaba de "
-                    "cambiar. Si fuiste tú, no hace falta que hagas nada más.\n\n"
-                    "Si NO fuiste tú quien la cambió, contacta de inmediato al "
-                    "administrador del sistema."
+                    f"Cuenta: {usuario.username}\n\n"
+                    "La contraseña del sistema de apoyo a la auditoría acaba de cambiar. "
+                    "Si el cambio fue realizado por el titular de la cuenta, no se requiere "
+                    "ninguna acción.\n\n"
+                    "En caso contrario, comunicarlo de inmediato al administrador del sistema."
                 ),
                 from_email=settings.DEFAULT_FROM_EMAIL,
                 recipient_list=[usuario.email],
@@ -443,7 +444,7 @@ def usuario_editar(request, usuario_id):
     rol_actual = _rol_de(usuario_obj)
 
     if usuario_obj.pk == request.user.pk:
-        messages.error(request, "No puedes editar tu propia cuenta desde este panel.")
+        messages.error(request, 'La cuenta propia se edita desde "Mi perfil".')
         return redirect("usuarios_lista")
 
     if usuario_obj.is_superuser:

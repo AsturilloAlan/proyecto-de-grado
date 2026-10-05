@@ -10,8 +10,7 @@
         </div>
         <h1 class="text-guindo mb-1 h4">Verificación en dos pasos</h1>
         <p class="text-secondary mb-4">
-            Te enviamos un código de 6 dígitos a <strong>{{ correo }}</strong>.
-            Ingrésalo para completar el inicio de sesión.
+            Código de 6 dígitos enviado a <strong>{{ correo }}</strong>.
         </p>
 
         <form method="post" autocomplete="off" novalidate>
@@ -26,19 +25,19 @@
                 {% endfor %}
             </div>
             <button class="btn btn-guindo w-100 mb-2" type="submit">
-                <i class="bi bi-check-lg"></i> Verificar código
+                Verificar código
             </button>
         </form>
 
         <form method="post" class="mt-2">
             {% csrf_token %}
             <button class="btn btn-link btn-sm" type="submit" name="reenviar" value="1">
-                ¿No te llegó? Reenviar código
+                Reenviar código
             </button>
         </form>
 
         <a class="d-block mt-3 small text-secondary" href="{% url 'login' %}">
-            <i class="bi bi-arrow-left"></i> Cancelar y volver al login
+            Cancelar y volver al login
         </a>
     </div>
 {% endblock %}
