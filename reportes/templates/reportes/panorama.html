@@ -1,0 +1,362 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Gráficos · {{ empresa }} {{ gestion.anio }}{% endblock %}
+{% block content %}
+    <style>
+        .esqueleto {
+            border-radius: .5rem;
+            background: linear-gradient(90deg, rgba(110,27,63,.06) 25%, rgba(110,27,63,.13) 37%, rgba(110,27,63,.06) 63%);
+            background-size: 400% 100%;
+            animation: brillo-esqueleto 1.3s ease infinite;
+        }
+        [data-bs-theme="dark"] .esqueleto {
+            background: linear-gradient(90deg, rgba(255,255,255,.05) 25%, rgba(255,255,255,.12) 37%, rgba(255,255,255,.05) 63%);
+            background-size: 400% 100%;
+        }
+        @keyframes brillo-esqueleto { 0% { background-position: 100% 50%; } 100% { background-position: 0 50%; } }
+        @media (prefers-reduced-motion: reduce) { .esqueleto { animation: none; } }
+        .esqueleto-numero { height: 2rem; width: 60%; }
+        .esqueleto-texto { height: .8rem; width: 80%; margin-top: .5rem; }
+        .esqueleto-grafico { height: 260px; }
+        .panel-grafico { height: 100%; }
+        /* La tabla de las 10 más atípicas no debe estirar la fila: se desplaza dentro de su
+           panel y queda a la altura del gráfico vecino, sin espacios vacíos. */
+        .tabla-top-scroll { max-height: 300px; overflow-y: auto; }
+        .tabla-top-scroll thead th { position: sticky; top: 0; background: var(--bs-body-bg); z-index: 1; }
+        .panel-grafico h2 { font-size: 1rem; }
+        .panel-grafico .pregunta { color: var(--guindo-oscuro); font-weight: 700; }
+        [data-bs-theme="dark"] .panel-grafico .pregunta { color: #e7b8cd; }
+        .lienzo { position: relative; height: 260px; }
+        .cargando .contenido-real { display: none; }
+        .listo .esqueleto { display: none; }
+        .vacio-grafico { height: 260px; display: grid; place-items: center; text-align: center; }
+    </style>
+
+    {% include "_migas_reporte.html" with titulo="Análisis" %}
+
+    <div class="d-flex flex-wrap justify-content-between align-items-end gap-2 mb-3">
+        <div>
+            <h1 class="text-guindo mb-1">Análisis de la gestión {{ gestion.anio }}</h1>
+            <p class="text-secondary mb-0">{{ empresa }} · transacciones atípicas que señaló el modelo en las cargas válidas de la gestión.</p>
+        </div>
+        <a class="btn btn-sm btn-guindo" id="enlace-reporte" href="{% url 'reportes:atipicas_gestion' empresa.id gestion.id %}?desde=graficos">
+            <i class="bi bi-file-earmark-text"></i> Abrir reporte de atípicas
+        </a>
+    </div>
+
+    <details class="small mb-3">
+        <summary class="text-secondary">Cómo leer estos resultados</summary>
+        <p class="mb-0 mt-2">Los gráficos ayudan a elegir qué revisar primero. Una transacción atípica se aleja de lo habitual; no confirma un error ni fraude. El importe representa movimientos señalados, no una pérdida.</p>
+    </details>
+
+    {% for a, b in grupo.posibles_duplicadas %}
+        <div class="alert alert-warning py-2 small">Posible carga duplicada: N.º {{ a.id }} y N.º {{ b.id }} parecen el mismo libro. Las cifras podrían estar contadas dos veces.</div>
+    {% endfor %}
+
+    <div id="error-filtros" class="alert alert-warning py-2 small d-none" role="alert"></div>
+    <form id="filtros" class="row g-2 align-items-end mb-4" aria-label="Filtros de los gráficos" novalidate>
+        <div class="col-12 col-md-3">
+            <label for="f-periodo" class="form-label small mb-1">Periodo</label>
+            <select id="f-periodo" class="form-select form-select-sm">
+                {% for p in periodos %}<option value="{{ p.clave }}" data-desde="{{ p.desde }}" data-hasta="{{ p.hasta }}">{{ p.etiqueta }}</option>{% endfor %}
+                <option value="otro">Otro rango…</option>
+            </select>
+        </div>
+        <div class="col-6 col-md-2 rango-propio d-none">
+            <label for="f-desde" class="form-label small mb-1">Desde</label>
+            <input type="date" id="f-desde" name="desde" class="form-control form-control-sm"
+                   min="{{ gestion.fecha_inicio|date:'Y-m-d' }}" max="{{ gestion.fecha_fin|date:'Y-m-d' }}">
+        </div>
+        <div class="col-6 col-md-2 rango-propio d-none">
+            <label for="f-hasta" class="form-label small mb-1">Hasta</label>
+            <input type="date" id="f-hasta" name="hasta" class="form-control form-control-sm"
+                   min="{{ gestion.fecha_inicio|date:'Y-m-d' }}" max="{{ gestion.fecha_fin|date:'Y-m-d' }}">
+        </div>
+        <div class="col-12 col-md-3">
+            <label for="f-cuenta" class="form-label small mb-1">Cuenta</label>
+            <select id="f-cuenta" name="cuenta" class="form-select form-select-sm">
+                <option value="">Todas las cuentas</option>
+            </select>
+        </div>
+        <div class="col-6 col-md-2">
+            <label for="f-nivel" class="form-label small mb-1">Nivel de anomalía</label>
+            <select id="f-nivel" name="nivel" class="form-select form-select-sm">
+                <option value="">Todos</option>
+                {% for clave, etiqueta, minimo, maximo in niveles %}<option value="{{ clave }}">{{ etiqueta }}</option>{% endfor %}
+            </select>
+        </div>
+        <div class="col-6 col-md-2 d-flex gap-2">
+            <button type="submit" class="btn btn-sm btn-guindo flex-fill">Aplicar</button>
+            <button type="button" id="limpiar" class="btn btn-sm btn-outline-secondary" title="Quitar filtros">Limpiar</button>
+        </div>
+    </form>
+
+    <p id="resumen-filtros" class="small text-secondary" role="status"></p>
+    <div id="panorama" class="cargando" aria-busy="true">
+        <p class="visually-hidden" role="status" id="estado-carga">Cargando gráficos…</p>
+        <div class="alert alert-danger d-none" id="error-carga" role="alert"></div>
+
+        <div class="row g-3 mb-4">
+            <div class="col-6 col-lg-3"><div class="p-3 rounded border h-100 tarjeta-stat">
+                <div class="esqueleto esqueleto-numero"></div><div class="esqueleto esqueleto-texto"></div>
+                <div class="contenido-real"><div class="fs-4 fw-bold" id="k-atipicas">-</div><div class="text-secondary small">Transacciones atípicas</div></div>
+            </div></div>
+            <div class="col-6 col-lg-3"><div class="p-3 rounded border h-100 tarjeta-stat">
+                <div class="esqueleto esqueleto-numero"></div><div class="esqueleto esqueleto-texto"></div>
+                <div class="contenido-real"><div class="fs-4 fw-bold" id="k-importe">-</div><div class="text-secondary small">Importe involucrado (Bs)</div></div>
+            </div></div>
+            <div class="col-6 col-lg-3"><div class="p-3 rounded border h-100 tarjeta-stat">
+                <div class="esqueleto esqueleto-numero"></div><div class="esqueleto esqueleto-texto"></div>
+                <div class="contenido-real"><div class="fs-4 fw-bold" id="k-movimiento">-</div><div class="text-secondary small">Del movimiento total del libro</div></div>
+            </div></div>
+            <div class="col-6 col-lg-3"><div class="p-3 rounded border h-100 tarjeta-stat">
+                <div class="esqueleto esqueleto-numero"></div><div class="esqueleto esqueleto-texto"></div>
+                <div class="contenido-real"><div class="fs-4 fw-bold" id="k-revisadas">-</div><div class="text-secondary small" id="k-relevantes">Revisadas por el auditor</div></div>
+            </div></div>
+        </div>
+
+        <div class="row g-3">
+            <div class="col-lg-7">{% include "reportes/_panel_grafico.html" with clave="mes" pregunta="¿En qué meses aparecen?" ayuda="Cantidad de transacciones atípicas por mes. Al pasar el cursor sobre una barra se ve el importe." %}</div>
+            <div class="col-lg-5">{% include "reportes/_panel_grafico.html" with clave="nivel" pregunta="¿Qué tan fuera de lo común son?" ayuda="Muy alto: lo más alejado de lo habitual del libro. Medio: alejado, pero en menor grado." %}</div>
+            <div class="col-lg-6">{% include "reportes/_panel_grafico.html" with clave="motivo" pregunta="¿Por qué las señala el modelo?" ayuda="Motivo principal de cada transacción atípica." %}</div>
+            <div class="col-lg-6">{% include "reportes/_panel_grafico.html" with clave="cuenta" pregunta="¿En qué cuentas se concentran?" ayuda="Las 10 cuentas con más transacciones atípicas." %}</div>
+            <div class="col-lg-5">{% include "reportes/_panel_grafico.html" with clave="revision" pregunta="¿Cuánto revisó ya el auditor?" ayuda="Decisión del auditor sobre cada transacción atípica." %}</div>
+            <div class="col-lg-7">
+                <div class="p-3 rounded border panel-grafico">
+                    <h2 class="pregunta mb-1">Las 10 más fuera de lo común</h2>
+                    <p class="small text-secondary mb-2">Con los filtros elegidos, de la más a la menos atípica.</p>
+                    <div class="esqueleto esqueleto-grafico"></div>
+                    <div class="contenido-real table-responsive tabla-top-scroll">
+                        <table class="table table-sm align-middle mb-0">
+                            <thead><tr><th>Fecha</th><th>Cuenta</th><th class="text-end">Importe</th><th>Motivo principal</th><th>Revisión</th></tr></thead>
+                            <tbody id="tabla-top"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% include "_burbuja_nav.html" %}
+{% endblock %}
+{% block extra_js %}
+{# Chart.js se sirve desde el propio sistema (static/vendor/chartjs); sin él se muestran las tablas. #}
+<script src="{% static 'vendor/chartjs/chart.umd.min.js' %}"></script>
+<script>
+(function () {
+    var URL_DATOS = "{{ url_datos }}";
+    var URL_REPORTE = "{% url 'reportes:atipicas_gestion' empresa.id gestion.id %}";
+    var panel = document.getElementById("panorama");
+    var form = document.getElementById("filtros");
+    var graficos = {};
+    var solicitud = 0;
+    var dinero = new Intl.NumberFormat("es-BO", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    var entero = new Intl.NumberFormat("es-BO");
+    var GUINDO = ["#6E1B3F", "#9C3D63", "#C76E8E", "#E7B8CD", "#4A1129", "#B08A9C", "#7A5C6B", "#D9C9D1", "#8E2F55", "#5B2B40"];
+    var NIVELES = ["#B4232F", "#E08A1E", "#C9A227"];
+    var REVISION = ["#B23B3B", "#C9A227", "#2E7D4F", "#8A8A8A"];
+
+    function colorTexto() {
+        return getComputedStyle(document.body).getPropertyValue("--bs-body-color") || "#333";
+    }
+
+    // Filtros guardados en la dirección de la página: al recargar o compartir se conservan.
+    var parametros = new URLSearchParams(window.location.search);
+    ["desde", "hasta", "nivel"].forEach(function (n) { if (parametros.get(n)) form.elements[n].value = parametros.get(n); });
+
+    function texto(valor) {
+        var span = document.createElement("span");
+        span.textContent = valor == null ? "" : String(valor);
+        return span.innerHTML;
+    }
+
+    function tablaDatos(clave, etiquetas, cantidades, importes) {
+        var filas = etiquetas.map(function (e, i) {
+            return "<tr><td>" + texto(e) + "</td><td class='text-end'>" + entero.format(cantidades[i]) + "</td>" +
+                (importes ? "<td class='text-end'>" + dinero.format(importes[i]) + "</td>" : "") + "</tr>";
+        }).join("");
+        document.getElementById("tabla-" + clave).innerHTML =
+            "<thead><tr><th>Dato</th><th class='text-end'>Cantidad</th>" + (importes ? "<th class='text-end'>Importe (Bs)</th>" : "") +
+            "</tr></thead><tbody>" + filas + "</tbody>";
+    }
+
+    function dibujar(clave, tipo, serie, colores, horizontal) {
+        var lienzo = document.getElementById("grafico-" + clave);
+        var vacio = document.getElementById("vacio-" + clave);
+        if (graficos[clave]) { graficos[clave].destroy(); delete graficos[clave]; }
+        var total = serie.cantidades.reduce(function (a, b) { return a + b; }, 0);
+        vacio.hidden = total > 0;
+        lienzo.parentElement.hidden = total === 0;
+        tablaDatos(clave, serie.etiquetas, serie.cantidades, serie.importes);
+        lienzo.setAttribute("aria-label", serie.etiquetas.map(function (e, i) {
+            return e + ": " + serie.cantidades[i];
+        }).join("; "));
+        if (!total || !window.Chart) return;
+        var circular = tipo === "doughnut";
+        graficos[clave] = new Chart(lienzo, {
+            type: tipo,
+            data: {
+                labels: serie.etiquetas,
+                datasets: [{
+                    label: "Transacciones atípicas",
+                    data: serie.cantidades,
+                    backgroundColor: colores,
+                    borderRadius: circular ? 0 : 6,
+                    borderWidth: circular ? 2 : 0,
+                    borderColor: circular ? getComputedStyle(document.body).getPropertyValue("--bs-body-bg") : undefined,
+                    maxBarThickness: 46
+                }]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                indexAxis: horizontal ? "y" : "x",
+                animation: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? false : { duration: 500 },
+                plugins: {
+                    legend: { display: circular, position: "bottom", labels: { color: colorTexto(), boxWidth: 12 } },
+                    tooltip: {
+                        callbacks: {
+                            label: function (ctx) {
+                                var valor = circular ? ctx.parsed : (horizontal ? ctx.parsed.x : ctx.parsed.y);
+                                var linea = entero.format(valor) + " transacciones";
+                                if (circular && total) linea += " (" + Math.round(valor * 100 / total) + " %)";
+                                return linea;
+                            },
+                            afterLabel: function (ctx) {
+                                return serie.importes ? "Importe: Bs " + dinero.format(serie.importes[ctx.dataIndex]) : "";
+                            }
+                        }
+                    }
+                },
+                scales: circular ? {} : {
+                    x: { ticks: { color: colorTexto(), precision: 0 }, grid: { display: horizontal } },
+                    y: { ticks: { color: colorTexto(), precision: 0, autoSkip: false }, grid: { display: !horizontal } }
+                }
+            }
+        });
+    }
+
+    function llenarCuentas(opciones, elegida) {
+        var select = form.elements.cuenta;
+        var actual = elegida || select.value;
+        select.innerHTML = '<option value="">Todas las cuentas</option>' + opciones.map(function (o) {
+            return '<option value="' + o.id + '">' + texto(o.texto) + "</option>";
+        }).join("");
+        select.value = actual;
+    }
+
+    function sinGraficos() {
+        // Sin la librería de gráficos, los mismos datos se muestran como tablas abiertas.
+        document.querySelectorAll(".datos-grafico").forEach(function (d) { d.open = true; });
+        document.querySelectorAll(".aviso-sin-graficos").forEach(function (a) { a.hidden = false; });
+    }
+
+    function mostrar(datos) {
+        panel.querySelectorAll('.contenido-real').forEach(function (n) { n.hidden = false; });
+        if (!window.Chart) sinGraficos();
+        var r = datos.resumen;
+        document.getElementById("k-atipicas").textContent = entero.format(r.atipicas);
+        document.getElementById("k-importe").textContent = dinero.format(r.importe);
+        document.getElementById("k-movimiento").textContent = dinero.format(r.porcentaje_movimiento) + " %";
+        document.getElementById("k-revisadas").textContent = entero.format(r.revisadas) + " de " + entero.format(r.atipicas);
+        document.getElementById("k-relevantes").textContent = "Revisadas · " + entero.format(r.relevantes) + " útiles (observadas o en seguimiento)";
+
+        dibujar("mes", "bar", datos.por_mes, "#6E1B3F", false);
+        dibujar("nivel", "doughnut", datos.por_nivel, NIVELES, false);
+        dibujar("motivo", "bar", datos.por_motivo, GUINDO, true);
+        dibujar("cuenta", "bar", datos.por_cuenta, "#9C3D63", true);
+        dibujar("revision", "doughnut", datos.revision, REVISION, false);
+
+        var cuerpo = document.getElementById("tabla-top");
+        cuerpo.innerHTML = datos.mas_atipicas.length ? datos.mas_atipicas.map(function (t) {
+            var f = t.fecha.split("-");
+            return "<tr><td class='text-nowrap'>" + f[2] + "/" + f[1] + "/" + f[0] + "</td><td>" + texto(t.cuenta) +
+                "</td><td class='text-end text-nowrap'>" + dinero.format(t.importe) + " " + t.lado + "</td><td class='small'>" +
+                texto(t.motivo) + "</td><td class='small'>" + texto(t.revision) + "</td></tr>";
+        }).join("") : "<tr><td colspan='5' class='text-secondary'>No hay transacciones atípicas con estos filtros.</td></tr>";
+    }
+
+    function cargar() {
+        if (!form.reportValidity()) return;
+        if (form.elements.desde.value && form.elements.hasta.value && form.elements.desde.value > form.elements.hasta.value) {
+            document.getElementById('error-filtros').textContent = 'La fecha final debe ser igual o posterior a la inicial. Los gráficos conservan los últimos filtros aplicados.';
+            document.getElementById('error-filtros').classList.remove('d-none');
+            form.elements.hasta.setCustomValidity('La fecha final debe ser igual o posterior a la inicial.');
+            form.elements.hasta.reportValidity();
+            return;
+        }
+        var turno = ++solicitud;
+        var consulta = new URLSearchParams(new FormData(form));
+        if (parametros.get('cuenta')) consulta.set('cuenta', parametros.get('cuenta'));
+        Array.from(consulta.keys()).forEach(function (k) { if (!consulta.get(k)) consulta.delete(k); });
+        history.replaceState(null, "", "?" + consulta.toString());
+        var nivel = consulta.get("nivel");
+        document.getElementById("enlace-reporte").href = URL_REPORTE + "?desde=graficos" + (nivel ? "&nivel=" + encodeURIComponent(nivel) : "");
+        panel.classList.add("cargando");
+        panel.classList.remove("listo");
+        panel.setAttribute("aria-busy", "true");
+        document.getElementById("error-carga").classList.add("d-none");
+        fetch(URL_DATOS + "?" + consulta.toString(), { headers: { "Accept": "application/json" } })
+            .then(window.leerRespuestaJson)
+            .then(function (datos) {
+                if (turno !== solicitud) return;
+                llenarCuentas(datos.opciones_cuenta, parametros.get("cuenta"));
+                parametros.delete("cuenta");
+                mostrar(datos);
+                panel.classList.remove("cargando");
+                panel.classList.add("listo");
+                panel.setAttribute("aria-busy", "false");
+                document.getElementById("estado-carga").textContent = "Gráficos actualizados.";
+                var fecha = function (iso) { var p = iso.split('-'); return p[2] + '/' + p[1] + '/' + p[0]; };
+                var selPeriodo = document.getElementById('f-periodo');
+                var textoPeriodo = selPeriodo.value === 'otro'
+                    ? (consulta.get('desde') ? fecha(consulta.get('desde')) : 'inicio de la gestión') + ' a ' +
+                      (consulta.get('hasta') ? fecha(consulta.get('hasta')) : 'fin de la gestión')
+                    : selPeriodo.options[selPeriodo.selectedIndex].text;
+                document.getElementById('resumen-filtros').textContent = 'Mostrando: ' + textoPeriodo + ' · ' +
+                    form.elements.cuenta.options[form.elements.cuenta.selectedIndex].text + ' · ' +
+                    'nivel: ' + form.elements.nivel.options[form.elements.nivel.selectedIndex].text.toLowerCase() + '.';
+            })
+            .catch(function (err) {
+                if (turno !== solicitud) return;
+                panel.setAttribute('aria-busy', 'false');
+                panel.classList.remove('cargando');
+                panel.classList.add('listo');
+                panel.querySelectorAll('.contenido-real').forEach(function (n) { n.hidden = true; });
+                document.getElementById('resumen-filtros').textContent = 'No se pudieron actualizar los resultados. Pulsar Aplicar para reintentar.';
+                var aviso = document.getElementById("error-carga");
+                aviso.textContent = window.mensajeFalloRed(err);
+                aviso.classList.remove("d-none");
+            });
+    }
+
+    form.addEventListener("submit", function (e) { e.preventDefault(); cargar(); });
+    var periodo = document.getElementById("f-periodo");
+    function usarPeriodo() {
+        var opcion = periodo.options[periodo.selectedIndex];
+        var propio = periodo.value === "otro";
+        document.querySelectorAll(".rango-propio").forEach(function (c) { c.classList.toggle("d-none", !propio); });
+        if (propio) { form.elements.desde.focus(); return; }
+        form.elements.desde.value = periodo.value === "gestion" ? "" : opcion.dataset.desde;
+        form.elements.hasta.value = periodo.value === "gestion" ? "" : opcion.dataset.hasta;
+        cargar();
+    }
+    periodo.addEventListener("change", usarPeriodo);
+    (function () {
+        var d = form.elements.desde.value, h = form.elements.hasta.value;
+        if (!d && !h) return;
+        for (var i = 0; i < periodo.options.length; i++) {
+            var o = periodo.options[i];
+            if (o.dataset.desde === d && o.dataset.hasta === h && o.value !== "gestion") { periodo.selectedIndex = i; return; }
+        }
+        periodo.value = "otro";
+        document.querySelectorAll(".rango-propio").forEach(function (c) { c.classList.remove("d-none"); });
+    })();
+    form.elements.cuenta.addEventListener("change", cargar);
+    form.elements.nivel.addEventListener("change", cargar);
+    form.addEventListener('input', function () { form.elements.hasta.setCustomValidity(''); document.getElementById('error-filtros').classList.add('d-none'); });
+    document.getElementById("limpiar").addEventListener("click", function () { parametros.delete('cuenta'); form.reset(); document.querySelectorAll(".rango-propio").forEach(function (c) { c.classList.add("d-none"); }); form.elements.hasta.setCustomValidity(''); document.getElementById('error-filtros').classList.add('d-none'); cargar(); });
+    new MutationObserver(function () { if (panel.classList.contains("listo")) cargar(); })
+        .observe(document.documentElement, { attributes: true, attributeFilter: ["data-bs-theme"] });
+    cargar();
+})();
+</script>
+{% endblock %}

@@ -34,12 +34,15 @@
 
     <div class="panel-proceso" id="panel-proceso" role="status" aria-live="polite">
         <div class="anillo-proceso"><i class="bi bi-check-lg icono-listo"></i></div>
-        <h1 class="h4 text-guindo mb-2" id="titulo-proceso">Procesando el archivo</h1>
+        <h1 class="h4 text-guindo mb-2" id="titulo-proceso">{% if en_cola %}Carga en cola{% else %}Procesando el archivo{% endif %}</h1>
+        <p class="fw-semibold mb-1" id="cola-proceso"{% if not en_cola %} hidden{% endif %}>
+            {% if cargas_antes %}Hay {{ cargas_antes }} carga{{ cargas_antes|pluralize }} antes; se procesan de una en una.{% else %}Es la siguiente en procesarse.{% endif %}
+        </p>
         <p class="text-secondary mb-1">
             {{ carga.empresa }} · Gestión {{ carga.gestion.anio }}
         </p>
         <p class="text-secondary small mb-3">
-            Se están leyendo y validando las filas. Tiempo transcurrido:
+            Las filas se leen y validan cuando llega su turno. Tiempo desde la subida:
             <span class="tiempo-proceso" id="tiempo-proceso">0 s</span>
         </p>
         <div class="barra-progreso-indeterminada activa mx-auto mb-4" style="max-width: 280px;"></div>
@@ -72,12 +75,33 @@
             setTimeout(function () { window.location.reload(); }, 700);
         }
 
+        function actualizarCola(data) {
+            var cola = document.getElementById("cola-proceso");
+            var titulo = document.getElementById("titulo-proceso");
+            if (!data.en_cola) {
+                cola.hidden = true;
+                titulo.textContent = "Procesando el archivo";
+                return;
+            }
+            cola.hidden = false;
+            titulo.textContent = "Carga en cola";
+            var n = data.cargas_antes || 0;
+            cola.textContent = n > 0
+                ? "Hay " + n + " carga" + (n === 1 ? "" : "s") + " antes; se procesan de una en una."
+                : "Es la siguiente en procesarse.";
+        }
+
         function consultar() {
             fetch(url, { headers: { "Accept": "application/json" } })
                 .then(window.leerRespuestaJson)
                 .then(function (data) {
                     fallos = 0;
-                    if (data.en_proceso) setTimeout(consultar, 2000); else terminar();
+                    if (data.en_proceso) {
+                        actualizarCola(data);
+                        setTimeout(consultar, 2000);
+                    } else {
+                        terminar();
+                    }
                 })
                 .catch(function (err) {
                     if (err && (err.motivo === "sesion" || err.motivo === "pagina")) {
@@ -85,8 +109,7 @@
                         nota.textContent = window.mensajeFalloRed(err);
                         return;
                     }
-                    // Sin conexión o error momentáneo del servidor: se avisa y se reintenta
-                    // con más espera; el proceso sigue en el servidor aunque no se vea aquí.
+                    // Reintentar con mayor espera; el procesamiento continúa en el servidor.
                     fallos += 1;
                     nota.textContent = window.mensajeFalloRed(err) + " Se reintentará automáticamente.";
                     setTimeout(consultar, Math.min(2000 * (fallos + 1), 15000));

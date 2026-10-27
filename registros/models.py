@@ -36,8 +36,13 @@ class EmpresaAuditada(models.Model):
         "se pueden ajustar a mano si hay una excepción real.",
     )
     contacto_nombre = models.CharField("Nombre del representante legal", max_length=150, blank=True)
-    contacto_email = models.EmailField("Correo del contacto", blank=True)
-    contacto_telefono = models.CharField("Teléfono del contacto", max_length=30, blank=True)
+    contador_nombre = models.CharField(
+        "Nombre del contador", max_length=150, blank=True,
+        help_text="Contador de la empresa: firma la justificación de las observaciones.")
+    contador_email = models.EmailField("Correo del contador", blank=True)
+    contador_telefono = models.CharField("Teléfono del contador", max_length=30, blank=True)
+    contacto_email = models.EmailField("Correo del representante legal", blank=True)
+    contacto_telefono = models.CharField("Teléfono del representante legal", max_length=30, blank=True)
     fecha_registro = models.DateTimeField("Fecha de registro", auto_now_add=True)
 
     class Meta:
@@ -131,7 +136,6 @@ class CargaArchivo(models.Model):
         ("anulada", "Anulada"),
     ]
 
-    # Tipo de libro detectado según la estructura del archivo.
     FORMATO_CHOICES = [
         ("diario_pdf", "Libro Diario (PDF)"),
         ("diario_plano", "Libro Diario (Excel/CSV)"),
@@ -149,6 +153,8 @@ class CargaArchivo(models.Model):
         Gestion, on_delete=models.PROTECT, related_name="cargas"
     )
     fecha_carga = models.DateTimeField(auto_now_add=True)
+    # Vacío mientras la carga espera en la cola; se llena cuando el trabajador la toma.
+    inicio_proceso = models.DateTimeField("Inicio del procesamiento", null=True, blank=True)
     estado = models.CharField(
         max_length=20, choices=ESTADO_CHOICES, default="pendiente"
     )
@@ -164,7 +170,6 @@ class CargaArchivo(models.Model):
     # Filas que SÍ se guardaron pero generaron un ErrorValidacion tipo "aviso".
     registros_con_aviso = models.PositiveIntegerField(default=0)
 
-    # Quién confirmó la carga y cuándo.
     revisado_por = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.PROTECT,
@@ -174,7 +179,6 @@ class CargaArchivo(models.Model):
     )
     fecha_revision = models.DateTimeField(null=True, blank=True)
 
-    # Anulación: quién, cuándo y por qué se descartó esta carga.
     anulado_por = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.PROTECT,
@@ -280,6 +284,7 @@ class RegistroContable(models.Model):
         indexes = [
             models.Index(fields=["fecha"]),
             models.Index(fields=["cuenta"]),
+            models.Index(fields=["carga", "fila_origen"], name="registro_carga_fila_idx"),
         ]
 
     def __str__(self):
@@ -367,6 +372,10 @@ class ErrorValidacion(models.Model):
         verbose_name = "Error de Validación"
         verbose_name_plural = "Errores de Validación"
         ordering = ["carga", "fila"]
+        indexes = [
+            models.Index(fields=["carga", "tipo", "fila"], name="error_carga_tipo_fila_idx"),
+            models.Index(fields=["carga", "tipo", "estado_revision"], name="error_carga_revision_idx"),
+        ]
 
     def __str__(self):
         return f"Carga #{self.carga_id} fila {self.fila}: {self.descripcion}"

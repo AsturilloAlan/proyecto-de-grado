@@ -1,8 +1,11 @@
-"""Procesamiento de una carga en segundo plano.
+"""Procesamiento de las cargas en segundo plano, con una cola de una en una.
 
-El archivo se procesa en un hilo aparte para que la página responda de inmediato y
-muestre la carga "En proceso". No requiere servicios adicionales: con libros de hasta
-unos 24.000 registros por gestión basta un hilo por carga.
+Al subir un archivo, la carga entra en cola ("En cola") y la página responde de
+inmediato. Al terminar, su análisis con el modelo entra en la misma cola. Un único trabajador, en un hilo aparte, toma las cargas en orden de llegada
+y las procesa de una en una ("Procesando"). Así varias personas pueden subir archivos a
+la vez sin que el servidor procese varios libros en paralelo. No requiere servicios
+adicionales: la cola es la propia tabla de cargas, por lo que sobrevive a un reinicio
+del servidor.
 """
 import logging
 import threading
@@ -17,9 +20,12 @@ from .services import procesar_carga
 
 logger = logging.getLogger(__name__)
 
-# Pasado este tiempo "En proceso", la carga se considera interrumpida (p. ej., reinicio
-# del servidor). 24.000 registros tardan menos de un minuto.
+# Tiempo máximo para detectar una carga interrumpida tras un reinicio o fallo.
 MINUTOS_MAXIMOS_PROCESO = 10
+
+# Un solo trabajador por proceso del servidor; el candado evita arrancar dos.
+_candado = threading.Lock()
+_trabajador_activo = False
 
 
 def _marcar_fallida(carga, descripcion):
@@ -53,34 +59,136 @@ def procesar_con_manejo_de_errores(carga):
             logger.critical("No se pudo marcar como fallida la carga #%s", carga.id, exc_info=True)
 
 
-def _trabajo(carga_id):
+# Cola
+
+def _en_cola():
+    return CargaArchivo.objects.filter(estado="pendiente", inicio_proceso__isnull=True)
+
+
+def _tomar(carga_id):
+    """Marca la carga como tomada. Devuelve False si otro trabajador ya la tomó."""
+    return CargaArchivo.objects.filter(
+        pk=carga_id, estado="pendiente", inicio_proceso__isnull=True
+    ).update(inicio_proceso=timezone.now()) == 1
+
+
+def _analisis():
+    # Importación diferida: la app analisis depende de registros.
+    from analisis import servicio
+    return servicio
+
+
+def _hay_trabajo():
+    return _en_cola().exists() or _analisis().siguiente_en_cola() is not None
+
+
+def procesar_cola():
+    """Procesa la cola de una en una: primero las cargas, en orden de llegada, y luego los
+    análisis del modelo. Devuelve cuántas tareas procesó.
+    """
+    servicio = _analisis()
+    procesadas = 0
+    while True:
+        carga_id = _en_cola().order_by("fecha_carga", "id").values_list("id", flat=True).first()
+        if carga_id is not None:
+            if not _tomar(carga_id):
+                continue
+            carga = CargaArchivo.objects.get(pk=carga_id)
+            procesar_con_manejo_de_errores(carga)
+            if servicio.analisis_activado():
+                carga.refresh_from_db()
+                servicio.encolar(carga)
+            procesadas += 1
+            continue
+        analisis_id = servicio.siguiente_en_cola()
+        if analisis_id is None:
+            return procesadas
+        if not servicio.tomar(analisis_id):
+            continue
+        servicio.ejecutar(servicio.AnalisisCarga.objects.select_related("carga").get(pk=analisis_id))
+        procesadas += 1
+
+
+def _bucle_trabajador():
+    global _trabajador_activo
+    while True:
+        try:
+            procesar_cola()
+        except Exception:
+            # La próxima consulta de estado reinicia el trabajador; la carga permanece en cola.
+            logger.critical("El trabajador de la cola de cargas se detuvo", exc_info=True)
+            with _candado:
+                _trabajador_activo = False
+            connections.close_all()
+            return
+        # El candado evita dejar sin trabajador una carga que llega al vaciarse la cola.
+        with _candado:
+            try:
+                hay_mas = _hay_trabajo()
+            except Exception:
+                hay_mas = False
+            if not hay_mas:
+                _trabajador_activo = False
+                connections.close_all()
+                return
+
+
+def asegurar_trabajador():
+    """Arranca el trabajador de la cola si no está activo. Devuelve True si lo arrancó."""
+    global _trabajador_activo
+    with _candado:
+        if _trabajador_activo:
+            return False
+        _trabajador_activo = True
     try:
-        procesar_con_manejo_de_errores(CargaArchivo.objects.get(pk=carga_id))
+        threading.Thread(target=_bucle_trabajador, name="cola-cargas", daemon=True).start()
     except Exception:
-        logger.critical("No se pudo iniciar el proceso de la carga #%s", carga_id, exc_info=True)
-    finally:
-        # Cada hilo abre su propia conexión a la base de datos; se cierra al terminar.
-        connections.close_all()
+        with _candado:
+            _trabajador_activo = False
+        raise
+    return True
 
 
 def iniciar_procesamiento(carga):
-    """Procesa la carga en segundo plano, o en el momento si así está configurado
+    """Pone la carga en la cola, o la procesa en el momento si así está configurado
     (las pruebas automáticas lo necesitan para verificar el resultado).
     """
     if not getattr(settings, "PROCESAR_EN_SEGUNDO_PLANO", True):
-        procesar_con_manejo_de_errores(carga)
+        if _tomar(carga.id):
+            carga.refresh_from_db(fields=["inicio_proceso"])
+            procesar_con_manejo_de_errores(carga)
+            servicio = _analisis()
+            if servicio.analisis_activado():
+                carga.refresh_from_db()
+                servicio.analizar_ahora(carga)
         return
-    transaction.on_commit(
-        lambda: threading.Thread(
-            target=_trabajo, args=(carga.id,), name=f"carga-{carga.id}", daemon=True
-        ).start()
-    )
+    transaction.on_commit(asegurar_trabajador)
+
+
+def posicion_en_cola(carga):
+    """Cuántas cargas se procesan antes que esta, contando la actual (0 si ya empezó)."""
+    if carga.estado != "pendiente" or carga.inicio_proceso is not None:
+        return 0
+    antes = _en_cola().filter(fecha_carga__lt=carga.fecha_carga).count()
+    empatadas = _en_cola().filter(fecha_carga=carga.fecha_carga, id__lt=carga.id).count()
+    procesando = CargaArchivo.objects.filter(
+        estado="pendiente", inicio_proceso__isnull=False
+    ).exists()
+    return antes + empatadas + int(procesando)
 
 
 def revisar_interrumpida(carga):
-    """Si la carga quedó "En proceso" demasiado tiempo, la marca como fallida."""
+    """Si la carga quedó "Procesando" demasiado tiempo, la marca como fallida. Si está
+    en cola, se asegura de que el trabajador esté activo (p. ej., tras un reinicio).
+    """
+    if carga.estado != "pendiente":
+        return False
+    if carga.inicio_proceso is None:
+        if getattr(settings, "PROCESAR_EN_SEGUNDO_PLANO", True):
+            asegurar_trabajador()
+        return False
     limite = timezone.now() - timedelta(minutes=MINUTOS_MAXIMOS_PROCESO)
-    if carga.estado == "pendiente" and carga.fecha_carga < limite:
+    if carga.inicio_proceso < limite:
         return _marcar_fallida(
             carga,
             "El procesamiento se interrumpió antes de terminar (por ejemplo, por un "

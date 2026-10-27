@@ -9,19 +9,22 @@
             </div>
             <h1 id="lista-empresas" class="text-guindo mb-0 h3">Empresas clientes de ST&amp;S</h1>
         </div>
+        {% if es_administrador %}
         <a class="btn btn-guindo" href="{% url 'registros:empresa_crear' %}">
             Registrar nueva empresa
         </a>
+        {% endif %}
     </div>
 
     <form method="get" class="row g-2 mb-3">
         <div class="col-sm-8 col-md-5">
+            <label for="buscar-empresa" class="form-label">Nombre o NIT de la empresa</label>
             <div class="input-group">
                 <span class="input-group-text input-group-text-icono"><i class="bi bi-search"></i></span>
-                <input type="text" name="q" value="{{ busqueda }}" class="form-control"
+                <input type="search" id="buscar-empresa" name="q" value="{{ busqueda }}" class="form-control"
                        placeholder="Buscar por nombre o NIT...">
                 {% if busqueda %}
-                    <a href="{% url 'registros:empresas_lista' %}" class="btn btn-outline-secondary">
+                    <a href="{% url 'registros:empresas_lista' %}" class="btn btn-outline-secondary" aria-label="Limpiar búsqueda">
                         <i class="bi bi-x-lg"></i>
                     </a>
                 {% endif %}
@@ -32,13 +35,13 @@
 
     {% if empresas %}
         <div class="table-responsive">
-            <table class="table table-hover align-middle">
+            <table class="table tabla-fichas table-hover align-middle">
                 <thead>
                     <tr>
                         <th>Nombre</th>
                         <th>NIT</th>
                         <th>Rubro</th>
-                        <th>Contacto</th>
+                        <th>Contactos</th>
                         <th>Registrada</th>
                         <th></th>
                     </tr>
@@ -46,28 +49,27 @@
                 <tbody>
                     {% for empresa in empresas %}
                     <tr>
-                        <td>{{ empresa.nombre }}</td>
-                        <td>{{ empresa.nit|default:"—" }}</td>
-                        <td>{{ empresa.rubro|default:"—" }}</td>
-                        <td>
+                        <td data-etiqueta="Nombre">{{ empresa.nombre }}</td>
+                        <td data-etiqueta="NIT">{{ empresa.nit|default:"—" }}</td>
+                        <td data-etiqueta="Rubro">{{ empresa.rubro|default:"—" }}</td>
+                        <td data-etiqueta="Contactos">
                             {% if empresa.contacto_nombre %}
-                                {{ empresa.contacto_nombre }}<br>
-                                <small class="text-secondary">
-                                    {% if empresa.contacto_email %}
-                                        {{ empresa.contacto_email }}
-                                    {% endif %}
-                                    {% if empresa.contacto_email and empresa.contacto_telefono %}<br>{% endif %}
-                                    {% if empresa.contacto_telefono %}
-                                        {{ empresa.contacto_telefono }}
-                                    {% endif %}
-                                </small>
-                            {% else %}—{% endif %}
+                                <div>{{ empresa.contacto_nombre }} <small class="text-secondary">· Representante legal</small></div>
+                                <small class="text-secondary">{{ empresa.contacto_email }}{% if empresa.contacto_email and empresa.contacto_telefono %} · {% endif %}{{ empresa.contacto_telefono }}</small>
+                            {% endif %}
+                            {% if empresa.contador_nombre %}
+                                <div class="mt-1">{{ empresa.contador_nombre }} <small class="text-secondary">· Contador</small></div>
+                                <small class="text-secondary">{{ empresa.contador_email }}{% if empresa.contador_email and empresa.contador_telefono %} · {% endif %}{{ empresa.contador_telefono }}</small>
+                            {% endif %}
+                            {% if not empresa.contacto_nombre and not empresa.contador_nombre %}—{% endif %}
                         </td>
-                        <td>{{ empresa.fecha_registro|date:"d/m/Y" }}</td>
-                        <td>
+                        <td data-etiqueta="Registrada">{{ empresa.fecha_registro|date:"d/m/Y" }}</td>
+                        <td data-etiqueta="Acciones">
+                            {% if es_administrador %}
                             <a class="btn btn-sm btn-outline-guindo" href="{% url 'registros:empresa_editar' empresa.id %}">
                                 Editar
                             </a>
+                            {% endif %}
                             <a class="btn btn-sm btn-outline-secondary" href="{% url 'registros:empresa_historial' empresa.id %}">
                                 Historial
                             </a>
@@ -82,17 +84,21 @@
         <div class="estado-vacio">
             <div class="estado-vacio-icono"><i class="bi bi-search"></i></div>
             <h3 class="text-guindo">Sin resultados para "{{ busqueda }}"</h3>
-            <p class="text-secondary">Prueba con otro nombre o el NIT completo.</p>
+            <p class="text-secondary">Buscar con otro nombre o el NIT completo.</p>
             <a class="btn btn-outline-guindo btn-sm mt-2" href="{% url 'registros:empresas_lista' %}">Ver todas</a>
         </div>
     {% else %}
         <div class="estado-vacio">
             <div class="estado-vacio-icono"><i class="bi bi-building"></i></div>
             <h3 class="text-guindo">Todavía no hay empresas registradas</h3>
+            {% if es_administrador %}
             <p class="text-secondary">Todavía no hay empresas cliente registradas.</p>
             <a class="btn btn-guindo btn-sm mt-2" href="{% url 'registros:empresa_crear' %}">
                 Registrar nueva empresa
             </a>
+            {% else %}
+            <p class="text-secondary">El Administrador registra las empresas clientes.</p>
+            {% endif %}
         </div>
     {% endif %}
 {% endblock %}

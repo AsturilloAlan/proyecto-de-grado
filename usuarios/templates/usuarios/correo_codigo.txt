@@ -16,5 +16,5 @@ Detalle de la solicitud
 Si el acceso no fue solicitado por el titular de la cuenta, ignorar este correo y cambiar la contraseña.
 ST&S nunca solicita este código por teléfono, correo o mensaje.
 
-Correo automático, no responder.
+Correo automático, no responder. Referencia: {{ referencia }}
 {% endautoescape %}

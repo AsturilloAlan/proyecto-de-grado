@@ -8,6 +8,9 @@ from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
 
+import jwt as pyjwt
+
+from . import jwt_tokens
 from .models import CodigoVerificacion
 
 
@@ -291,12 +294,19 @@ class RolRequeridoTests(TestCase):
         respuesta = self.client.get(reverse("registros:empresas_lista"))
         self.assertEqual(respuesta.status_code, 200)
 
-    def test_auditor_es_redirigido_con_mensaje_en_vez_de_error_403(self):
+    def test_auditor_tambien_puede_entrar_a_empresas(self):
         self.client.login(username="auditor2", password="Clave-Segura123")
-        respuesta = self.client.get(reverse("registros:empresas_lista"), follow=True)
+        respuesta = self.client.get(reverse("registros:empresas_lista"))
+        self.assertEqual(respuesta.status_code, 200)
+        self.assertContains(respuesta, "Empresas")
+
+    def test_auditor_es_redirigido_de_usuarios_con_mensaje_en_vez_de_error_403(self):
+        self.client.login(username="auditor2", password="Clave-Segura123")
+        respuesta = self.client.get(reverse("usuarios_lista"), follow=True)
         self.assertRedirects(respuesta, reverse("home"))
         mensajes = [str(m) for m in respuesta.context["messages"]]
         self.assertTrue(any("Acceso restringido" in m for m in mensajes))
+        self.assertNotContains(respuesta, reverse("usuarios_lista"))
 
     def test_superusuario_entra_sin_pertenecer_al_grupo(self):
         self.client.login(username="root1", password="Clave-Segura123")
@@ -313,6 +323,12 @@ class SeguridadDeSesionTests(TestCase):
         self.assertEqual(settings.SESSION_COOKIE_AGE, 60 * 30)
         self.assertTrue(settings.SESSION_COOKIE_HTTPONLY)
         self.assertTrue(settings.CSRF_COOKIE_HTTPONLY)
+
+    def test_encabezados_de_seguridad_en_las_respuestas(self):
+        respuesta = self.client.get(reverse("login"))
+        self.assertEqual(respuesta["X-Frame-Options"], "DENY")
+        self.assertEqual(respuesta["X-Content-Type-Options"], "nosniff")
+        self.assertEqual(respuesta["Referrer-Policy"], "same-origin")
 
 
 class PerfilTests(TestCase):
@@ -375,7 +391,6 @@ class PerfilTests(TestCase):
         )
         self.assertRedirects(respuesta, reverse("cambiar_clave_hecho"))
 
-        # Aviso por correo al dueño de la cuenta.
         self.assertEqual(len(mail.outbox), 1)
         self.assertEqual(mail.outbox[0].to, ["auditor3@sts.com"])
         self.assertIn("contraseña", mail.outbox[0].subject.lower())
@@ -509,3 +524,106 @@ class BloqueoLoginContadorTests(TestCase):
         respuesta = self.client.get(reverse("login"))
         self.assertNotIn("segundos_bloqueo", respuesta.context)
         self.assertNotContains(respuesta, 'id="panel-bloqueo"')
+
+
+class JWTLoginTests(TestCase):
+    """JWT del inicio de sesión: se emite tras el 2FA y se exige en cada petición."""
+
+    def setUp(self):
+        self.usuario = User.objects.create_user(
+            username="auditor_jwt", password="Clave-Segura123", email="jwt@sts.com"
+        )
+        self.usuario.groups.add(Group.objects.get_or_create(name="Auditor")[0])
+
+    def _login_con_2fa(self):
+        self.client.post(reverse("login"), {"username": "auditor_jwt", "password": "Clave-Segura123"})
+        codigo = (
+            CodigoVerificacion.objects.filter(usuario=self.usuario, usado=False)
+            .order_by("-creado").first().codigo
+        )
+        return self.client.post(reverse("verificar_codigo"), {"codigo": codigo})
+
+    def test_login_con_2fa_emite_jwt_en_cookie_httponly(self):
+        respuesta = self._login_con_2fa()
+        cookie = respuesta.cookies[jwt_tokens.NOMBRE_COOKIE]
+        self.assertTrue(cookie["httponly"])
+        self.assertEqual(cookie["samesite"], "Lax")
+        datos = pyjwt.decode(
+            cookie.value, jwt_tokens._secreto(), algorithms=["HS256"], issuer=jwt_tokens.EMISOR
+        )
+        self.assertEqual(datos["sub"], str(self.usuario.pk))
+        self.assertEqual(datos["usuario"], "auditor_jwt")
+        self.assertEqual(datos["rol"], "Auditor")
+        self.assertEqual(datos["exp"] - datos["iat"], settings.SESSION_COOKIE_AGE)
+
+    def test_solo_contrasena_sin_2fa_no_emite_jwt(self):
+        respuesta = self.client.post(
+            reverse("login"), {"username": "auditor_jwt", "password": "Clave-Segura123"}
+        )
+        self.assertNotIn(jwt_tokens.NOMBRE_COOKIE, respuesta.cookies)
+
+    def test_con_jwt_valido_se_accede_al_sistema(self):
+        self._login_con_2fa()
+        respuesta = self.client.get(reverse("home"))
+        self.assertEqual(respuesta.status_code, 200)
+        self.assertTrue(respuesta.wsgi_request.user.is_authenticated)
+
+    def _asegura_cierre_con_token(self, token):
+        self._login_con_2fa()
+        self.client.cookies[jwt_tokens.NOMBRE_COOKIE] = token
+        respuesta = self.client.get(reverse("home"))
+        self.assertRedirects(respuesta, reverse("login"), fetch_redirect_response=False)
+        self.assertFalse(respuesta.wsgi_request.user.is_authenticated)
+
+    def test_sin_jwt_se_cierra_la_sesion(self):
+        self._asegura_cierre_con_token("")
+
+    def test_jwt_alterado_se_rechaza(self):
+        self._login_con_2fa()
+        token = self.client.cookies[jwt_tokens.NOMBRE_COOKIE].value
+        self._asegura_cierre_con_token(token[:-3] + ("aaa" if not token.endswith("aaa") else "bbb"))
+
+    def test_jwt_firmado_con_otra_clave_se_rechaza(self):
+        self._login_con_2fa()
+        sesion = self.client.session.session_key
+        falso = pyjwt.encode({
+            "iss": jwt_tokens.EMISOR, "sub": str(self.usuario.pk),
+            "ses": jwt_tokens.huella_sesion(sesion),
+            "iat": timezone.now(), "exp": timezone.now() + timedelta(minutes=30),
+        }, "otra-clave-distinta-a-la-del-sistema-de-32-bytes", algorithm="HS256")
+        self._asegura_cierre_con_token(falso)
+
+    def test_jwt_vencido_se_rechaza(self):
+        self._login_con_2fa()
+        sesion = self.client.session.session_key
+        vencido = pyjwt.encode({
+            "iss": jwt_tokens.EMISOR, "sub": str(self.usuario.pk),
+            "ses": jwt_tokens.huella_sesion(sesion),
+            "iat": timezone.now() - timedelta(minutes=40),
+            "exp": timezone.now() - timedelta(minutes=10),
+        }, jwt_tokens._secreto(), algorithm="HS256")
+        self._asegura_cierre_con_token(vencido)
+
+    def test_jwt_de_otra_sesion_se_rechaza(self):
+        otro = jwt_tokens.emitir(self.usuario, "clave-de-otra-sesion")
+        self._asegura_cierre_con_token(otro)
+
+    def test_jwt_se_renueva_pasada_la_mitad_de_su_vigencia(self):
+        self._login_con_2fa()
+        sesion = self.client.session.session_key
+        viejo = pyjwt.encode({
+            "iss": jwt_tokens.EMISOR, "sub": str(self.usuario.pk),
+            "ses": jwt_tokens.huella_sesion(sesion),
+            "iat": timezone.now() - timedelta(minutes=20),
+            "exp": timezone.now() + timedelta(minutes=10),
+        }, jwt_tokens._secreto(), algorithm="HS256")
+        self.client.cookies[jwt_tokens.NOMBRE_COOKIE] = viejo
+        respuesta = self.client.get(reverse("home"))
+        self.assertEqual(respuesta.status_code, 200)
+        nuevo = respuesta.cookies[jwt_tokens.NOMBRE_COOKIE].value
+        self.assertNotEqual(nuevo, viejo)
+
+    def test_cerrar_sesion_borra_el_jwt(self):
+        self._login_con_2fa()
+        respuesta = self.client.post(reverse("logout"))
+        self.assertEqual(respuesta.cookies[jwt_tokens.NOMBRE_COOKIE].value, "")

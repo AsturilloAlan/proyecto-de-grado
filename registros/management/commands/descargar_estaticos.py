@@ -1,4 +1,4 @@
-"""Descarga Bootstrap y Bootstrap Icons a static/vendor para que el sistema se vea bien
+"""Descarga Bootstrap, Bootstrap Icons y Chart.js a static/vendor para que el sistema se vea bien
 sin internet (por ejemplo, en la defensa). Se ejecuta una sola vez con conexión:
 
     python manage.py descargar_estaticos
@@ -16,11 +16,12 @@ ARCHIVOS = {
     "bootstrap-icons/bootstrap-icons.min.css": f"{CDN}/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css",
     "bootstrap-icons/fonts/bootstrap-icons.woff2": f"{CDN}/bootstrap-icons@1.11.3/font/fonts/bootstrap-icons.woff2",
     "bootstrap-icons/fonts/bootstrap-icons.woff": f"{CDN}/bootstrap-icons@1.11.3/font/fonts/bootstrap-icons.woff",
+    "chartjs/chart.umd.min.js": f"{CDN}/chart.js@4.4.1/dist/chart.umd.min.js",
 }
 
 
 class Command(BaseCommand):
-    help = "Descarga Bootstrap y sus íconos a static/vendor para uso sin internet."
+    help = "Descarga Bootstrap, sus íconos y Chart.js a static/vendor para uso sin internet."
 
     def handle(self, *args, **options):
         destino = Path(settings.BASE_DIR) / "static" / "vendor"

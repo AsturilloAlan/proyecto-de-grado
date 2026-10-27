@@ -140,6 +140,14 @@ def _documentos_en_glosa(glosa):
     )
 
 
+def _concepto_de_glosa(glosa):
+    """Lo que identifica el concepto de una línea para detectar duplicados: las facturas o
+    recibos que cita (aunque estén escritos distinto, "F.526" o "F-526") o, si no cita
+    ninguno, la glosa completa sin importar mayúsculas ni espacios."""
+    documentos = _documentos_en_glosa(glosa)
+    return documentos if documentos else " ".join(str(glosa or "").upper().split())
+
+
 def _avisos_calidad_dato(
     carga, numero_fila, codigo_cuenta, comprobante, fecha_transaccion, debe, haber,
     claves_vistas, verificar_comprobante=True, glosa="",
@@ -167,13 +175,13 @@ def _avisos_calidad_dato(
             )
         )
 
-    # Duplicado solo con comprobante. Si la glosa cita facturas o recibos, también deben
-    # coincidir: un comprobante puede agrupar varias facturas del mismo monto.
+    # Un duplicado debe coincidir en comprobante y concepto (documentos citados o glosa).
+    # Un comprobante puede incluir movimientos del mismo monto con distinto concepto.
     comprobante_normalizado = str(comprobante or "").strip()
     if comprobante_normalizado:
         clave = (
             comprobante_normalizado, fecha_transaccion, codigo_cuenta,
-            round(debe, 2), round(haber, 2), _documentos_en_glosa(glosa),
+            round(debe, 2), round(haber, 2), _concepto_de_glosa(glosa),
         )
         fila_previa = claves_vistas.get(clave)
         if fila_previa is not None:
@@ -191,7 +199,7 @@ def _avisos_calidad_dato(
     return avisos
 
 
-# --- Parseo del Libro Diario en PDF ---
+# Parseo del Libro Diario en PDF
 PATRON_PDF_TIPO_FECHA = re.compile(r"^Tipo:\s*(\S+)\s+Fecha:\s*(\d{2}/\d{2}/\d{4})")
 PATRON_PDF_NRO_DOC = re.compile(r"^Nro\.\s*Doc\.:\s*(\S+)")
 PATRON_PDF_GLOSA = re.compile(r"^Glosa:\s*(.*)$")
@@ -390,7 +398,6 @@ def _extraer_comprobantes_pdf(ruta_archivo):
                         float(w["text"].replace(",", "")) for w in montos if w["x0"] >= umbral_debe_haber
                     )
                     actual["cuentas"].append((codigo, nombre or codigo, debe, haber))
-                # cualquier otra línea (nombre de empresa, NIT, "Razon Social", etc.) se ignora
 
     if actual is not None:
         comprobantes.append(actual)
@@ -546,14 +553,12 @@ def _procesar_hoja_calculo(carga):
         if pd.isna(fecha) and all(
             campo in _mapear_columnas(fila.tolist()) for campo in CAMPOS_REQUERIDOS
         ):
-            # Encabezado repetido en cada página o bloque: no es una transacción.
             continue
         debe_raw = _valor(fila, mapeo, "debe")
         haber_raw = _valor(fila, mapeo, "haber")
         tiene_importe = not (_es_vacio(debe_raw) and _es_vacio(haber_raw))
 
         if pd.isna(fecha) and _es_total_general(fila, mapeo, debe_raw, haber_raw):
-            # Total general al pie del libro: no es una transacción.
             continue
 
         if not tiene_columna_cuenta and pd.isna(fecha):
@@ -708,7 +713,6 @@ def procesar_carga(carga):
     filas_validas, errores_a_guardar, total, nombre_por_codigo, primera_fila_por_codigo = resultado
 
     if total == 0:
-        # Un archivo sin transacciones no puede quedar validado.
         _rechazar_carga(carga, "El archivo no contiene transacciones", errores=errores_a_guardar)
         return
 
@@ -728,7 +732,7 @@ def procesar_carga(carga):
         )
         return
 
-    # Una sola transacción: si algo falla, no queda nada a medias.
+    # La transacción revierte la importación completa si falla algún paso.
     with transaction.atomic():
         if not _sigue_en_proceso(carga):
             return
@@ -808,10 +812,8 @@ def _guardar_resultado(
     carga.registros_con_error = con_error
     carga.registros_con_aviso = con_aviso
     if con_error and validos == 0:
-        # No se guardó ni una sola fila: ahí sí es un fracaso real.
         carga.estado = "con_errores"
     elif con_error or con_aviso:
-        # Filas rechazadas o avisos pendientes: requiere revisión del auditor.
         carga.estado = "con_observaciones"
     else:
         carga.estado = "validado"

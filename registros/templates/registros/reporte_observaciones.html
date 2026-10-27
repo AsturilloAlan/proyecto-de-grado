@@ -1,137 +1,15 @@
 {% extends "base.html" %}
 {% load static %}
-{% block title %}Reporte de observaciones · Carga #{{ carga.id }}{% endblock %}
+{% block title %}Reporte de observaciones · {% if carga %}Carga #{{ carga.id }}{% else %}{{ empresa }} {{ gestion.anio }}{% endif %}{% endblock %}
 {% block content %}
-    <style>
-        /* Paleta del reporte por tema; al imprimir siempre se usa la clara. */
-        .reporte {
-            --rep-tinta: var(--guindo-oscuro);
-            --rep-acento: var(--guindo);
-            --rep-suave: rgba(110,27,63,.05);
-            --rep-borde: rgba(110,27,63,.16);
-            --rep-secundario: #7a6f76;
-            --rep-cabecera: var(--guindo-oscuro);
-            --rep-cebra: rgba(110,27,63,.035);
-            --rep-firma: #333;
-        }
-        [data-bs-theme="dark"] .reporte {
-            --rep-tinta: #f1e3ea;
-            --rep-acento: #e7b8cd;
-            --rep-suave: rgba(231,184,205,.06);
-            --rep-borde: rgba(231,184,205,.18);
-            --rep-secundario: #b9adc0;
-            --rep-cabecera: #5a1d38;
-            --rep-cebra: rgba(231,184,205,.04);
-            --rep-firma: #b9adc0;
-        }
+    {% include "_estilos_reporte.html" %}
+    <style>.celda-respuesta { min-height: 3.5rem; } @media print { .celda-respuesta { height: 4.5rem; } }</style>
 
-        .reporte-membrete {
-            display: flex; align-items: center; justify-content: space-between; gap: 1.5rem;
-            padding-bottom: 1rem; margin-bottom: 1.5rem;
-            border-bottom: 3px solid var(--rep-acento);
-        }
-        .reporte-logo { position: relative; width: 150px; height: 52px; flex-shrink: 0; }
-        .reporte-logo img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; object-position: left center; }
-        .reporte-membrete .razon-social {
-            font-family: Georgia, "Times New Roman", serif; font-weight: 700; font-size: 1.05rem;
-            color: var(--rep-tinta); letter-spacing: .02em;
-        }
-        .reporte-membrete .lema { font-size: .75rem; color: var(--rep-secundario); letter-spacing: .05em; text-transform: uppercase; }
-        .reporte-membrete .encabezado-derecha { text-align: end; }
-        .reporte-membrete .etiqueta-documento {
-            display: inline-block; padding: .2rem .65rem; border-radius: 999px;
-            border: 1px solid var(--rep-borde); color: var(--rep-tinta);
-            font-size: .72rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
-        }
-        .reporte-titulo { color: var(--rep-tinta); font-family: Georgia, "Times New Roman", serif; font-weight: 700; }
-        .reporte-intro { color: var(--rep-secundario); max-width: 70ch; }
+    {% include "_migas_reporte.html" with titulo="Reporte de observaciones" %}
 
-        .reporte-datos {
-            display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem 1.5rem;
-            margin: 0 0 1.75rem; padding: 1.1rem 1.35rem;
-            background: var(--rep-suave); border: 1px solid var(--rep-borde); border-radius: .75rem;
-        }
-        .reporte-datos dt {
-            font-size: .7rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
-            color: var(--rep-secundario); margin-bottom: .15rem;
-        }
-        .reporte-datos dd { margin: 0; color: var(--bs-body-color); }
-        .reporte-datos .dato-destacado { font-size: 1.5rem; font-weight: 700; color: var(--rep-acento); line-height: 1.1; }
-
-        .reporte-tabla { border-color: var(--rep-borde); }
-        /* Selector más específico que el estilo general de encabezados de base.html. */
-        .reporte .reporte-tabla > thead > tr > th,
-        [data-bs-theme="dark"] .reporte .reporte-tabla > thead > tr > th {
-            --bs-table-bg: var(--rep-cabecera);
-            background: var(--rep-cabecera); color: #fff !important; border-color: var(--rep-cabecera);
-            font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; white-space: nowrap;
-        }
-        .reporte-tabla { table-layout: fixed; width: 100%; min-width: 900px; }
-        .reporte-tabla th { white-space: normal !important; vertical-align: bottom; }
-        .reporte-tabla td { border-color: var(--rep-borde); vertical-align: top; overflow-wrap: anywhere; }
-        .reporte-tabla .celda-justificacion { height: 3.5rem; }
-        .reporte-tabla tbody tr:nth-child(even) td { background: var(--rep-cebra); }
-
-        .firma-bloque { display: flex; gap: 3rem; margin-top: 4.5rem; break-inside: avoid; }
-        .firma-bloque > div { flex: 1 1 0; }
-        .firma-linea { border-top: 1px solid var(--rep-firma); margin-top: 3.5rem; padding-top: .4rem; width: 85%; }
-        .firma-linea .cargo { font-size: .8rem; color: var(--rep-secundario); }
-        .reporte-pie {
-            margin-top: 3rem; padding-top: .75rem; border-top: 1px solid var(--rep-borde);
-            font-size: .75rem; color: var(--rep-secundario); text-align: center;
-        }
-
-        @media print {
-            @page { size: auto; margin: 12mm 10mm; }
-            .no-print, .navbar-guindo, .footer-app { display: none !important; }
-            html, body, main.container { background: #fff !important; }
-            * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-            .card-principal {
-                background: #fff !important; box-shadow: none !important; border: none !important;
-                backdrop-filter: none !important; animation: none !important;
-            }
-            .card-principal > .card-body { padding: 0 !important; }
-            .reporte, [data-bs-theme="dark"] .reporte {
-                --rep-tinta: #4A1129; --rep-acento: #6E1B3F; --rep-suave: #f8f2f5;
-                --rep-borde: #d9c9d1; --rep-secundario: #555; --rep-cabecera: #4A1129;
-                --rep-cebra: #faf6f8; --rep-firma: #333;
-                color: #000;
-            }
-            .reporte .reporte-datos dd, .reporte td { color: #000 !important; }
-            .reporte .logo-tema-claro { opacity: 1 !important; }
-            .reporte .logo-tema-oscuro { opacity: 0 !important; }
-            .reporte .alert { background: #fff !important; color: #000 !important; }
-            /* En modo oscuro Bootstrap pinta las celdas con su fondo oscuro; al imprimir se fuerza blanco. */
-            .reporte .reporte-tabla {
-                --bs-table-bg: #fff; --bs-table-color: #000; --bs-table-striped-bg: #faf6f8;
-                --bs-table-hover-bg: #fff; --bs-table-active-bg: #fff; --bs-table-border-color: #d9c9d1;
-            }
-            .reporte .reporte-tabla > tbody > tr > td { background-color: #fff !important; box-shadow: none !important; }
-            .reporte .reporte-tabla > tbody > tr:nth-child(even) > td { background-color: #faf6f8 !important; }
-            .reporte .reporte-tabla td, .reporte .reporte-tabla td * { color: #000 !important; }
-            .reporte-tabla-contenedor { overflow: visible !important; }
-            .reporte-tabla { min-width: 0 !important; font-size: 8.5pt; }
-            .reporte-tabla th { font-size: 7pt !important; padding: .3rem .35rem !important; }
-            .reporte-tabla td { padding: .3rem .35rem !important; }
-            .reporte-datos { grid-template-columns: repeat(3, 1fr); font-size: 9.5pt; }
-            .reporte-intro { font-size: 10pt; }
-            .reporte-tabla thead { display: table-header-group; }
-            .reporte-tabla tr { break-inside: avoid; }
-        }
-    </style>
-
-    <nav aria-label="breadcrumb" class="no-print">
-        <ol class="breadcrumb small mb-3">
-            <li class="breadcrumb-item"><a href="{% url 'home' %}">Inicio</a></li>
-            <li class="breadcrumb-item"><a href="{% url 'registros:detalle_carga' carga.id %}">Carga #{{ carga.id }}</a></li>
-            <li class="breadcrumb-item active" aria-current="page">Reporte de observaciones</li>
-        </ol>
-    </nav>
-
-    <div class="d-flex justify-content-end no-print mb-3">
-        <button type="button" class="btn btn-sm btn-guindo" onclick="window.print()">
-            Imprimir / guardar como PDF
-        </button>
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 no-print mb-3">
+        <a class="btn btn-sm btn-outline-secondary" href="{{ origen.url }}"><i class="bi bi-arrow-left" aria-hidden="true"></i> {{ origen.texto }}</a>
+        {% include "_descargas_reporte.html" %}
     </div>
 
     <article class="reporte">
@@ -147,12 +25,12 @@
             </div>
         </div>
         <div class="encabezado-derecha">
-            <span class="etiqueta-documento">Papel de trabajo</span>
-            <div class="small mt-1" style="color: var(--rep-secundario);">Carga N.º {{ carga.id }}</div>
+            <span class="etiqueta-documento">Para firmar con la empresa</span>
+            <div class="small mt-1" style="color: var(--rep-secundario);">{% if carga %}Carga N.º {{ carga.id }}{% else %}Gestión {{ gestion.anio }} · consolidado{% endif %} · Emisión N.º {{ emision.id }}</div>
         </div>
     </div>
 
-    {% if carga.estado == 'anulada' %}
+    {% if carga and carga.estado == 'anulada' %}
         <div class="alert alert-dark">
             <strong>CARGA ANULADA.</strong> Este reporte corresponde a una carga anulada el
             {{ carga.fecha_anulacion|date:"d/m/Y" }} por {{ carga.anulado_por.username }}.
@@ -169,48 +47,74 @@
     <p class="reporte-intro mb-4">Hallazgos confirmados por el auditor. No incluye los avisos descartados.</p>
 
     <dl class="reporte-datos">
-        <div><dt>Empresa auditada</dt><dd>{{ carga.empresa }}</dd></div>
-        <div><dt>Gestión</dt><dd>{{ carga.gestion }}</dd></div>
-        <div><dt>Origen de los datos</dt><dd>{{ carga.get_formato_detectado_display|default:"Sin dato" }}</dd></div>
+        <div><dt>Empresa auditada</dt><dd>{{ empresa }}{% if empresa.nit %}<br><span class="small">NIT {{ empresa.nit }}</span>{% endif %}</dd></div>
+        <div><dt>Gestión</dt><dd>{{ gestion }}</dd></div>
+        <div><dt>Alcance</dt><dd>{% if carga %}Carga N.º {{ carga.id }} · {{ carga.get_formato_detectado_display|default:"Sin dato" }}{% else %}{{ cargas|length }} carga{{ cargas|length|pluralize }} válida{{ cargas|length|pluralize }} de la gestión{% endif %}</dd></div>
         <div><dt>Reporte generado</dt><dd>{{ fecha_generacion|date:"d/m/Y H:i" }} por {{ generado_por.username }}</dd></div>
-        <div><dt>Total de observaciones</dt><dd class="dato-destacado">{{ filas_reporte|length }}</dd></div>
-        <div class="no-print">
+        <div><dt>Total de observaciones</dt><dd class="dato-destacado">{{ filas_reporte|length }}</dd><dd class="small">Importe observado: {{ importe_observado|floatformat:"2g" }}</dd></div>
+        <div>
             <dt>Cobertura de la revisión</dt>
-            <dd>{{ avisos_total }} avisos generados, {{ avisos_pendientes }} pendiente{{ avisos_pendientes|pluralize }} de revisar. Importación: {{ carga.estado_importacion_display|lower }}. Revisión: {{ carga.estado_revision_carga_display|lower }}.</dd>
+            <dd>{{ avisos_total }} avisos generados: {{ filas_reporte|length }} observado{{ filas_reporte|length|pluralize }}, {{ avisos_validos }} descartado{{ avisos_validos|pluralize }} como válido{{ avisos_validos|pluralize }} y {{ avisos_pendientes }} pendiente{{ avisos_pendientes|pluralize }}.{% if carga %} Importación: {{ carga.estado_importacion_display|lower }}. Revisión: {{ carga.estado_revision_carga_display|lower }}.{% endif %}</dd>
         </div>
     </dl>
+
+    {% include "_alcance_reporte.html" %}
+
+    {% if por_tipo %}
+        {# Conteo interno de la revisión: no va en lo que firma la empresa (impresión/PDF). #}
+        <section class="reporte-seccion no-print">
+            <h2>Avisos por tipo de regla</h2>
+            <table class="table table-sm table-bordered reporte-cuadro">
+                <thead><tr><th>Regla</th><th class="text-end">Avisos</th><th class="text-end">Observados</th><th class="text-end">Válidos</th><th class="text-end">Pendientes</th></tr></thead>
+                <tbody>
+                    {% for t in por_tipo %}
+                        <tr><td>{{ t.etiqueta }}</td><td class="text-end">{{ t.total }}</td><td class="text-end">{{ t.observados }}</td><td class="text-end">{{ t.validos }}</td><td class="text-end">{{ t.pendientes }}</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </section>
+    {% endif %}
+
+    <section class="reporte-seccion">
+        <h2>Detalle de las observaciones</h2>
 
     {% if filas_reporte %}
         <div class="table-responsive reporte-tabla-contenedor">
             <table class="table table-sm table-bordered reporte-tabla">
                 <colgroup>
-                    <col style="width:5%"><col style="width:11%"><col style="width:16%"><col style="width:7%">
-                    <col style="width:25%"><col style="width:25%"><col style="width:11%">
+                    {% if varias_cargas %}<col style="width:6%">{% endif %}
+                    <col style="width:5%"><col style="width:10%"><col style="width:14%">
+                    <col style="width:9%"><col style="width:20%"><col style="width:17%"><col style="width:9%"><col style="width:16%">
                 </colgroup>
                 <thead>
                     <tr>
+                        {% if varias_cargas %}<th>Carga</th>{% endif %}
                         <th>Fila</th>
                         <th>Comprobante</th>
                         <th>Cuenta</th>
-                        <th>Grupo</th>
+                        <th>Importe</th>
                         <th>Hallazgo</th>
                         <th>Fundamento del auditor</th>
                         <th>Revisado por</th>
+                        <th>Justificación del contador</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for item in filas_reporte %}
                     <tr class="reporte-fila-hallazgo">
+                        {% if varias_cargas %}<td>{{ item.carga_id }}</td>{% endif %}
                         <td>{{ item.observacion.fila }}</td>
                         <td>{{ item.registro.numero_comprobante|default:"Sin dato" }}</td>
                         <td>{% if item.registro %}<span class="fw-semibold">{{ item.registro.cuenta.codigo }}</span><br>{{ item.registro.cuenta.nombre }}{% else %}Sin dato{% endif %}</td>
-                        <td>{% if item.registro %}{{ item.registro.cuenta.get_tipo_display }}{% else %}Sin dato{% endif %}</td>
-                        <td>{{ item.observacion.descripcion }}</td>
+                        <td class="text-end">{% if item.registro %}{% if item.registro.debe %}{{ item.registro.debe|floatformat:"2g" }} D{% else %}{{ item.registro.haber|floatformat:"2g" }} H{% endif %}{% else %}Sin dato{% endif %}</td>
+                        <td>{{ item.observacion.descripcion }}{% if item.registro %}<br><span class="small" style="color: var(--rep-secundario);">{{ item.registro.fecha|date:"d/m/Y" }} · {{ item.registro.glosa|truncatechars:80 }}</span>{% endif %}</td>
                         <td class="celda-justificacion">{{ item.observacion.comentario_revision }}</td>
                         <td>
                             {{ item.observacion.revisado_por.username }}<br>
                             <span class="small" style="color: var(--rep-secundario);">{{ item.observacion.fecha_revision|date:"d/m/Y H:i" }}</span>
                         </td>
+                        {# Se llena a mano: el contador de la empresa explica o justifica la observación. #}
+                        <td class="celda-respuesta"></td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -218,29 +122,38 @@
         </div>
     {% else %}
         <div class="alert alert-info">
-            Todavía no hay transacciones marcadas como "observado" en esta carga.
+            Todavía no hay transacciones marcadas como "observado" {% if carga %}en esta carga{% else %}en esta gestión{% endif %}.
             {% if avisos_pendientes %}Esto no significa que la revisión haya terminado: quedan avisos pendientes.{% endif %}
         </div>
     {% endif %}
+    </section>
 
     <div class="firma-bloque">
         <div>
             <div class="firma-linea">
                 {{ generado_por.get_full_name|default:generado_por.username }}
-                <div class="cargo">Auditor · ST&amp;S Auditores y Consultores S.R.L.</div>
+                <div class="cargo">{% if emisor_es_socio %}Socio de auditoría{% else %}Auditor{% endif %} · ST&amp;S Auditores y Consultores S.R.L.</div>
             </div>
         </div>
         <div>
             <div class="firma-linea">
-                {{ carga.empresa.contacto_nombre|default:"Representante legal" }}
-                <div class="cargo">{% if carga.empresa.contacto_nombre %}Representante legal · {% endif %}{{ carga.empresa }}</div>
+                {{ empresa.contador_nombre|default:"&nbsp;" }}
+                <div class="cargo">Contador · {{ empresa }}</div>
+            </div>
+        </div>
+        <div>
+            <div class="firma-linea">
+                {{ empresa.contacto_nombre|default:"Representante legal" }}
+                <div class="cargo">{% if empresa.contacto_nombre %}Representante legal · {% endif %}{{ empresa }}</div>
             </div>
         </div>
     </div>
 
     <p class="reporte-pie">
         Documento generado automáticamente por el sistema de apoyo a la auditoría externa de
-        ST&amp;S Auditores y Consultores S.R.L. Uso interno, sujeto a revisión profesional.
+        ST&amp;S Auditores y Consultores S.R.L. Emisión N.º {{ emision.id }} del {{ fecha_generacion|date:"d/m/Y H:i" }}.
+        Uso interno, sujeto a revisión profesional.
     </p>
     </article>
+    {% include "_burbuja_nav.html" %}
 {% endblock %}

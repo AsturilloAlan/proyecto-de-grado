@@ -7,6 +7,7 @@ from pathlib import Path
 import pandas as pd
 
 from .evaluacion import TIPOS_INYECCION, distribucion_puntajes, elegir_modelo, promediar
+from .powerbi import exportar_evaluacion
 
 
 def _tabla_md(df, columnas, formatos):
@@ -106,6 +107,7 @@ def generar_informe(carpeta, resumen, por_tipo, puntajes_por_dataset, parametros
     distribucion.to_csv(carpeta / "distribucion_puntajes.csv", index=False)
 
     graficos = _graficos(carpeta, promedio, por_tipo, puntajes_por_dataset)
+    exportar_evaluacion(carpeta / "datos_powerbi.xlsx", promedio, por_tipo, puntajes_por_dataset)
     ranking = elegir_modelo(promedio).reset_index()
     elegido = ranking.iloc[0]["modelo"]
 

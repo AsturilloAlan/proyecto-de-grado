@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block title %}Formulario vencido{% endblock %}
+{% block content %}
+    <div class="estado-vacio">
+        <div class="estado-vacio-icono"><i class="bi bi-arrow-clockwise"></i></div>
+        <h1 class="h3 text-guindo">El formulario venció</h1>
+        <p class="text-secondary">Por seguridad, los formularios caducan. Volver a la página anterior, recargarla e intentar de nuevo.</p>
+        <a class="btn btn-guindo btn-sm mt-2" href="{% url 'home' %}">Ir al inicio</a>
+    </div>
+{% endblock %}

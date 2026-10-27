@@ -6,10 +6,9 @@
 {% block mensajes_globales %}{% endblock %}
 {% block extra_head %}
 <style>
-    /* Entrada escalonada. */
     @keyframes fluido-in {
-        from { opacity: 0; transform: translateY(10px); }
-        to { opacity: 1; transform: translateY(0); }
+        from { opacity: 0; }
+        to { opacity: 1; }
     }
     .fluido-in { animation: fluido-in .5s cubic-bezier(.2,.8,.2,1) both; }
     @media (prefers-reduced-motion: reduce) { .fluido-in { animation: none; } }
@@ -32,7 +31,6 @@
         .panel-bloqueo { flex-direction: column; text-align: center; }
     }
 
-    /* Logo en celular, con cambio suave entre tema claro y oscuro. */
     .logo-login-caja { position: relative; height: 44px; }
     .logo-login-caja img {
         position: absolute; inset: 0; margin: auto;
@@ -41,7 +39,6 @@
     }
     @media (prefers-reduced-motion: reduce) { .logo-login-caja img { transition: none; } }
 
-    /* Campos con etiqueta flotante. */
     .form-floating > .form-control { height: calc(3.5rem + 2px); }
     .form-floating > label { transition: opacity .2s ease, transform .2s cubic-bezier(.4,0,.2,1); }
     .form-floating > .form-control:focus ~ label,
@@ -50,15 +47,12 @@
     [data-bs-theme="dark"] .form-floating > .form-control:not(:placeholder-shown) ~ label { color: #e7b8cd; }
     .input-group > .form-floating:not(:last-child) > .form-control { border-top-right-radius: 0; border-bottom-right-radius: 0; }
 
-    /* Botón de mostrar/ocultar clave: giro breve al hacer clic. */
     #icono-mostrar-clave { display: inline-block; transition: transform .3s ease; }
     #icono-mostrar-clave.girar { transform: rotateY(180deg); }
 
-    /* Errores del formulario sin márgenes de lista. */
     .alert ul { list-style: none; margin: 0; padding: 0; }
     .alert ul li + li { margin-top: .25rem; }
 
-    /* Diseño editorial con la marca de fondo. */
     .tarjeta-editorial {
         background: transparent !important; border: none !important;
         box-shadow: none !important; backdrop-filter: none !important;
@@ -96,7 +90,6 @@
     }
     [data-bs-theme="dark"] .icono-ml-caja { background: rgba(231,184,205,.12); color: #e7b8cd; }
 
-    /* Sombra en capas. */
     .tarjeta-vidrio {
         background: rgba(255,255,255,.88); border: 1px solid rgba(110,27,63,.1);
         border-radius: 20px; padding: 2rem; backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
@@ -112,7 +105,6 @@
             0 15px 35px -10px rgba(0,0,0,.35),
             0 45px 90px -30px rgba(0,0,0,.45);
     }
-    /* Bloqueo temporal por intentos fallidos. */
     .panel-bloqueo {
         display: flex; align-items: center; gap: 1rem;
         padding: 1rem 1.1rem; margin-bottom: 1rem; border-radius: 14px;
@@ -141,14 +133,19 @@
         <span class="marca-fondo-login d-none d-md-block">ST&amp;S</span>
         <div class="row align-items-start g-4 g-lg-5 fila-editorial">
             <div class="col-md-6 d-none d-md-block fluido-in" style="padding-top: 2rem;">
-                <span class="chip-editorial">Auditoría + ML</span>
-                <h2 class="titular-editorial">Cada registro,<br>verificado.</h2>
+                <span class="chip-editorial">Auditoría externa</span>
+                <h2 class="titular-editorial">Más claridad.<br><em>Mejor criterio.</em></h2>
                 <div class="d-flex align-items-center gap-3 mt-1">
                     <span class="icono-ml-caja">
                         <i class="bi bi-graph-up-arrow"></i>
                     </span>
-                    <p class="parrafo-editorial mb-0">Un modelo entrenado para notar lo que no encaja.</p>
+                    <p class="parrafo-editorial mb-0">Registros, análisis y evidencia en un solo lugar para apoyar cada revisión.</p>
                 </div>
+                <ul class="acceso-pasos">
+                    <li><i class="bi bi-file-earmark-check" aria-hidden="true"></i>Validación de registros contables</li>
+                    <li><i class="bi bi-activity" aria-hidden="true"></i>Detección de transacciones atípicas</li>
+                    <li><i class="bi bi-clock-history" aria-hidden="true"></i>Trazabilidad de cada decisión</li>
+                </ul>
             </div>
 
             <div class="col-md-6">
@@ -183,22 +180,22 @@
                     {% if messages %}
                         {% for message in messages %}
                             {% if 'bloqueo' in message.tags and segundos_bloqueo %}{% else %}
-                            <div class="alert {% if 'error' in message.tags %}alert-danger{% elif 'warning' in message.tags %}alert-warning{% elif 'success' in message.tags %}alert-success{% else %}alert-info{% endif %} alert-dismissible fade show alert-autocierre py-2 d-flex align-items-start gap-2 fluido-in mb-3" role="alert">
+                            <div class="alert {% if 'error' in message.tags %}alert-danger{% elif 'warning' in message.tags %}alert-warning{% elif 'success' in message.tags %}alert-success{% else %}alert-info{% endif %} fade show alert-autocierre py-2 d-flex align-items-start gap-2 fluido-in mb-3" role="alert">
                                 <i class="bi {% if 'error' in message.tags %}bi-exclamation-triangle-fill{% elif 'warning' in message.tags %}bi-exclamation-circle-fill{% else %}bi-info-circle-fill{% endif %} mt-1"></i>
                                 <div>{{ message }}</div>
-                                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Cerrar" style="font-size: .65rem;"></button>
+                                <button type="button" class="btn-close ms-auto flex-shrink-0 mt-1" data-bs-dismiss="alert" aria-label="Cerrar" style="font-size: .65rem;"></button>
                             </div>
                             {% endif %}
                         {% endfor %}
                     {% endif %}
 
-                    <form method="post" autocomplete="off" novalidate id="form-login"{% if segundos_bloqueo %} class="bloqueado" aria-disabled="true"{% endif %}>
+                    <form method="post" id="form-login"{% if segundos_bloqueo %} class="bloqueado" aria-disabled="true"{% endif %}>
                         {% csrf_token %}
                         {% if form.non_field_errors %}
-                            <div class="alert alert-danger alert-dismissible fade show alert-autocierre py-2 d-flex align-items-start gap-2 fluido-in">
+                            <div class="alert alert-danger fade show alert-autocierre py-2 d-flex align-items-start gap-2 fluido-in">
                                 <i class="bi bi-exclamation-triangle-fill mt-1"></i>
                                 <div>{{ form.non_field_errors }}</div>
-                                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Cerrar" style="font-size: .65rem;"></button>
+                                <button type="button" class="btn-close ms-auto flex-shrink-0 mt-1" data-bs-dismiss="alert" aria-label="Cerrar" style="font-size: .65rem;"></button>
                             </div>
                         {% endif %}
 
@@ -216,7 +213,7 @@
                                     {{ form.password }}
                                     <label for="id_password">Contraseña</label>
                                 </div>
-                                <button class="btn btn-outline-guindo" type="button" id="boton-mostrar-clave" aria-label="Mostrar contraseña" tabindex="-1">
+                                <button class="btn btn-outline-guindo" type="button" id="boton-mostrar-clave" aria-controls="id_password" aria-label="Mostrar contraseña" aria-pressed="false">
                                     <i class="bi bi-eye" id="icono-mostrar-clave"></i>
                                 </button>
                             </div>
@@ -232,6 +229,10 @@
                             Ingresar
                         </button>
                     </form>
+                    <div class="text-end mt-2 fluido-in" style="animation-delay: .25s;">
+                        <a class="small" href="{% url 'recuperar_clave' %}">¿Olvidó su contraseña?</a>
+                    </div>
+                    <div class="acceso-seguridad"><i class="bi bi-shield-check" aria-hidden="true"></i><span>Acceso con verificación en dos pasos por correo.</span></div>
                     <div class="fluido-in" style="animation-delay: .28s;">
                         <p class="text-secondary text-center text-md-start mt-4 mb-0" style="font-size: .72rem; opacity: .7;">
                             © {% now "Y" %} ST&amp;S Auditores y Consultores S.R.L.
@@ -268,10 +269,10 @@
                     setTimeout(function () { iconoMostrar.classList.remove("girar"); }, 150);
                 }, 150);
                 botonMostrar.setAttribute("aria-label", mostrando ? "Mostrar contraseña" : "Ocultar contraseña");
+                botonMostrar.setAttribute("aria-pressed", String(!mostrando));
             });
         }
 
-        // Cuenta regresiva del bloqueo por intentos fallidos.
         var panel = document.getElementById("panel-bloqueo");
         if (panel) {
             var formulario = document.getElementById("form-login");

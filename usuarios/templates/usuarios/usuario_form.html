@@ -4,73 +4,118 @@
     <div class="d-flex align-items-center gap-3 mb-4">
         <div class="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0"
              style="width:56px;height:56px;background:linear-gradient(135deg, var(--guindo), var(--guindo-oscuro));">
-            <i class="bi bi-person-gear text-white fs-4"></i>
+            <i class="bi {% if es_creacion %}bi-person-plus{% else %}bi-person-gear{% endif %} text-white fs-4"></i>
         </div>
         <div>
-            <h1 class="text-guindo mb-1 h3">{{ titulo }}</h1>
+            <h1 class="text-guindo mb-1 h3">{% if es_creacion %}Crear usuario{% else %}{{ usuario_obj.get_full_name|default:usuario_obj.username }}{% endif %}</h1>
             <p class="text-secondary mb-0">
                 {% if es_creacion %}
-                    Cuenta nueva con su rol en el sistema.
+                    Cuenta nueva para un integrante de la firma.
                 {% else %}
-                    Correo, rol y estado de la cuenta.
+                    {{ usuario_obj.username }} · {{ rol_actual }} · cuenta creada el {{ usuario_obj.date_joined|date:"d/m/Y" }} · último ingreso {{ usuario_obj.last_login|date:"d/m/Y H:i"|default:"nunca" }}
                 {% endif %}
             </p>
         </div>
     </div>
-    <hr class="mb-4">
-    <form method="post" class="mx-auto" style="max-width: 560px;">
-        {% csrf_token %}
-        {{ form.non_field_errors }}
 
-        <div class="p-3 rounded border mb-3">
-            {% if es_creacion %}
+    <div class="row g-4 align-items-start">
+        <form method="post" class="col-lg-7" novalidate>
+            {% csrf_token %}
+            {% if form.non_field_errors %}<div class="alert alert-danger py-2">{{ form.non_field_errors }}</div>{% endif %}
+
+            <section class="seccion-usuario">
+                <h2>Datos de la persona</h2>
+                {% if es_creacion %}
+                    <div class="mb-3">
+                        <label for="{{ form.username.id_for_label }}" class="form-label">{{ form.username.label }}</label>
+                        {{ form.username }}
+                        {% if form.username.help_text %}<div class="form-text">{{ form.username.help_text }}</div>{% endif %}
+                        {% for error in form.username.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+                    </div>
+                {% endif %}
+                {% if form.first_name %}
+                    <div class="row g-2 mb-3">
+                        <div class="col-sm-6">
+                            <label for="{{ form.first_name.id_for_label }}" class="form-label">Nombre</label>
+                            {{ form.first_name }}
+                            {% for error in form.first_name.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+                        </div>
+                        <div class="col-sm-6">
+                            <label for="{{ form.last_name.id_for_label }}" class="form-label">Apellido</label>
+                            {{ form.last_name }}
+                            {% for error in form.last_name.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+                        </div>
+                        <div class="form-text">Aparece en las firmas de los reportes.{% if not es_creacion %} Corregirlo aquí queda en el historial.{% endif %}</div>
+                    </div>
+                {% endif %}
+                <div class="mb-0">
+                    <label for="{{ form.email.id_for_label }}" class="form-label">{{ form.email.label }}</label>
+                    {{ form.email }}
+                    <div class="form-text">Recibe el código de cada inicio de sesión.</div>
+                    {% for error in form.email.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+                </div>
+            </section>
+
+            <section class="seccion-usuario">
+                <h2>Acceso</h2>
                 <div class="mb-3">
-                    <label for="{{ form.username.id_for_label }}" class="form-label">{{ form.username.label }}</label>
-                    {{ form.username }}
-                    {% if form.username.help_text %}<div class="form-text">{{ form.username.help_text }}</div>{% endif %}
-                    {% for error in form.username.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+                    <label for="{{ form.rol.id_for_label }}" class="form-label">{{ form.rol.label }}</label>
+                    {{ form.rol }}
+                    <div class="form-text"><strong>Administrador:</strong> gestiona usuarios y empresas y firma como socio. <strong>Auditor:</strong> carga, revisa y genera reportes.</div>
+                    {% for error in form.rol.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
                 </div>
-            {% endif %}
+                {% if not es_creacion %}
+                    <div class="form-check form-switch">
+                        {{ form.is_active }}
+                        <label class="form-check-label" for="{{ form.is_active.id_for_label }}">{{ form.is_active.label }}</label>
+                    </div>
+                    <div class="form-text">Una cuenta desactivada no puede iniciar sesión; sus revisiones y su historial se conservan.</div>
+                {% else %}
+                    <div class="mt-3">
+                        <label for="{{ form.password1.id_for_label }}" class="form-label">{{ form.password1.label }}</label>
+                        {{ form.password1 }}
+                    </div>
+                    <div class="mt-3 mb-3">
+                        <label for="{{ form.password2.id_for_label }}" class="form-label">{{ form.password2.label }}</label>
+                        {{ form.password2 }}
+                    </div>
+                    {% include "usuarios/_requisitos_clave.html" with campo1=form.password1 campo2=form.password2 %}
+                    <div class="form-text">Pásale la contraseña en persona; al ingresar recibirá el código por correo y podrá cambiarla desde Mi perfil.</div>
+                {% endif %}
+            </section>
 
-            <div class="mb-3">
-                <label for="{{ form.email.id_for_label }}" class="form-label">{{ form.email.label }}</label>
-                {{ form.email }}
-                {% for error in form.email.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+            <div class="d-flex gap-2">
+                <button class="btn btn-guindo" type="submit">{% if es_creacion %}Crear usuario{% else %}Guardar cambios{% endif %}</button>
+                <a class="btn btn-outline-secondary" href="{% url 'usuarios_lista' %}">Cancelar</a>
             </div>
+        </form>
 
-            <div class="mb-3">
-                <label for="{{ form.rol.id_for_label }}" class="form-label">{{ form.rol.label }}</label>
-                {{ form.rol }}
-                {% for error in form.rol.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
-            </div>
+        {% if not es_creacion %}
+        <aside class="col-lg-5">
+            <section class="seccion-usuario mb-0">
+                <h2>Últimos cambios de la cuenta</h2>
+                {% if cambios %}
+                    <ul class="lista-cambios">
+                        {% for c in cambios %}
+                            <li>
+                                <div><strong>{{ c.etiqueta|capfirst }}</strong>{% if c.anterior or c.nuevo %}: {{ c.anterior|default:"—"|truncatechars:30 }} → {{ c.nuevo|default:"—"|truncatechars:30 }}{% endif %}</div>
+                                <div class="small text-secondary">{{ c.fecha|date:"d/m/Y H:i" }} · {{ c.por.username|default:"sistema" }}</div>
+                            </li>
+                        {% endfor %}
+                    </ul>
+                {% else %}
+                    <p class="small text-secondary mb-0">Sin cambios registrados.</p>
+                {% endif %}
+            </section>
+        </aside>
+        {% endif %}
+    </div>
 
-            {% if not es_creacion %}
-                <div class="form-check">
-                    {{ form.is_active }}
-                    <label class="form-check-label" for="{{ form.is_active.id_for_label }}">{{ form.is_active.label }}</label>
-                </div>
-            {% endif %}
-
-            {% if es_creacion %}
-                <div class="mb-3 mt-3">
-                    <label for="{{ form.password1.id_for_label }}" class="form-label">{{ form.password1.label }}</label>
-                    {{ form.password1 }}
-                    {% if form.password1.help_text %}<div class="form-text">{{ form.password1.help_text }}</div>{% endif %}
-                    {% for error in form.password1.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
-                </div>
-                <div class="mb-3">
-                    <label for="{{ form.password2.id_for_label }}" class="form-label">{{ form.password2.label }}</label>
-                    {{ form.password2 }}
-                    {% for error in form.password2.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
-                </div>
-            {% endif %}
-        </div>
-
-        <div>
-            <button class="btn btn-guindo" type="submit">
-                Guardar
-            </button>
-            <a class="btn btn-outline-guindo" href="{% url 'usuarios_lista' %}">Cancelar</a>
-        </div>
-    </form>
+    <style>
+        .seccion-usuario { padding: 1.25rem 1.4rem; margin-bottom: 1.25rem; border: 1px solid var(--bs-border-color); border-radius: 1rem; }
+        .seccion-usuario > h2 { font-size: .75rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
+            color: var(--bs-secondary-color); margin: 0 0 1rem; }
+        .lista-cambios { list-style: none; padding: 0; margin: 0; display: grid; gap: .75rem; font-size: .88rem; }
+        .lista-cambios li { padding-left: .75rem; border-left: 2px solid var(--bs-border-color); overflow-wrap: anywhere; }
+    </style>
 {% endblock %}

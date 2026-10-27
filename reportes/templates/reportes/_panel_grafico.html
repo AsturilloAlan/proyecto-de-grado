@@ -1,0 +1,14 @@
+<div class="p-3 rounded border panel-grafico">
+    <h2 class="pregunta mb-1">{{ pregunta }}</h2>
+    <p class="small text-secondary mb-2">{{ ayuda }}</p>
+    <div class="esqueleto esqueleto-grafico" aria-hidden="true"></div>
+    <div class="contenido-real">
+        <div class="lienzo"><canvas id="grafico-{{ clave }}" role="img"></canvas></div>
+        <div class="vacio-grafico text-secondary small" id="vacio-{{ clave }}" hidden>Sin transacciones atípicas con estos filtros.</div>
+        <p class="aviso-sin-graficos small text-secondary mb-1" hidden>El gráfico no está disponible; se muestran los datos en tabla.</p>
+        <details class="datos-grafico small mt-2">
+            <summary class="text-secondary">Ver los datos</summary>
+            <div class="table-responsive mt-2"><table class="table table-sm mb-0" id="tabla-{{ clave }}"></table></div>
+        </details>
+    </div>
+</div>

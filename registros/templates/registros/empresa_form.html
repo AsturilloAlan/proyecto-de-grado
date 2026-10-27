@@ -23,11 +23,13 @@
         {% endif %}
     </div>
     <hr class="mb-4">
-    <form method="post" class="mx-auto" style="max-width: 680px;">
+    <form method="post" class="mx-auto" style="max-width: 1120px;">
         {% csrf_token %}
         {{ form.non_field_errors }}
 
-        <div class="p-3 rounded border mb-3">
+        <div class="row g-3 align-items-start">
+        <div class="col-lg-6 d-flex flex-column gap-3">
+        <div class="p-3 rounded border">
             <h2 class="h6 text-guindo text-uppercase mb-3">
                 Datos generales
             </h2>
@@ -42,14 +44,14 @@
                     {{ form.nit }}
                     {% for error in form.nit.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
                 </div>
-                <div class="col-md-8">
+                <div class="col-md-6">
                     <label for="{{ form.rubro.id_for_label }}" class="form-label">{{ form.rubro.label }}</label>
                     {{ form.rubro }}
-                    {% if form.rubro.help_text %}<div class="form-text">{{ form.rubro.help_text }}</div>{% endif %}
+                    <div class="form-text">Ayuda a interpretar el análisis según el giro.</div>
                     {% for error in form.rubro.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
                 </div>
-                <div class="col-md-4">
-                    <label for="{{ form.categoria_cierre.id_for_label }}" class="form-label">{{ form.categoria_cierre.label }}</label>
+                <div class="col-md-6">
+                    <label for="{{ form.categoria_cierre.id_for_label }}" class="form-label">Cierre de gestión (SIN)</label>
                     <div class="input-group selector-personalizado">
                         <span class="input-group-text input-group-text-icono"><i class="bi bi-calendar-check"></i></span>
                         <div class="select-oculto">{{ form.categoria_cierre }}</div>
@@ -63,37 +65,14 @@
                             {% endfor %}
                         </ul>
                     </div>
-                    {% if form.categoria_cierre.help_text %}<div class="form-text">{{ form.categoria_cierre.help_text }}</div>{% endif %}
+                    <div class="form-text" title="{{ form.categoria_cierre.help_text }}">Sugiere las fechas de cada gestión.</div>
                     {% for error in form.categoria_cierre.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
                 </div>
             </div>
         </div>
 
-        <div class="p-3 rounded border mb-3">
-            <h2 class="h6 text-guindo text-uppercase mb-3">
-                Contacto
-            </h2>
-            <div class="row g-3">
-                <div class="col-md-6">
-                    <label for="{{ form.contacto_nombre.id_for_label }}" class="form-label">{{ form.contacto_nombre.label }}</label>
-                    {{ form.contacto_nombre }}
-                    {% for error in form.contacto_nombre.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
-                </div>
-                <div class="col-md-3">
-                    <label for="{{ form.contacto_email.id_for_label }}" class="form-label">{{ form.contacto_email.label }}</label>
-                    {{ form.contacto_email }}
-                    {% for error in form.contacto_email.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
-                </div>
-                <div class="col-md-3">
-                    <label for="{{ form.contacto_telefono.id_for_label }}" class="form-label">{{ form.contacto_telefono.label }}</label>
-                    {{ form.contacto_telefono }}
-                    {% for error in form.contacto_telefono.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
-                </div>
-            </div>
-        </div>
-
         {% if not empresa %}
-            <div class="p-3 rounded border mb-3">
+            <div class="p-3 rounded border">
                 <h2 class="h6 text-guindo text-uppercase mb-3">
                     Gestión a auditar
                 </h2>
@@ -103,12 +82,61 @@
                 {% for error in form.anio_gestion_inicial.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
             </div>
         {% endif %}
+        </div>
+        <div class="col-lg-6 d-flex flex-column gap-3">
+        <div class="p-3 rounded border">
+            <h2 class="h6 text-guindo text-uppercase mb-1">Representante legal</h2>
+            <p class="small text-secondary mb-3">Recibe y firma el reporte de observaciones.</p>
+            <div class="row g-3">
+                <div class="col-12">
+                    <label for="{{ form.contacto_nombre.id_for_label }}" class="form-label">{{ form.contacto_nombre.label }}</label>
+                    {{ form.contacto_nombre }}
+                    {% for error in form.contacto_nombre.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+                </div>
+                <div class="col-sm-7">
+                    <label for="{{ form.contacto_email.id_for_label }}" class="form-label">{{ form.contacto_email.label }}</label>
+                    {{ form.contacto_email }}
+                    {% for error in form.contacto_email.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+                </div>
+                <div class="col-sm-5">
+                    <label for="{{ form.contacto_telefono.id_for_label }}" class="form-label">{{ form.contacto_telefono.label }}</label>
+                    {{ form.contacto_telefono }}
+                    {% for error in form.contacto_telefono.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+                </div>
+            </div>
+        </div>
 
-        <div>
+        <div class="p-3 rounded border">
+            <h2 class="h6 text-guindo text-uppercase mb-1">Contador</h2>
+            <p class="small text-secondary mb-3">Justifica las observaciones y firma su respuesta en el reporte.</p>
+            <div class="row g-3">
+                <div class="col-12">
+                    <label for="{{ form.contador_nombre.id_for_label }}" class="form-label">{{ form.contador_nombre.label }}</label>
+                    {{ form.contador_nombre }}
+                    {% for error in form.contador_nombre.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+                </div>
+                <div class="col-sm-7">
+                    <label for="{{ form.contador_email.id_for_label }}" class="form-label">{{ form.contador_email.label }}</label>
+                    {{ form.contador_email }}
+                    {% for error in form.contador_email.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+                </div>
+                <div class="col-sm-5">
+                    <label for="{{ form.contador_telefono.id_for_label }}" class="form-label">{{ form.contador_telefono.label }}</label>
+                    {{ form.contador_telefono }}
+                    {% for error in form.contador_telefono.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+                </div>
+            </div>
+        </div>
+
+
+        </div>
+        </div>
+
+        <div class="d-flex gap-2 justify-content-end border-top pt-3 mt-3">
+            <a class="btn btn-outline-guindo" href="{% url 'registros:empresas_lista' %}">Cancelar</a>
             <button class="btn btn-guindo" type="submit">
                 Guardar
             </button>
-            <a class="btn btn-outline-guindo" href="{% url 'registros:empresas_lista' %}">Cancelar</a>
         </div>
     </form>
 {% endblock %}

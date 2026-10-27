@@ -26,3 +26,17 @@ Thumbs.db
 
 # Resultados generados por evaluar_modelos
 evaluacion_modelos_*/
+dataset_definitivo_*/
+
+# Modelo entrenado (contiene datos de clientes) y resultados de configurar_modelo
+modelos_ml/
+configuracion_modelo_*/
+
+# Exportaciones con datos de clientes (revisiones y validación)
+/revisiones_atipicas.csv
+/validacion_preliminar.csv
+*.xlsx
+
+# Notas internas de revisión y contexto para el asistente (no forman parte del sistema)
+docs/revision-interfaz/
+CLAUDE.md

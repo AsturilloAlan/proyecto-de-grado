@@ -2,13 +2,13 @@
 defecto (aquí, la foto de perfil/avatar).
 """
 import secrets
+import uuid
 from datetime import timedelta
 
 from django.conf import settings
 from django.db import models
 from django.utils import timezone
 
-# Avatares predefinidos: para quien no quiera subir una foto propia.
 # (id, color de fondo, ícono de Bootstrap Icons)
 PRESETS_AVATAR = [
     ("guindo", "#6E1B3F", "bi-person-fill"),
@@ -89,7 +89,58 @@ class CodigoVerificacion(models.Model):
     def generar_para(cls, usuario):
         """Invalida códigos anteriores no usados del usuario y crea uno nuevo."""
         cls.objects.filter(usuario=usuario, usado=False).update(usado=True)
-        # `secrets` (generador criptográfico) y no `random`, que no está
-        # pensado para producir secretos.
+        # El código de verificación requiere un generador criptográfico.
         codigo = f"{secrets.randbelow(1_000_000):06d}"
         return cls.objects.create(usuario=usuario, codigo=codigo)
+
+
+class RegistroCorreo(models.Model):
+    """Bitácora de correos enviados por el sistema: cada envío queda con un identificador
+    único, su tipo, destinatario y resultado. Sirve para rastrear códigos 2FA, enlaces de
+    recuperación y avisos de seguridad. Nunca guarda el código ni el enlace enviados.
+    """
+
+    TIPO_CHOICES = [
+        ("codigo_2fa", "Código de verificación (2FA)"),
+        ("recuperar_clave", "Enlace para restablecer la contraseña"),
+        ("clave_restablecida", "Aviso de contraseña restablecida"),
+        ("clave_cambiada", "Aviso de cambio de contraseña"),
+        ("correo_cambiado", "Aviso de cambio de correo"),
+        ("nombre_cambiado", "Aviso de cambio de nombre"),
+    ]
+
+    identificador = models.UUIDField("Identificador", default=uuid.uuid4, unique=True, editable=False)
+    tipo = models.CharField(max_length=30, choices=TIPO_CHOICES)
+    usuario = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="correos_enviados",
+    )
+    destinatario = models.EmailField()
+    fecha = models.DateTimeField(auto_now_add=True)
+    enviado = models.BooleanField(default=False)
+    detalle = models.CharField(max_length=255, blank=True)
+    ip = models.GenericIPAddressField(null=True, blank=True)
+
+    class Meta:
+        verbose_name = "Registro de correo"
+        verbose_name_plural = "Registro de correos"
+        ordering = ["-fecha"]
+        indexes = [models.Index(fields=["tipo", "fecha"])]
+
+    def __str__(self):
+        return f"{self.get_tipo_display()} a {self.destinatario} ({self.fecha:%d/%m/%Y %H:%M})"
+
+
+class HistorialClave(models.Model):
+    """Raíz cifrada de las últimas contraseñas de cada usuario, para impedir que se repitan
+    o se cambien por variantes simples. No guarda la contraseña ni su raíz en claro."""
+
+    usuario = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
+                                related_name="historial_claves")
+    raiz_hash = models.CharField(max_length=128)
+    fecha = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Historial de contraseñas"
+        verbose_name_plural = "Historial de contraseñas"
+        ordering = ["-fecha", "-id"]

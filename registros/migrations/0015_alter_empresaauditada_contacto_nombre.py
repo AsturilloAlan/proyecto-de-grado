@@ -1,8 +1,5 @@
 # Generated manually on 2026-09-28
-# Renombra la etiqueta del campo "contacto_nombre" a "Nombre del representante
-# legal" (pedido explícito de una de las auditoras durante la revisión
-# funcional). El nombre interno del campo Python/columna no cambia, solo el
-# verbose_name que se muestra en formularios y en el panel de administración.
+# Cambia solo la etiqueta visible; conserva el nombre del campo y la columna.
 
 from django.db import migrations, models
 

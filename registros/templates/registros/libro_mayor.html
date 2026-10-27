@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+{% block title %}Movimientos por cuenta · {{ cuenta.codigo }}{% endblock %}
+{% block content %}
+    <style>
+        .fila-atipica td { background: rgba(194, 124, 0, .08); }
+        .fila-elegida td { background: rgba(110, 27, 63, .14) !important; }
+        [data-bs-theme="dark"] .fila-elegida td { background: rgba(231, 184, 205, .16) !important; }
+        .resumen-mayor { display: flex; flex-wrap: wrap; gap: .4rem 1.4rem; color: var(--bs-secondary-color); font-size: .925rem; }
+        .resumen-mayor strong { color: var(--bs-body-color); }
+    </style>
+
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb small mb-3">
+            <li class="breadcrumb-item"><a href="{% url 'home' %}">Inicio</a></li>
+            <li class="breadcrumb-item"><a href="{% url 'registros:detalle_carga' carga.id %}">{{ carga.empresa }} · {{ carga.gestion.anio }}</a></li>
+            <li class="breadcrumb-item active" aria-current="page">Movimientos por cuenta</li>
+        </ol>
+    </nav>
+
+    <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-2">
+        <div>
+            <h1 class="text-guindo mb-1">Movimientos de la cuenta {{ cuenta.codigo }} {{ cuenta.nombre }}</h1>
+            <p class="text-secondary mb-0">
+                {{ cuenta.get_tipo_display }} (naturaleza {% if deudora %}deudora{% else %}acreedora{% endif %}) ·
+                Carga N.º {{ carga.id }} · Gestión {{ carga.gestion.anio }}
+            </p>
+        </div>
+        {% if volver %}
+            <a class="btn btn-sm btn-outline-guindo" href="{{ volver }}"><i class="bi bi-arrow-left" aria-hidden="true"></i> Volver a las atípicas</a>
+        {% else %}
+            <a class="btn btn-sm btn-outline-guindo" href="{% url 'registros:detalle_carga' carga.id %}?pestana=atipicas"><i class="bi bi-arrow-left" aria-hidden="true"></i> Ir a las atípicas</a>
+        {% endif %}
+    </div>
+
+    <form method="get" class="row g-2 align-items-end my-3" aria-label="Elegir cuenta y período">
+        {% if volver %}<input type="hidden" name="volver" value="{{ volver }}">{% endif %}
+        <div class="col-12 col-md-5">
+            <label for="f-cuenta" class="form-label small mb-1">Cuenta</label>
+            <select id="f-cuenta" name="cuenta" class="form-select form-select-sm" onchange="this.form.submit()">
+                {% for c in cuentas %}
+                    <option value="{{ c.id }}" {% if c.id == cuenta.id %}selected{% endif %}>{{ c.codigo }} {{ c.nombre }} ({{ c.movimientos }})</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-6 col-md-2">
+            <label for="f-desde" class="form-label small mb-1">Desde</label>
+            <input type="date" id="f-desde" name="desde" value="{{ desde }}" class="form-control form-control-sm"
+                   min="{{ carga.gestion.fecha_inicio|date:'Y-m-d' }}" max="{{ carga.gestion.fecha_fin|date:'Y-m-d' }}">
+        </div>
+        <div class="col-6 col-md-2">
+            <label for="f-hasta" class="form-label small mb-1">Hasta</label>
+            <input type="date" id="f-hasta" name="hasta" value="{{ hasta }}" class="form-control form-control-sm"
+                   min="{{ carga.gestion.fecha_inicio|date:'Y-m-d' }}" max="{{ carga.gestion.fecha_fin|date:'Y-m-d' }}">
+        </div>
+        <div class="col-12 col-md-3 d-flex gap-2">
+            <button type="submit" class="btn btn-sm btn-guindo flex-fill">Ver</button>
+            <a class="btn btn-sm btn-outline-secondary" href="?cuenta={{ cuenta.id }}{% if volver %}&amp;volver={{ volver|urlencode }}{% endif %}">Todo el período</a>
+        </div>
+    </form>
+
+    <div class="resumen-mayor mb-3">
+        <span>Movimientos: <strong>{{ pagina.paginator.count|floatformat:"0g" }}</strong></span>
+        <span>Total Debe: <strong>{{ totales.debe|floatformat:"2g" }}</strong></span>
+        <span>Total Haber: <strong>{{ totales.haber|floatformat:"2g" }}</strong></span>
+        <span>Atípicas en la cuenta: <strong>{{ total_atipicas }}</strong></span>
+    </div>
+    <p class="small text-secondary">
+        Movimientos de la cuenta en orden de fecha. Las filas resaltadas son transacciones atípicas.
+        {% if hay_saldo_libro %}El saldo es el que trae el libro de la empresa.{% endif %}
+    </p>
+
+    <div class="table-responsive" id="movimientos">
+        <table class="table table-sm align-middle">
+            <thead>
+                <tr>
+                    <th class="text-nowrap">Fecha</th>
+                    <th>Fila</th>
+                    <th>Comprobante</th>
+                    <th>Glosa</th>
+                    <th class="text-end">Debe</th>
+                    <th class="text-end">Haber</th>
+                    {% if hay_saldo_libro %}<th class="text-end text-nowrap">Saldo según el libro</th>{% endif %}
+                    <th>Señal</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for m in pagina %}
+                    {% with atipica=m.atipica %}
+                    <tr id="fila-{{ m.fila_origen }}" class="{% if m.fila_origen == fila_buscada %}fila-elegida{% elif atipica %}fila-atipica{% endif %}">
+                        <td class="text-nowrap">{{ m.fecha|date:"d/m/Y" }}</td>
+                        <td>{{ m.fila_origen }}</td>
+                        <td>{{ m.numero_comprobante|default:"—" }}</td>
+                        <td>{{ m.glosa|default:"—" }}</td>
+                        <td class="text-end text-nowrap">{% if m.debe %}{{ m.debe|floatformat:"2g" }}{% endif %}</td>
+                        <td class="text-end text-nowrap">{% if m.haber %}{{ m.haber|floatformat:"2g" }}{% endif %}</td>
+                        {% if hay_saldo_libro %}<td class="text-end text-nowrap text-secondary">{% if m.saldo is not None %}{{ m.saldo|floatformat:"2g" }}{% else %}—{% endif %}</td>{% endif %}
+                        <td class="small text-nowrap">
+                            {% if atipica %}<span class="badge {% if atipica.nivel_texto == 'Muy alto' %}text-bg-danger{% elif atipica.nivel_texto == 'Alto' %}text-bg-warning{% else %}text-bg-light border{% endif %}">Atípica · {{ atipica.nivel_texto }}</span>{% endif %}
+                            {% if m.fila_origen in avisos %}<span class="badge text-bg-secondary">Aviso</span>{% endif %}
+                        </td>
+                    </tr>
+                    {% endwith %}
+                {% empty %}
+                    <tr><td colspan="{% if hay_saldo_libro %}8{% else %}7{% endif %}" class="text-center text-secondary py-4">Sin movimientos en el período elegido.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% include "_paginacion.html" with pagina_obj=pagina querystring=querystring ancla="movimientos" %}
+{% endblock %}
+{% block extra_js %}
+<script>
+    (function () {
+        var fila = document.querySelector(".fila-elegida");
+        if (fila) { fila.scrollIntoView({ block: "center" }); }
+    })();
+</script>
+{% endblock %}

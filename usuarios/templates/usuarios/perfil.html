@@ -1,166 +1,267 @@
 {% extends "base.html" %}
 {% block title %}Mi perfil{% endblock %}
 {% block content %}
-    <h1 class="text-guindo mb-4">Mi perfil</h1>
-
-    <div class="row g-4 align-items-start">
-        <!-- Tarjeta del usuario: fija al desplazarse en pantallas grandes. -->
-        <div class="col-lg-4">
-            <aside class="tarjeta-usuario">
-                <div class="avatar-grande" id="avatar-vista">
-                    {% if user.perfil.avatar %}
-                        <img src="{{ user.perfil.avatar.url }}" alt="Foto de perfil">
-                    {% elif user.perfil.avatar_preset %}
-                        <span style="background:{{ user.perfil.avatar_preset_color }};"><i class="bi {{ user.perfil.avatar_preset_icono }}"></i></span>
-                    {% else %}
-                        <span style="background:var(--guindo);">{{ user.username|slice:":1"|upper }}</span>
-                    {% endif %}
-                </div>
-                <h2 class="h5 mb-1 text-break">{{ user.username }}</h2>
-                <p class="text-secondary small mb-2 text-break">{{ user.email|default:"Sin correo registrado" }}</p>
-                <span class="badge rounded-pill {% if es_administrador %}text-bg-dark{% else %}text-bg-secondary{% endif %}">
-                    {% if es_administrador %}Administrador{% else %}Auditor{% endif %}
-                </span>
-                <nav class="enlaces-perfil" aria-label="Secciones del perfil">
-                    <a href="#seccion-cuenta"><i class="bi bi-envelope"></i> Correo</a>
-                    <a href="#seccion-avatar"><i class="bi bi-person-circle"></i> Avatar</a>
-                    <a href="#seccion-seguridad"><i class="bi bi-shield-lock"></i> Seguridad</a>
-                </nav>
-            </aside>
+{% comment %}Ante errores de validación, conservar abierta la tarjeta enviada.{% endcomment %}
+{% with abierto=request.POST.accion %}
+<div class="ajustes">
+    <nav class="ajustes-nav" aria-label="Secciones de la cuenta">
+        <div class="identidad">
+            <span class="mini-avatar" aria-hidden="true">
+                {% if user.perfil.avatar %}<img src="{{ user.perfil.avatar.url }}" alt="">
+                {% elif user.perfil.avatar_preset %}<span style="background:{{ user.perfil.avatar_preset_color }};"><i class="bi {{ user.perfil.avatar_preset_icono }}"></i></span>
+                {% else %}<span style="background:var(--guindo);">{{ user.username|slice:":1"|upper }}</span>{% endif %}
+            </span>
+            <div class="min-w-0">
+                <div class="fw-semibold lh-sm text-truncate">{{ user.get_full_name|default:user.username }}</div>
+                <div class="small text-secondary">{% if es_administrador %}Administrador{% else %}Auditor{% endif %}</div>
+            </div>
         </div>
+        <div class="ajustes-enlaces" role="tablist">
+            <a href="#perfil" class="activo" data-panel="perfil" role="tab"><i class="bi bi-person" aria-hidden="true"></i> Perfil</a>
+            <a href="#seguridad" data-panel="seguridad" role="tab"><i class="bi bi-shield-lock" aria-hidden="true"></i> Seguridad</a>
+        </div>
+    </nav>
 
-        <div class="col-lg-8 d-flex flex-column gap-3">
-            <section class="seccion-perfil" id="seccion-cuenta">
-                <h2 class="titulo-seccion"><i class="bi bi-envelope"></i> Datos de la cuenta</h2>
-                <p class="text-secondary small mb-3">
-                    El código de verificación del inicio de sesión se envía a este correo.
-                </p>
-                <form method="post">
-                    {% csrf_token %}
-                    <input type="hidden" name="accion" value="datos">
-                    <div class="row g-3">
-                        <div class="col-md-6">
-                            <label for="{{ form_datos.email.id_for_label }}" class="form-label">{{ form_datos.email.label }}</label>
-                            {{ form_datos.email }}
-                            {% for error in form_datos.email.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
-                        </div>
-                        <div class="col-md-6">
-                            <label for="{{ form_datos.clave_actual.id_for_label }}" class="form-label">{{ form_datos.clave_actual.label }}</label>
-                            {{ form_datos.clave_actual }}
-                            <div class="form-text">{{ form_datos.clave_actual.help_text }}</div>
-                            {% for error in form_datos.clave_actual.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
-                        </div>
+    <div>
+        <section class="panel-ajustes" id="panel-perfil" role="tabpanel">
+            <header class="encabezado-panel">
+                <h1 class="text-guindo">Perfil</h1>
+                <p>Cómo apareces en el sistema y en las firmas de los reportes.</p>
+            </header>
+
+            <article class="tarjeta-ajuste">
+                <div class="cuerpo fila-foto">
+                    <div>
+                        <h2>Foto</h2>
+                        <p class="desc mb-0">Haz clic en la foto para elegir un avatar o subir una imagen.</p>
                     </div>
-                    <div class="acciones-seccion">
-                        <button class="btn btn-guindo" type="submit">Guardar correo</button>
-                    </div>
-                </form>
-            </section>
-
-            <section class="seccion-perfil" id="seccion-avatar">
-                <h2 class="titulo-seccion"><i class="bi bi-person-circle"></i> Avatar</h2>
-                <form method="post" enctype="multipart/form-data" id="formAvatar">
-                    {% csrf_token %}
-                    <input type="hidden" name="accion" value="avatar">
-                    {{ form.avatar_preset }}
-
-                    <p class="text-secondary small mb-2">Elegir un avatar:</p>
-                    <div class="galeria-avatares mb-3" id="galeriaAvatares">
-                        {% for clave, color, icono in presets_avatar %}
-                            <button type="button"
-                                    class="btn-avatar-preset {% if user.perfil.avatar_preset == clave and not user.perfil.avatar %}seleccionado{% endif %}"
-                                    data-preset="{{ clave }}" data-color="{{ color }}" data-icono="{{ icono }}"
-                                    style="background:{{ color }};" aria-label="Avatar {{ forloop.counter }}">
-                                <i class="bi {{ icono }}"></i>
-                            </button>
-                        {% endfor %}
-                    </div>
-
-                    <p class="text-secondary small mb-2">O subir una foto propia:</p>
-                    <label class="subir-foto" for="{{ form.avatar.id_for_label }}">
-                        <i class="bi bi-image fs-4"></i>
-                        <span>
-                            <span class="d-block fw-semibold" id="nombre-foto">
-                                {% if user.perfil.avatar %}Foto actual cargada · elegir otra{% else %}Elegir una imagen{% endif %}
-                            </span>
-                            <span class="d-block small text-secondary">JPG o PNG{% if form.avatar.help_text %} · {{ form.avatar.help_text }}{% endif %}</span>
+                    <button type="button" class="avatar-xl" data-bs-toggle="modal" data-bs-target="#modalFoto" aria-label="Cambiar foto">
+                        <span class="avatar-relleno">
+                            {% if user.perfil.avatar %}<img src="{{ user.perfil.avatar.url }}" alt="Foto de perfil">
+                            {% elif user.perfil.avatar_preset %}<span style="background:{{ user.perfil.avatar_preset_color }};"><i class="bi {{ user.perfil.avatar_preset_icono }}" aria-hidden="true"></i></span>
+                            {% else %}<span style="background:var(--guindo);">{{ user.username|slice:":1"|upper }}</span>{% endif %}
                         </span>
-                    </label>
-                    {{ form.avatar }}
-                    {% for error in form.avatar.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
-
-                    <div class="acciones-seccion">
-                        <button class="btn btn-guindo" type="submit">Guardar avatar</button>
-                        <span class="small text-secondary d-none" id="aviso-sin-guardar">Vista previa: falta guardar.</span>
-                    </div>
-                </form>
-            </section>
-
-            <section class="seccion-perfil" id="seccion-seguridad">
-                <h2 class="titulo-seccion"><i class="bi bi-shield-lock"></i> Seguridad</h2>
-                <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
-                    <p class="text-secondary small mb-0">Se recomienda cambiar la contraseña periódicamente.</p>
-                    <a class="btn btn-outline-guindo" href="{% url 'cambiar_clave' %}">Cambiar contraseña</a>
+                        <span class="avatar-camara"><i class="bi bi-camera" aria-hidden="true"></i></span>
+                    </button>
                 </div>
-            </section>
-        </div>
+                <div class="pie"><span>Opcional. JPG o PNG.</span></div>
+            </article>
+
+            <form method="post" class="tarjeta-ajuste" data-tarjeta {% if abierto == 'personales' %}data-con-error{% endif %}>
+                {% csrf_token %}
+                <input type="hidden" name="accion" value="personales">
+                <div class="cuerpo">
+                    <h2>Nombre completo</h2>
+                    <p class="desc">Se imprime en las firmas de los papeles de trabajo.</p>
+                    <div class="row g-2 campos">
+                        <div class="col-sm-6">
+                            <label for="{{ form_personales.first_name.id_for_label }}" class="form-label small mb-1">Nombre</label>
+                            {{ form_personales.first_name }}
+                            {% for error in form_personales.first_name.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+                        </div>
+                        <div class="col-sm-6">
+                            <label for="{{ form_personales.last_name.id_for_label }}" class="form-label small mb-1">Apellido</label>
+                            {{ form_personales.last_name }}
+                            {% for error in form_personales.last_name.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+                        </div>
+                    </div>
+                    <div class="reautenticar" {% if abierto != 'personales' %}hidden{% endif %}>
+                        <label for="{{ form_personales.clave_actual.id_for_label }}" class="form-label small mb-1">Confirma con tu contraseña</label>
+                        {{ form_personales.clave_actual }}
+                        {% for error in form_personales.clave_actual.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+                    </div>
+                    {% for error in form_personales.non_field_errors %}<div class="text-danger small mt-2">{{ error }}</div>{% endfor %}
+                </div>
+                <div class="pie">
+                    <span>Puedes cambiarlo una vez cada 30 días. Se avisa a tu correo.</span>
+                    <span class="d-flex gap-2">
+                        <button type="reset" class="btn btn-sm btn-link text-secondary boton-deshacer" hidden>Deshacer</button>
+                        <button type="submit" class="btn btn-sm btn-guindo boton-guardar" disabled>Guardar</button>
+                    </span>
+                </div>
+            </form>
+
+            <form method="post" class="tarjeta-ajuste" data-tarjeta {% if abierto == 'datos' %}data-con-error{% endif %}>
+                {% csrf_token %}
+                <input type="hidden" name="accion" value="datos">
+                <div class="cuerpo">
+                    <h2>Correo</h2>
+                    <p class="desc">Aquí llega el código de cada inicio de sesión.</p>
+                    <div class="campos campo-unico">
+                        <label for="{{ form_datos.email.id_for_label }}" class="visually-hidden">Correo</label>
+                        {{ form_datos.email }}
+                        {% for error in form_datos.email.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+                    </div>
+                    <div class="reautenticar" {% if abierto != 'datos' %}hidden{% endif %}>
+                        <label for="{{ form_datos.clave_actual.id_for_label }}" class="form-label small mb-1">Confirma con tu contraseña</label>
+                        {{ form_datos.clave_actual }}
+                        {% for error in form_datos.clave_actual.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+                    </div>
+                    {% for error in form_datos.non_field_errors %}<div class="text-danger small mt-2">{{ error }}</div>{% endfor %}
+                </div>
+                <div class="pie">
+                    <span>Se avisará del cambio a tu correo anterior.</span>
+                    <span class="d-flex gap-2">
+                        <button type="reset" class="btn btn-sm btn-link text-secondary boton-deshacer" hidden>Deshacer</button>
+                        <button type="submit" class="btn btn-sm btn-guindo boton-guardar" disabled>Guardar</button>
+                    </span>
+                </div>
+            </form>
+        </section>
+
+        <section class="panel-ajustes" id="panel-seguridad" role="tabpanel" hidden>
+            <header class="encabezado-panel">
+                <h1 class="text-guindo">Seguridad</h1>
+                <p>Acceso a tu cuenta.</p>
+            </header>
+
+            <article class="tarjeta-ajuste">
+                <div class="cuerpo estado">
+                    <div>
+                        <h2>Contraseña</h2>
+                        <p class="desc mb-0">Mínimo 10 caracteres. No puede repetir las últimas 5.</p>
+                    </div>
+                    <a class="btn btn-outline-guindo btn-sm text-nowrap" href="{% url 'cambiar_clave' %}">Cambiar contraseña</a>
+                </div>
+            </article>
+
+            <article class="tarjeta-ajuste">
+                <div class="cuerpo estado">
+                    <div>
+                        <h2>Verificación en dos pasos</h2>
+                        <p class="desc mb-0">En cada inicio de sesión se envía un código a {{ user.email|default:"tu correo" }}.</p>
+                    </div>
+                    <span class="estado-activo"><span class="punto" aria-hidden="true"></span>Activa</span>
+                </div>
+            </article>
+
+            <article class="tarjeta-ajuste">
+                <div class="cuerpo">
+                    <h2>Actividad de la cuenta</h2>
+                    <div class="dato"><span>Último inicio de sesión</span><span>{{ user.last_login|date:"d/m/Y H:i"|default:"Sin registro" }}</span></div>
+                    <div class="dato"><span>Cuenta creada</span><span>{{ user.date_joined|date:"d/m/Y" }}</span></div>
+                </div>
+                <div class="pie"><span>Si no reconoces el último inicio de sesión, cambia tu contraseña.</span></div>
+            </article>
+        </section>
     </div>
+</div>
+
+<div class="modal fade" id="modalFoto" tabindex="-1" aria-labelledby="tituloModalFoto" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <form method="post" enctype="multipart/form-data" class="modal-content" id="formAvatar">
+            {% csrf_token %}
+            <input type="hidden" name="accion" value="avatar">
+            {{ form.avatar_preset }}
+            <div class="modal-header border-0 pb-0">
+                <h2 class="modal-title h5" id="tituloModalFoto">Cambiar foto</h2>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <div class="vista-foto" id="avatar-vista">
+                    {% if user.perfil.avatar %}<img src="{{ user.perfil.avatar.url }}" alt="Foto actual">
+                    {% elif user.perfil.avatar_preset %}<span style="background:{{ user.perfil.avatar_preset_color }};"><i class="bi {{ user.perfil.avatar_preset_icono }}" aria-hidden="true"></i></span>
+                    {% else %}<span style="background:var(--guindo);">{{ user.username|slice:":1"|upper }}</span>{% endif %}
+                </div>
+                <div class="galeria-avatares" id="galeriaAvatares">
+                    {% for clave, color, icono in presets_avatar %}
+                        <button type="button"
+                                class="btn-avatar-preset {% if user.perfil.avatar_preset == clave and not user.perfil.avatar %}seleccionado{% endif %}"
+                                data-preset="{{ clave }}" data-color="{{ color }}" data-icono="{{ icono }}"
+                                style="background:{{ color }};" aria-label="Avatar {{ forloop.counter }}">
+                            <i class="bi {{ icono }}" aria-hidden="true"></i>
+                        </button>
+                    {% endfor %}
+                </div>
+                <label class="subir-foto" for="{{ form.avatar.id_for_label }}">
+                    <i class="bi bi-upload" aria-hidden="true"></i>
+                    <span id="nombre-foto">Subir una imagen (JPG o PNG{% if form.avatar.help_text %}, {{ form.avatar.help_text }}{% endif %})</span>
+                </label>
+                {{ form.avatar }}
+                {% for error in form.avatar.errors %}<div class="text-danger small mt-2">{{ error }}</div>{% endfor %}
+            </div>
+            <div class="modal-footer border-0 pt-0">
+                <button type="button" class="btn btn-link text-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" class="btn btn-guindo" id="guardar-foto" {% if abierto != 'avatar' %}disabled{% endif %}>Guardar foto</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endwith %}
 {% endblock %}
 
 {% block extra_head %}
     <style>
-        .tarjeta-usuario {
-            text-align: center; padding: 1.75rem 1.25rem; border-radius: 1rem;
-            border: 1px solid var(--bs-border-color); background: rgba(110,27,63,.03);
-            position: sticky; top: 1.5rem;
-        }
-        [data-bs-theme="dark"] .tarjeta-usuario { background: rgba(255,255,255,.03); }
-        .avatar-grande { width: 128px; height: 128px; margin: 0 auto 1rem; border-radius: 50%; overflow: hidden; box-shadow: 0 6px 18px rgba(74,17,41,.18); }
-        .avatar-grande img, .avatar-grande span {
-            width: 100%; height: 100%; object-fit: cover; display: flex; align-items: center; justify-content: center;
-            color: #fff; font-size: 3rem; animation: aparecer-avatar .25s ease;
-        }
-        @keyframes aparecer-avatar { from { opacity: .4; transform: scale(.94); } }
-        .enlaces-perfil { display: flex; flex-direction: column; gap: .15rem; margin-top: 1.25rem; padding-top: 1rem; border-top: 1px solid var(--bs-border-color); text-align: left; }
-        .enlaces-perfil a { padding: .45rem .6rem; border-radius: .5rem; text-decoration: none; color: var(--bs-body-color); }
-        .enlaces-perfil a:hover { background: rgba(110,27,63,.07); color: var(--guindo); }
-        .enlaces-perfil .bi { margin-right: .4rem; color: var(--guindo); }
-        [data-bs-theme="dark"] .enlaces-perfil .bi { color: #e7b8cd; }
+        .ajustes { display: grid; grid-template-columns: 230px minmax(0, 1fr); gap: 2.25rem; max-width: 1080px; }
+        .min-w-0 { min-width: 0; }
+        .ajustes-nav { position: sticky; top: 1.5rem; align-self: start; }
+        .identidad { display: flex; align-items: center; gap: .7rem; padding-bottom: 1rem; margin-bottom: .75rem; border-bottom: 1px solid var(--bs-border-color); }
+        .mini-avatar, .mini-avatar img, .mini-avatar > span { width: 40px; height: 40px; border-radius: 50%; flex-shrink: 0; overflow: hidden;
+            display: grid; place-items: center; object-fit: cover; color: #fff; font-weight: 600; }
+        .ajustes-enlaces { display: flex; flex-direction: column; gap: .15rem; }
+        .ajustes-enlaces a { display: flex; align-items: center; gap: .6rem; padding: .55rem .75rem; border-radius: .55rem;
+            color: var(--bs-body-color); text-decoration: none; font-weight: 500; transition: background-color .15s ease; }
+        .ajustes-enlaces a:hover { background: var(--bs-tertiary-bg); }
+        .ajustes-enlaces a.activo { background: var(--bs-tertiary-bg); color: var(--guindo); box-shadow: inset 3px 0 0 var(--guindo); }
+        [data-bs-theme="dark"] .ajustes-enlaces a.activo { color: #e7b8cd; box-shadow: inset 3px 0 0 #e7b8cd; }
 
-        .seccion-perfil { padding: 1.25rem 1.5rem; border-radius: 1rem; border: 1px solid var(--bs-border-color); scroll-margin-top: 1.5rem; }
-        .titulo-seccion { font-size: 1rem; font-weight: 700; color: var(--guindo-oscuro); margin-bottom: .75rem; }
-        .titulo-seccion .bi { margin-right: .35rem; }
-        [data-bs-theme="dark"] .titulo-seccion { color: #e7b8cd; }
-        .acciones-seccion { display: flex; flex-wrap: wrap; align-items: center; gap: .75rem; margin-top: 1rem; }
+        .encabezado-panel h1 { font-size: 1.6rem; margin: 0 0 .2rem; }
+        .encabezado-panel p { color: var(--bs-secondary-color); margin: 0 0 1.25rem; }
+        .panel-ajustes { animation: aparecer-panel .2s ease; }
+        @keyframes aparecer-panel { from { opacity: 0; } }
 
-        .galeria-avatares { display: flex; flex-wrap: wrap; gap: .6rem; }
-        .btn-avatar-preset {
-            width: 52px; height: 52px; border-radius: 50%; border: none; color: #fff; font-size: 1.3rem;
-            display: grid; place-items: center; opacity: .6; cursor: pointer;
-            transition: opacity .15s ease, box-shadow .15s ease, transform .15s ease;
-        }
-        .btn-avatar-preset:hover { opacity: .9; transform: translateY(-2px); }
+        .tarjeta-ajuste { display: block; border: 1px solid var(--bs-border-color); border-radius: .9rem; overflow: hidden;
+            background: var(--bs-body-bg); margin-bottom: 1.1rem; transition: border-color .15s ease, box-shadow .15s ease; }
+        .tarjeta-ajuste.cambiada { border-color: color-mix(in srgb, var(--guindo) 45%, var(--bs-border-color)); box-shadow: 0 4px 16px rgba(74,17,41,.06); }
+        .tarjeta-ajuste .cuerpo { padding: 1.25rem 1.4rem; }
+        .tarjeta-ajuste h2 { font-size: 1.05rem; font-weight: 600; margin: 0 0 .3rem; }
+        .tarjeta-ajuste .desc { color: var(--bs-secondary-color); font-size: .9rem; margin: 0 0 .9rem; }
+        .tarjeta-ajuste .campos { max-width: 540px; }
+        .tarjeta-ajuste .reautenticar { max-width: 320px; margin-top: .9rem; animation: aparecer-panel .2s ease; }
+        .tarjeta-ajuste .pie { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .75rem; min-height: 52px;
+            padding: .65rem 1.4rem; background: var(--bs-tertiary-bg); border-top: 1px solid var(--bs-border-color);
+            font-size: .85rem; color: var(--bs-secondary-color); }
+
+        .fila-foto, .estado { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+        .avatar-xl { position: relative; width: 76px; height: 76px; flex-shrink: 0; padding: 0; border: none; border-radius: 50%; background: none;
+            box-shadow: 0 0 0 4px var(--bs-body-bg), 0 0 0 5px var(--bs-border-color); transition: transform .15s ease; }
+        .avatar-xl:hover { transform: scale(1.04); }
+        .avatar-relleno, .avatar-relleno img, .avatar-relleno > span { width: 100%; height: 100%; border-radius: 50%; overflow: hidden;
+            display: grid; place-items: center; object-fit: cover; color: #fff; font-size: 1.8rem; }
+        .avatar-camara { position: absolute; right: -4px; bottom: -4px; width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center;
+            font-size: .75rem; background: var(--bs-body-bg); color: var(--guindo); border: 1px solid var(--bs-border-color); }
+        [data-bs-theme="dark"] .avatar-camara { color: #e7b8cd; }
+
+        .estado-activo { display: inline-flex; align-items: center; font-weight: 600; color: #198754; white-space: nowrap; }
+        [data-bs-theme="dark"] .estado-activo { color: #4ec48a; }
+        .punto { width: 8px; height: 8px; border-radius: 50%; background: currentColor; margin-right: .45rem; box-shadow: 0 0 0 3px color-mix(in srgb, currentColor 20%, transparent); }
+        .dato { display: flex; justify-content: space-between; gap: 1rem; padding: .6rem 0; border-bottom: 1px dashed var(--bs-border-color); font-size: .92rem; }
+        .dato:last-child { border-bottom: 0; padding-bottom: 0; }
+        .dato span:first-child { color: var(--bs-secondary-color); }
+
+        .vista-foto, .vista-foto img, .vista-foto > span { width: 104px; height: 104px; border-radius: 50%; overflow: hidden;
+            display: grid; place-items: center; object-fit: cover; color: #fff; font-size: 2.4rem; }
+        .vista-foto { margin: .25rem auto 1.25rem; box-shadow: 0 6px 18px rgba(74,17,41,.18); animation: aparecer-panel .2s ease; }
+        .galeria-avatares { display: flex; flex-wrap: wrap; justify-content: center; gap: .55rem; margin-bottom: 1rem; }
+        .btn-avatar-preset { width: 44px; height: 44px; border-radius: 50%; border: none; color: #fff; font-size: 1.1rem; display: grid; place-items: center;
+            opacity: .7; transition: opacity .15s ease, box-shadow .15s ease, transform .15s ease; }
+        .btn-avatar-preset:hover { opacity: 1; transform: translateY(-2px); }
         .btn-avatar-preset.seleccionado { opacity: 1; box-shadow: 0 0 0 3px var(--bs-body-bg), 0 0 0 5px var(--guindo); }
-
-        .subir-foto {
-            display: flex; align-items: center; gap: .9rem; padding: .85rem 1rem; cursor: pointer;
-            border: 2px dashed rgba(110,27,63,.3); border-radius: .75rem; color: var(--guindo);
-            transition: border-color .15s ease, background-color .15s ease;
-        }
+        .subir-foto { display: flex; align-items: center; justify-content: center; gap: .6rem; margin: 0; padding: .75rem 1rem; cursor: pointer;
+            border: 1.5px dashed rgba(110,27,63,.35); border-radius: .75rem; color: var(--guindo); font-size: .9rem; font-weight: 500; text-align: center; }
         .subir-foto:hover { border-color: var(--guindo); background: rgba(110,27,63,.04); }
-        [data-bs-theme="dark"] .subir-foto { color: #e7b8cd; border-color: rgba(231,184,205,.3); }
+        [data-bs-theme="dark"] .subir-foto { color: #e7b8cd; border-color: rgba(231,184,205,.35); }
 
-        @media (max-width: 991.98px) {
-            .tarjeta-usuario { position: static; display: grid; grid-template-columns: auto 1fr; column-gap: 1rem; text-align: left; align-items: center; padding: 1rem; }
-            .avatar-grande { width: 72px; height: 72px; margin: 0; grid-row: span 3; }
-            .avatar-grande img, .avatar-grande span { font-size: 1.8rem; }
-            .tarjeta-usuario .badge { justify-self: start; }
-            .enlaces-perfil { grid-column: 1 / -1; flex-direction: row; flex-wrap: wrap; justify-content: center; }
-        }
-        @media (max-width: 575.98px) {
-            .seccion-perfil { padding: 1rem; }
-            .acciones-seccion .btn { width: 100%; }
-            .btn-avatar-preset { width: 46px; height: 46px; }
+        @media (max-width: 767.98px) {
+            .ajustes { grid-template-columns: 1fr; gap: 1rem; }
+            .ajustes-nav { position: static; }
+            .identidad { display: none; }
+            .ajustes-enlaces { flex-direction: row; padding: .25rem; border-radius: .7rem; background: var(--bs-tertiary-bg); }
+            .ajustes-enlaces a { flex: 1; justify-content: center; }
+            .ajustes-enlaces a.activo { background: var(--bs-body-bg); box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+            .tarjeta-ajuste .cuerpo { padding: 1rem; }
+            .tarjeta-ajuste .pie { padding: .65rem 1rem; }
+            .estado { flex-direction: column; align-items: flex-start; }
         }
     </style>
 {% endblock %}
@@ -168,46 +269,95 @@
 {% block extra_js %}
     <script>
         (function () {
+            var enlaces = document.querySelectorAll("[data-panel]");
+            function mostrar(nombre) {
+                if (!document.getElementById("panel-" + nombre)) nombre = "perfil";
+                enlaces.forEach(function (a) {
+                    var activo = a.dataset.panel === nombre;
+                    a.classList.toggle("activo", activo);
+                    a.setAttribute("aria-selected", activo ? "true" : "false");
+                    document.getElementById("panel-" + a.dataset.panel).hidden = !activo;
+                });
+            }
+            enlaces.forEach(function (a) {
+                a.addEventListener("click", function (e) {
+                    e.preventDefault();
+                    history.replaceState(null, "", "#" + a.dataset.panel);
+                    mostrar(a.dataset.panel);
+                });
+            });
+            mostrar(location.hash.replace("#", ""));
+
+            document.querySelectorAll("form[data-tarjeta]").forEach(function (form) {
+                var campos = Array.prototype.filter.call(form.querySelectorAll("input"), function (c) {
+                    return c.type !== "hidden" && c.type !== "password";
+                });
+                var iniciales = campos.map(function (c) { return c.defaultValue; });
+                var reauth = form.querySelector(".reautenticar");
+                var guardar = form.querySelector(".boton-guardar");
+                var deshacer = form.querySelector(".boton-deshacer");
+                function revisar() {
+                    var cambiado = campos.some(function (c, i) { return c.value.trim() !== iniciales[i].trim(); });
+                    var abierto = cambiado || form.hasAttribute("data-con-error");
+                    form.classList.toggle("cambiada", cambiado);
+                    reauth.hidden = !abierto;
+                    guardar.disabled = !abierto;
+                    deshacer.hidden = !cambiado;
+                }
+                campos.forEach(function (c) { c.addEventListener("input", revisar); });
+                form.addEventListener("reset", function () {
+                    form.removeAttribute("data-con-error");
+                    setTimeout(revisar, 0);
+                });
+                revisar();
+                if (form.hasAttribute("data-con-error")) form.scrollIntoView({ block: "center" });
+            });
+
             var botones = document.querySelectorAll(".btn-avatar-preset");
             var campoOculto = document.getElementById("{{ form.avatar_preset.id_for_label }}");
             var campoArchivo = document.getElementById("{{ form.avatar.id_for_label }}");
             var vista = document.getElementById("avatar-vista");
             var nombreFoto = document.getElementById("nombre-foto");
-            var avisoSinGuardar = document.getElementById("aviso-sin-guardar");
-
-            // Vista previa en la tarjeta del usuario hasta que se guarde.
-            function previsualizar(nodo) {
-                vista.replaceChildren(nodo);
-                avisoSinGuardar.classList.remove("d-none");
-            }
-
+            var guardarFoto = document.getElementById("guardar-foto");
+            var modal = document.getElementById("modalFoto");
+            var vistaOriginal = vista.innerHTML, textoOriginal = nombreFoto.textContent;
             botones.forEach(function (boton) {
                 boton.addEventListener("click", function () {
                     botones.forEach(function (b) { b.classList.remove("seleccionado"); });
                     boton.classList.add("seleccionado");
                     campoOculto.value = boton.dataset.preset;
                     if (campoArchivo) campoArchivo.value = "";
+                    nombreFoto.textContent = textoOriginal;
                     var span = document.createElement("span");
                     span.style.background = boton.dataset.color;
                     var icono = document.createElement("i");
                     icono.className = "bi " + boton.dataset.icono;
                     span.appendChild(icono);
-                    previsualizar(span);
+                    vista.replaceChildren(span);
+                    guardarFoto.disabled = false;
                 });
             });
-
             if (campoArchivo) {
                 campoArchivo.addEventListener("change", function () {
                     if (!campoArchivo.files.length) return;
-                    var archivo = campoArchivo.files[0];
                     botones.forEach(function (b) { b.classList.remove("seleccionado"); });
-                    nombreFoto.textContent = archivo.name;
                     var img = document.createElement("img");
                     img.alt = "Vista previa";
-                    img.src = URL.createObjectURL(archivo);
-                    previsualizar(img);
+                    img.src = URL.createObjectURL(campoArchivo.files[0]);
+                    vista.replaceChildren(img);
+                    nombreFoto.textContent = campoArchivo.files[0].name;
+                    guardarFoto.disabled = false;
                 });
             }
+            modal.addEventListener("hidden.bs.modal", function () {
+                vista.innerHTML = vistaOriginal;
+                nombreFoto.textContent = textoOriginal;
+                if (campoArchivo) campoArchivo.value = "";
+                guardarFoto.disabled = true;
+            });
+            {% if request.POST.accion == 'avatar' %}
+            if (window.bootstrap) bootstrap.Modal.getOrCreateInstance(modal).show();
+            {% endif %}
         })();
     </script>
 {% endblock %}

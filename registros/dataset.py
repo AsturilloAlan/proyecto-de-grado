@@ -2,8 +2,7 @@
 
 COLUMNAS_DATASET = [
     "fila_origen", "fecha", "cuenta_codigo", "cuenta_nombre", "cuenta_tipo",
-    "comprobante", "glosa", "debe", "haber", "saldo",
-    # Avisos que el sistema ya detecta por reglas, y la decisión del auditor.
+    "comprobante", "glosa", "debe", "haber",
     "aviso_duplicado", "aviso_naturaleza", "aviso_observado",
 ]
 
@@ -27,7 +26,7 @@ def filas_dataset(carga, celda=lambda valor: valor):
     (por ejemplo, contra inyección de fórmulas en CSV).
     """
     duplicado, naturaleza, observado = _filas_con_aviso(carga)
-    registros = carga.registros.select_related("cuenta").order_by("fila_origen")
+    registros = carga.registros.select_related("cuenta").order_by("fila_origen", "id")
     for registro in registros.iterator():
         fila = registro.fila_origen
         yield [
@@ -40,7 +39,6 @@ def filas_dataset(carga, celda=lambda valor: valor):
             celda(registro.glosa),
             registro.debe,
             registro.haber,
-            registro.saldo if registro.saldo is not None else "",
             int(fila in duplicado),
             int(fila in naturaleza),
             int(fila in observado),

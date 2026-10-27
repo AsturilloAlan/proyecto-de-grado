@@ -1,15 +1,13 @@
 """Verificación en dos pasos (2FA) por correo, al iniciar sesión."""
 import hmac
 from datetime import timedelta
-from email.mime.image import MIMEImage
-from pathlib import Path
 
 from django.conf import settings
-from django.core.mail import EmailMultiAlternatives
 from django.db.models import F
 from django.template.loader import render_to_string
 from django.utils import timezone
 
+from . import correos
 from .models import MAXIMO_INTENTOS_CODIGO, MINUTOS_VALIDEZ_CODIGO, CodigoVerificacion
 
 CLAVE_SESION_USUARIO_PENDIENTE = "sesion_2fa_pendiente"
@@ -52,32 +50,24 @@ def enviar_codigo(usuario, request=None):
         "ip": (request.META.get("REMOTE_ADDR", "") if request else "") or "No disponible",
         "dispositivo": _dispositivo(request),
     }
-    texto = render_to_string("usuarios/correo_codigo.txt", contexto)
-    html = render_to_string("usuarios/correo_codigo.html", contexto)
-
-    correo = EmailMultiAlternatives(
-        subject="Código de verificación - ST&S Auditores",
-        body=texto,
-        from_email=settings.DEFAULT_FROM_EMAIL,
-        to=[usuario.email],
+    correos.enviar(
+        "codigo_2fa", usuario, usuario.email,
+        asunto="Código de verificación - ST&S Auditores",
+        texto=lambda ref: render_to_string("usuarios/correo_codigo.txt", {**contexto, "referencia": ref}),
+        html=lambda ref: render_to_string("usuarios/correo_codigo.html", {**contexto, "referencia": ref}),
+        request=request,
     )
-    correo.attach_alternative(html, "text/html")
-    correo.mixed_subtype = "related"
-    ruta_logo = Path(settings.BASE_DIR) / "static" / "img" / "logo-sts-claro.png"
-    if ruta_logo.exists():
-        imagen = MIMEImage(ruta_logo.read_bytes())
-        imagen.add_header("Content-ID", "<logo_sts>")
-        imagen.add_header("Content-Disposition", "inline", filename="logo-sts.png")
-        correo.attach(imagen)
-    correo.send(fail_silently=False)
     return codigo
 
 
-def validar_codigo(usuario, codigo_ingresado):
+def validar_codigo(usuario, codigo_ingresado, codigo_id=None):
     """Valida el código ingresado contra el más reciente y no usado del
     usuario. Devuelve (ok: bool, mensaje_error: str | None)."""
+    candidatos = CodigoVerificacion.objects.filter(usuario=usuario, usado=False)
+    if codigo_id is not None:
+        candidatos = candidatos.filter(pk=codigo_id)
     ultimo = (
-        CodigoVerificacion.objects.filter(usuario=usuario, usado=False)
+        candidatos
         .order_by("-creado")
         .first()
     )
@@ -88,16 +78,16 @@ def validar_codigo(usuario, codigo_ingresado):
         return False, "El código venció. Solicita uno nuevo."
 
     if ultimo.bloqueado_por_intentos():
-        return False, "Se agotaron los intentos para este código. Solicita uno nuevo."
+        return False, "Este código ya no sirve: pide uno nuevo con «Reenviar código»."
 
     if not hmac.compare_digest(ultimo.codigo.encode(), codigo_ingresado.strip().encode()):
-        # Incremento atómico en la base (F()): dos intentos simultáneos no
-        # pueden "pisarse" y perder un fallo del contador.
+        # F() evita perder incrementos en intentos simultáneos.
         CodigoVerificacion.objects.filter(pk=ultimo.pk).update(intentos=F("intentos") + 1)
+        if ultimo.intentos + 1 >= MAXIMO_INTENTOS_CODIGO:
+            return False, "Código incorrecto. Este código ya no sirve: pide uno nuevo con «Reenviar código»."
         return False, "El código ingresado no es correcto."
 
-    # Consumo atómico: solo uno de dos envíos simultáneos del mismo código
-    # puede marcarlo como usado; el otro recibe 0 filas actualizadas.
+    # La actualización atómica permite consumir el código una sola vez.
     consumido = CodigoVerificacion.objects.filter(
         pk=ultimo.pk, usado=False, intentos__lt=MAXIMO_INTENTOS_CODIGO
     ).update(usado=True)

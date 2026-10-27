@@ -1,0 +1,196 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Hallazgos · {% if carga %}Carga #{{ carga.id }}{% else %}{{ empresa }} {{ gestion.anio }}{% endif %}{% endblock %}
+{% block content %}
+    {% include "_estilos_reporte.html" %}
+    <style>
+        .que-procede { border: 1px solid var(--bs-border-color); border-radius: .75rem; padding: .85rem 1rem; }
+        .resumen-hallazgos { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 1px; margin: 0 0 1.5rem;
+            background: var(--bs-border-color); border: 1px solid var(--bs-border-color); border-radius: .85rem; overflow: hidden; }
+        .resumen-hallazgos > div { background: var(--bs-body-bg); padding: .9rem 1.1rem; display: flex; flex-direction: column; }
+        .resumen-hallazgos .valor { font-size: 1.45rem; font-weight: 700; color: var(--guindo); line-height: 1.15; font-variant-numeric: tabular-nums; }
+        [data-bs-theme="dark"] .resumen-hallazgos .valor { color: #e7b8cd; }
+        .resumen-hallazgos .etiqueta { font-size: .8rem; font-weight: 600; }
+        .resumen-hallazgos .nota { font-size: .78rem; color: var(--bs-secondary-color); }
+    </style>
+
+    {% include "_migas_reporte.html" with titulo="Hallazgos" %}
+
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 no-print mb-3">
+        <a class="btn btn-sm btn-outline-secondary" href="{{ origen.url }}"><i class="bi bi-arrow-left" aria-hidden="true"></i> {{ origen.texto }}</a>
+        {% include "_descargas_reporte.html" %}
+    </div>
+
+    <article class="reporte">
+    <div class="reporte-membrete">
+        <div class="d-flex align-items-center gap-3">
+            <span class="reporte-logo">
+                <img src="{% static 'img/logo-sts-claro.png' %}" alt="ST&amp;S Auditores y Consultores" class="logo-tema-claro">
+                <img src="{% static 'img/logo-sts-oscuro.png' %}" alt="" class="logo-tema-oscuro">
+            </span>
+            <div>
+                <div class="razon-social">ST&amp;S AUDITORES Y CONSULTORES S.R.L.</div>
+                <div class="lema">Auditoría externa e informática forense</div>
+            </div>
+        </div>
+        <div class="encabezado-derecha">
+            <span class="etiqueta-documento">Papel de trabajo</span>
+            <div class="small mt-1" style="color: var(--rep-secundario);">{% if carga %}Carga N.º {{ carga.id }}{% else %}Gestión {{ gestion.anio }} · consolidado{% endif %} · Emisión N.º {{ emision.id }}</div>
+        </div>
+    </div>
+
+    {% if carga and carga.estado == 'anulada' %}
+        <div class="alert alert-dark"><strong>CARGA ANULADA.</strong> Este reporte no tiene validez como papel de trabajo.</div>
+    {% elif es_borrador %}
+        <div class="alert alert-warning d-flex flex-wrap align-items-center justify-content-between gap-2">
+            <span><strong>Versión preliminar:</strong> faltan revisar {{ pendientes_modelo }} atípica{{ pendientes_modelo|pluralize }} y {{ pendientes_reglas }} aviso{{ pendientes_reglas|pluralize }}{% if en_seguimiento %}; {{ en_seguimiento|length }} en seguimiento (no incluidas){% endif %}.</span>
+            {% if que_procede %}<span class="d-flex flex-wrap gap-2 no-print">{% for paso in que_procede %}<a class="btn btn-sm btn-outline-guindo" href="{{ paso.url }}">{{ paso.texto }} <i class="bi bi-arrow-right" aria-hidden="true"></i></a>{% endfor %}</span>{% endif %}
+        </div>
+    {% elif que_procede %}
+        <div class="que-procede no-print mb-3 d-flex flex-wrap gap-2">
+            {% for paso in que_procede %}<a class="btn btn-sm btn-outline-guindo" href="{{ paso.url }}">{{ paso.texto }} <i class="bi bi-arrow-right" aria-hidden="true"></i></a>{% endfor %}
+        </div>
+    {% else %}
+        <div class="que-procede no-print mb-3 small">
+            <i class="bi bi-check2-circle text-success" aria-hidden="true"></i> Revisión completa: descarga el PDF o imprime para firmar.
+        </div>
+    {% endif %}
+
+    <h1 class="reporte-titulo h3">Hallazgos de auditoría</h1>
+    <p class="reporte-intro mb-4">
+        Lo observado por el auditor, con su fundamento. De mayor a menor importe.
+    </p>
+
+    <dl class="reporte-datos">
+        <div><dt>Empresa auditada</dt><dd>{{ empresa }}{% if empresa.nit %}<br><span class="small">NIT {{ empresa.nit }}</span>{% endif %}</dd></div>
+        <div><dt>Gestión</dt><dd>{{ gestion }}</dd></div>
+        <div><dt>Alcance</dt><dd>{% if carga %}Carga N.º {{ carga.id }}{% else %}{{ cargas|length }} carga{{ cargas|length|pluralize }} válida{{ cargas|length|pluralize }}{% endif %}</dd></div>
+        <div><dt>Reporte emitido</dt><dd>{{ fecha_generacion|date:"d/m/Y H:i" }} por {{ generado_por.username }}</dd></div>
+        <div><dt>Hallazgos</dt><dd class="dato-destacado">{{ hallazgos|length }}</dd><dd class="small">{% if por_origen.modelo %}{{ por_origen.modelo }} del modelo{% endif %}{% if por_origen.modelo and por_origen.reglas %} · {% endif %}{% if por_origen.reglas %}{{ por_origen.reglas }} de las reglas{% endif %}{% if por_origen.ambos %} · {{ por_origen.ambos }} de ambos{% endif %}</dd></div>
+        <div><dt>Importe de los hallazgos</dt><dd class="dato-destacado">{{ importe_total|floatformat:"2g" }}</dd><dd class="small">{{ porcentaje_importe|floatformat:2 }} % del movimiento total</dd></div>
+        {% if tributarios.cantidad %}<div><dt>En cuentas tributarias</dt><dd class="dato-destacado">{{ tributarios.cantidad }}</dd><dd class="small">Importe {{ tributarios.importe|floatformat:"2g" }}</dd></div>{% endif %}
+    </dl>
+
+    {% include "_alcance_reporte.html" %}
+
+    <div class="resumen-hallazgos no-print">
+        <div><span class="valor">{{ hallazgos|length }}</span><span class="etiqueta">hallazgo{{ hallazgos|length|pluralize }}</span>
+            <span class="nota">{% if por_origen.modelo %}{{ por_origen.modelo }} del modelo{% endif %}{% if por_origen.modelo and por_origen.reglas %} · {% endif %}{% if por_origen.reglas %}{{ por_origen.reglas }} de las reglas{% endif %}{% if por_origen.ambos %} · {{ por_origen.ambos }} de ambos{% endif %}</span></div>
+        <div><span class="valor">{{ importe_total|floatformat:"2g" }}</span><span class="etiqueta">importe</span><span class="nota">{{ porcentaje_importe|floatformat:2 }} % del movimiento</span></div>
+        {% if tributarios.cantidad %}<div><span class="valor">{{ tributarios.cantidad }}</span><span class="etiqueta">en cuentas de impuestos</span><span class="nota">{{ tributarios.importe|floatformat:"2g" }}</span></div>{% endif %}
+        {% if en_seguimiento %}<div><span class="valor">{{ en_seguimiento|length }}</span><span class="etiqueta">en seguimiento</span><a class="nota" href="#en-seguimiento">Ver abajo</a></div>{% endif %}
+    </div>
+
+    <section class="reporte-seccion">
+        <h2 id="detalle" style="scroll-margin-top: 1rem;">Detalle de los hallazgos</h2>
+        {% if hallazgos %}
+            <div class="table-responsive reporte-tabla-contenedor">
+                <table class="table table-sm table-bordered reporte-tabla">
+                    <colgroup>
+                        <col style="width:4%">{% if varias_cargas %}<col style="width:5%">{% endif %}
+                        <col style="width:12%"><col style="width:14%"><col style="width:17%">
+                        <col style="width:10%"><col style="width:21%"><col style="width:22%">
+                    </colgroup>
+                    <thead>
+                        <tr>
+                            <th>N.º</th>
+                            {% if varias_cargas %}<th>Carga</th>{% endif %}
+                            <th>Fecha · comprobante</th>
+                            <th>Cuenta</th>
+                            <th>Glosa</th>
+                            <th>Importe</th>
+                            <th>Qué se detectó</th>
+                            <th>Fundamento del auditor</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for h in hallazgos %}
+                            {% with r=h.registro %}
+                            <tr>
+                                <td>{{ h.numero }}</td>
+                                {% if varias_cargas %}<td>{{ h.carga_id }}</td>{% endif %}
+                                <td>{% if r %}{{ r.fecha|date:"d/m/Y" }}<br><span class="small" style="color: var(--rep-secundario);">{{ r.numero_comprobante|default:"Sin comprobante" }} · fila {{ r.fila_origen }}</span><br><a class="small d-print-none" href="{% url 'registros:detalle_carga' r.carga_id %}?pestana=registros&fila={{ r.fila_origen }}&volver={{ request.get_full_path|urlencode }}#fila-{{ r.fila_origen }}">Ver en registros</a>{% else %}Sin dato{% endif %}</td>
+                                <td>{% if r %}<span class="fw-semibold">{{ r.cuenta.codigo }}</span><br>{{ r.cuenta.nombre }}{% if h.tributaria %}<br><span class="badge text-bg-light border">Tributaria</span>{% endif %}{% else %}Sin dato{% endif %}</td>
+                                <td title="{{ r.glosa|default:'' }}">{{ r.glosa|default:""|truncatechars:70 }}</td>
+                                <td class="text-end">{% if r %}{% if r.debe %}{{ r.debe|floatformat:"2g" }} D{% else %}{{ r.haber|floatformat:"2g" }} H{% endif %}{% endif %}</td>
+                                <td>
+                                    <span class="small" style="color: var(--rep-secundario);">{{ h.origen }}{% if h.modelo %} · nivel {{ h.modelo.nivel_texto|lower }}{% endif %}</span>
+                                    {% if h.modelo %}
+                                        {% with principal=h.modelo.motivos.0 %}{% if principal %}<div class="motivo-principal">{{ principal.texto }}</div>{% endif %}{% endwith %}
+                                    {% endif %}
+                                    {% for regla in h.reglas %}<div>{% if h.modelo %}Regla: {% endif %}{{ regla.descripcion }}</div>{% endfor %}
+                                </td>
+                                <td>
+                                    {% if h.modelo %}
+                                        {% if h.modelo.comentario %}{{ h.modelo.comentario }}<br>{% endif %}
+                                        <span class="small" style="color: var(--rep-secundario);">{{ h.modelo.revisado_por.username|default:"" }} · {{ h.modelo.fecha|date:"d/m/Y" }}</span>
+                                    {% endif %}
+                                    {% for regla in h.reglas %}
+                                        <div>{{ regla.comentario }}<br><span class="small" style="color: var(--rep-secundario);">{{ regla.revisado_por.username|default:"" }} · {{ regla.fecha|date:"d/m/Y" }}</span></div>
+                                    {% endfor %}
+                                </td>
+                            </tr>
+                            {% endwith %}
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <div class="alert alert-info">Todavía no hay hallazgos confirmados por el auditor{% if es_borrador %}; la revisión sigue en curso{% endif %}.</div>
+        {% endif %}
+    </section>
+
+    {% if en_seguimiento %}
+    {# Puntos abiertos: se ven en pantalla para trabajarlos; no se imprimen ni van al PDF (sí al Excel). #}
+    <section class="reporte-seccion no-print">
+        <h2 id="en-seguimiento" style="scroll-margin-top: 1rem;">En seguimiento</h2>
+        <p class="small mb-2">Atípicas que el auditor considera útiles pero que requieren revisar otros documentos o cuentas. No forman parte de los hallazgos hasta marcarlas como observadas o válidas.</p>
+        <div class="table-responsive">
+            <table class="table table-sm table-bordered reporte-cuadro">
+                <thead><tr>{% if varias_cargas %}<th>Carga</th>{% endif %}<th>Fecha</th><th>Cuenta</th><th>Glosa</th><th class="text-end">Importe</th><th>Qué falta revisar</th><th>Anotado por</th></tr></thead>
+                <tbody>
+                    {% for s in en_seguimiento %}
+                        {% with r=s.registro %}
+                        <tr>
+                            {% if varias_cargas %}<td>{{ s.analisis.carga_id }}</td>{% endif %}
+                            <td>{{ r.fecha|date:"d/m/Y" }}<br><span class="small" style="color: var(--rep-secundario);">fila {{ r.fila_origen }}</span><br><a class="small d-print-none" href="{% url 'registros:detalle_carga' r.carga_id %}?pestana=registros&fila={{ r.fila_origen }}&volver={{ request.get_full_path|urlencode }}#fila-{{ r.fila_origen }}">Ver en registros</a></td>
+                            <td>{{ r.cuenta.codigo }} {{ r.cuenta.nombre }}</td>
+                            <td>{{ r.glosa }}</td>
+                            <td class="text-end text-nowrap">{% if r.debe %}{{ r.debe|floatformat:"2g" }} D{% else %}{{ r.haber|floatformat:"2g" }} H{% endif %}</td>
+                            <td>{{ s.comentario_revision }}</td>
+                            <td class="small">{{ s.revisado_por.username|default:"" }} {{ s.fecha_revision|date:"d/m/Y" }}</td>
+                        </tr>
+                        {% endwith %}
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+    {% endif %}
+
+    {# Firmas del papel de trabajo: el socio firma una sola vez si él mismo lo elaboró. #}
+    <div class="firma-bloque">
+        <div>
+            <div class="firma-linea">
+                {{ generado_por.get_full_name|default:generado_por.username }}
+                <div class="cargo">{% if emisor_es_socio %}Elaborado y aprobado por · Socio de auditoría{% else %}Elaborado por · Auditor{% endif %}</div>
+            </div>
+        </div>
+        {% if not emisor_es_socio %}
+        <div>
+            <div class="firma-linea">
+                &nbsp;
+                <div class="cargo">Revisado y aprobado por · Socio de auditoría</div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <p class="reporte-pie">
+        Documento generado automáticamente por el sistema de apoyo a la auditoría externa de
+        ST&amp;S Auditores y Consultores S.R.L. Emisión N.º {{ emision.id }} del {{ fecha_generacion|date:"d/m/Y H:i" }}.
+        Uso interno, sujeto a revisión profesional.
+    </p>
+    </article>
+    {% include "_burbuja_nav.html" with ancla="detalle" %}
+{% endblock %}

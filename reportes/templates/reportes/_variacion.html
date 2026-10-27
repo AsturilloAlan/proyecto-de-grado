@@ -1,0 +1,2 @@
+{% comment %}Variación frente a la gestión anterior. Uso: include con valor (porcentaje o None) y anterior (Gestion).{% endcomment %}
+{% if valor is not None %}<div class="small {% if valor >= 50 %}text-danger fw-semibold{% else %}text-secondary{% endif %}" title="Frente a la gestión {{ anterior.anio }}">{% if valor > 0 %}+{% endif %}{{ valor|floatformat:0 }} % vs {{ anterior.anio }}</div>{% endif %}

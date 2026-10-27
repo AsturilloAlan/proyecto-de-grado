@@ -1,0 +1,46 @@
+{% comment %}Parámetro opcional: ancla, id de la sección para el tercer botón. No se imprime.{% endcomment %}
+<style>
+    .burbuja-rep { position: fixed; right: 1.25rem; bottom: 1.25rem; z-index: 1030; display: flex; flex-direction: column; gap: .4rem; }
+    .burbuja-rep button {
+        width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; font-size: 1.1rem;
+        background: var(--bs-body-bg); color: var(--guindo, #6e1b3f); border: 1px solid rgba(110,27,63,.25);
+        box-shadow: 0 6px 18px rgba(74,17,41,.2); transition: transform .15s ease, opacity .2s ease;
+    }
+    .burbuja-rep button.principal { background: var(--guindo, #6e1b3f); color: #fff; border: none; }
+    .burbuja-rep button:hover { transform: scale(1.08); }
+    .burbuja-rep .oculto { opacity: 0; pointer-events: none; transform: scale(.8); }
+    [data-bs-theme="dark"] .burbuja-rep button:not(.principal) { background: #2a2033; color: #e7b8cd; }
+    @media (max-width: 575.98px) { .burbuja-rep { right: .75rem; bottom: .75rem; } .burbuja-rep button { width: 40px; height: 40px; font-size: 1rem; } }
+    @media print { .burbuja-rep { display: none !important; } }
+</style>
+<div class="burbuja-rep no-print d-print-none" id="burbuja-rep" aria-label="Navegación rápida">
+    <button type="button" class="oculto" id="rep-arriba" title="Ir arriba" aria-label="Ir arriba"><i class="bi bi-arrow-up" aria-hidden="true"></i></button>
+    {% if ancla %}<button type="button" class="principal" id="rep-ancla" data-ancla="{{ ancla }}" title="Ir al listado" aria-label="Ir al listado"><i class="bi bi-list-ol" aria-hidden="true"></i></button>{% endif %}
+    <button type="button" id="rep-abajo" title="Ir abajo" aria-label="Ir abajo"><i class="bi bi-arrow-down" aria-hidden="true"></i></button>
+</div>
+<script>
+(function () {
+    var caja = document.getElementById("burbuja-rep");
+    if (!caja) return;
+    document.body.appendChild(caja);
+    var suave = window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth";
+    var arriba = document.getElementById("rep-arriba");
+    var abajo = document.getElementById("rep-abajo");
+    var ancla = document.getElementById("rep-ancla");
+    arriba.addEventListener("click", function () { window.scrollTo({ top: 0, behavior: suave }); });
+    abajo.addEventListener("click", function () { window.scrollTo({ top: document.documentElement.scrollHeight, behavior: suave }); });
+    if (ancla) ancla.addEventListener("click", function () {
+        var destino = document.getElementById(ancla.dataset.ancla);
+        if (destino) destino.scrollIntoView({ behavior: suave, block: "start" });
+    });
+    function actualizar() {
+        var y = window.scrollY, fin = document.documentElement.scrollHeight - window.innerHeight;
+        arriba.classList.toggle("oculto", y < 300);
+        abajo.classList.toggle("oculto", fin - y < 300);
+        caja.classList.toggle("d-none", fin < 400);
+    }
+    window.addEventListener("scroll", actualizar, { passive: true });
+    window.addEventListener("resize", actualizar);
+    actualizar();
+})();
+</script>

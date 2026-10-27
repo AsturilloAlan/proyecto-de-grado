@@ -1,11 +1,18 @@
 """Vacía los datos de negocio cargados durante las pruebas, sin tocar usuarios ni roles.
 
+Borra cargas, registros, avisos, análisis del modelo y sus revisiones, cuentas, reportes
+emitidos y el historial de esos datos. No toca usuarios, roles, el modelo entrenado
+(modelos_ml) ni la bitácora de correos.
+
     python manage.py borrar_datos_prueba                          # solo muestra conteos
     python manage.py borrar_datos_prueba --confirmar               # borra todo
     python manage.py borrar_datos_prueba --confirmar --conservar-empresas --archivos
 """
 from django.core.management.base import BaseCommand
 from django.db import transaction
+
+from analisis.models import AnalisisCarga, ResultadoTransaccion
+from reportes.models import ReporteGenerado
 
 from registros.models import (
     CargaArchivo,
@@ -17,7 +24,8 @@ from registros.models import (
     RegistroContable,
 )
 
-MODELOS_DE_NEGOCIO = ["CargaArchivo", "ErrorValidacion", "CuentaContable", "EmpresaAuditada", "Gestion"]
+MODELOS_DE_NEGOCIO = ["CargaArchivo", "ErrorValidacion", "CuentaContable", "EmpresaAuditada", "Gestion",
+                      "RegistroContable", "AnalisisCarga", "ResultadoTransaccion", "ReporteGenerado"]
 
 
 class Command(BaseCommand):
@@ -35,6 +43,9 @@ class Command(BaseCommand):
             "Cargas de archivo": CargaArchivo.objects.count(),
             "Registros contables": RegistroContable.objects.count(),
             "Errores y avisos": ErrorValidacion.objects.count(),
+            "Análisis del modelo": AnalisisCarga.objects.count(),
+            "Atípicas (con sus revisiones)": ResultadoTransaccion.objects.count(),
+            "Reportes emitidos": ReporteGenerado.objects.count(),
             "Cuentas contables": CuentaContable.objects.count(),
             "Historial de esos datos": HistorialCambio.objects.filter(modelo__in=modelos_historial).count(),
         }
@@ -54,7 +65,10 @@ class Command(BaseCommand):
 
         archivos = [c.archivo for c in CargaArchivo.objects.all()] if options["archivos"] else []
         with transaction.atomic():
-            # Las cargas arrastran registros y avisos; las cuentas van antes que las empresas (PROTECT).
+            # Los reportes emitidos protegen empresas y gestiones: van primero. Las cargas
+            # arrastran registros, avisos, análisis y atípicas; las cuentas van antes que las
+            # empresas (PROTECT).
+            ReporteGenerado.objects.all().delete()
             CargaArchivo.objects.all().delete()
             CuentaContable.objects.all().delete()
             if not conservar:

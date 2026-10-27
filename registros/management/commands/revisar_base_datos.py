@@ -39,6 +39,19 @@ class Command(BaseCommand):
         self.stdout.write(self.style.MIGRATE_HEADING("Migraciones pendientes de aplicar:"))
         self._listar([f"{app}.{nombre}" for app, nombre in pendientes])
 
+        # Correo único por cuenta: lo exigen el 2FA y la recuperación de contraseña.
+        from django.contrib.auth.models import User
+        from django.db.models import Count
+        from django.db.models.functions import Lower
+
+        repetidos = (User.objects.exclude(email="").annotate(correo=Lower("email"))
+                     .values("correo").annotate(n=Count("id")).filter(n__gt=1))
+        self.stdout.write(self.style.MIGRATE_HEADING("Correos usados por más de una cuenta:"))
+        self._listar([f"{r['correo']} ({r['n']} cuentas)" for r in repetidos])
+        sin_correo = User.objects.filter(email="", is_active=True).values_list("username", flat=True)
+        self.stdout.write(self.style.MIGRATE_HEADING("Cuentas activas sin correo (no pueden usar 2FA ni recuperar la clave):"))
+        self._listar(list(sin_correo))
+
         if sobrantes or huerfanas:
             self.stdout.write("")
             self.stdout.write(self.style.WARNING(

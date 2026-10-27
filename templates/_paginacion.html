@@ -1,38 +1,39 @@
 {% comment %}
-Paginación reutilizable. Parámetros: pagina_obj, querystring (filtros activos), ancla (id opcional) y parametro (nombre del parámetro de página, "pagina" por defecto).
+Parámetros: pagina_obj, querystring, ancla (opcional) y parametro ("pagina" por defecto).
 Uso: {% include "_paginacion.html" with pagina_obj=empresas %}
 {% endcomment %}
-{% load paginacion_extra %}
 {% if pagina_obj.paginator.num_pages > 1 %}
-<nav aria-label="Paginación" class="mt-3">
-    <ul class="pagination pagination-sm mb-0 flex-wrap">
-        <li class="page-item {% if not pagina_obj.has_previous %}disabled{% endif %}">
-            {% if pagina_obj.has_previous %}
-                <a class="page-link" href="?{% if querystring %}{{ querystring }}&{% elif busqueda %}q={{ busqueda }}&{% endif %}{{ parametro|default:"pagina" }}={{ pagina_obj.previous_page_number }}{% if ancla %}#{{ ancla }}{% endif %}">
-                    <i class="bi bi-chevron-left"></i>
-                </a>
-            {% else %}
-                <span class="page-link"><i class="bi bi-chevron-left"></i></span>
-            {% endif %}
-        </li>
-        {% for numero in pagina_obj|rango_paginas %}
-            {% if numero == pagina_obj.paginator.ELLIPSIS %}
-                <li class="page-item disabled"><span class="page-link border-0">{{ numero }}</span></li>
-            {% else %}
-                <li class="page-item {% if numero == pagina_obj.number %}active{% endif %}">
-                    <a class="page-link" href="?{% if querystring %}{{ querystring }}&{% elif busqueda %}q={{ busqueda }}&{% endif %}{{ parametro|default:"pagina" }}={{ numero }}{% if ancla %}#{{ ancla }}{% endif %}">{{ numero }}</a>
-                </li>
-            {% endif %}
-        {% endfor %}
-        <li class="page-item {% if not pagina_obj.has_next %}disabled{% endif %}">
-            {% if pagina_obj.has_next %}
-                <a class="page-link" href="?{% if querystring %}{{ querystring }}&{% elif busqueda %}q={{ busqueda }}&{% endif %}{{ parametro|default:"pagina" }}={{ pagina_obj.next_page_number }}{% if ancla %}#{{ ancla }}{% endif %}">
-                    <i class="bi bi-chevron-right"></i>
-                </a>
-            {% else %}
-                <span class="page-link"><i class="bi bi-chevron-right"></i></span>
-            {% endif %}
-        </li>
-    </ul>
+{% with p=parametro|default:"pagina" %}
+<nav aria-label="Paginación" class="paginacion-sistema no-print d-print-none mt-3">
+    <span class="small text-secondary">
+        Mostrando {{ pagina_obj.start_index }}–{{ pagina_obj.end_index }} de {{ pagina_obj.paginator.count|floatformat:"0g" }}
+    </span>
+    <div class="d-flex align-items-center gap-2">
+        {% if pagina_obj.has_previous %}
+            <a class="btn btn-sm btn-outline-secondary" href="?{% if querystring %}{{ querystring }}&{% elif busqueda %}q={{ busqueda }}&{% endif %}{{ p }}={{ pagina_obj.previous_page_number }}{% if ancla %}#{{ ancla }}{% endif %}">
+                <i class="bi bi-chevron-left" aria-hidden="true"></i> Anterior
+            </a>
+        {% else %}
+            <span class="btn btn-sm btn-outline-secondary disabled" aria-disabled="true"><i class="bi bi-chevron-left" aria-hidden="true"></i> Anterior</span>
+        {% endif %}
+        <label class="small text-nowrap mb-0 d-flex align-items-center gap-1">
+            Página
+            <input type="number" class="form-control form-control-sm text-center salto-pagina" style="width: 4.2rem;"
+                   min="1" max="{{ pagina_obj.paginator.num_pages }}" value="{{ pagina_obj.number }}"
+                   aria-label="Ir a la página"
+                   data-base="?{% if querystring %}{{ querystring }}&{% elif busqueda %}q={{ busqueda }}&{% endif %}{{ p }}="
+                   data-ancla="{% if ancla %}#{{ ancla }}{% endif %}"
+                   onchange="var n=Math.min(Math.max(parseInt(this.value,10)||1,1),{{ pagina_obj.paginator.num_pages }}); if(n!=={{ pagina_obj.number }}) location.href=this.dataset.base+n+this.dataset.ancla;">
+            de {{ pagina_obj.paginator.num_pages }}
+        </label>
+        {% if pagina_obj.has_next %}
+            <a class="btn btn-sm btn-outline-secondary" href="?{% if querystring %}{{ querystring }}&{% elif busqueda %}q={{ busqueda }}&{% endif %}{{ p }}={{ pagina_obj.next_page_number }}{% if ancla %}#{{ ancla }}{% endif %}">
+                Siguiente <i class="bi bi-chevron-right" aria-hidden="true"></i>
+            </a>
+        {% else %}
+            <span class="btn btn-sm btn-outline-secondary disabled" aria-disabled="true">Siguiente <i class="bi bi-chevron-right" aria-hidden="true"></i></span>
+        {% endif %}
+    </div>
 </nav>
+{% endwith %}
 {% endif %}

@@ -1,0 +1,64 @@
+<style>
+    .pasos-carga { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1.25rem; margin: 1.25rem 0 1.25rem; }
+    .paso-carga { border: 0; border-top: 3px solid var(--bs-border-color); border-radius: 0; padding: .6rem 0 0; text-decoration: none; color: inherit; display: block; }
+    a.paso-carga:hover .titulo { color: var(--guindo); }
+    .paso-carga .numero { font-size: .72rem; font-weight: 600; letter-spacing: .06em; color: var(--bs-secondary-color); margin-right: .35rem; }
+    .paso-carga .titulo { font-size: .92rem; font-weight: 600; }
+    .paso-carga .estado { font-size: .8rem; color: var(--bs-secondary-color); margin-top: .15rem; }
+    .paso-carga.listo { border-top-color: var(--bs-success); }
+    .paso-carga.listo .numero { color: var(--bs-success); }
+    .paso-carga.actual { border-top-color: var(--guindo); }
+    .paso-carga.actual .titulo { color: var(--guindo); }
+    [data-bs-theme="dark"] .paso-carga.actual { border-top-color: #e7b8cd; }
+    [data-bs-theme="dark"] .paso-carga.actual .titulo, [data-bs-theme="dark"] a.paso-carga:hover .titulo { color: #e7b8cd; }
+    @media (max-width: 767px) { .pasos-carga { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+</style>
+
+<nav class="pasos-carga" aria-label="Pasos para trabajar esta carga">
+    <a href="?pestana=avisos" class="paso-carga {% if not avisos_pendientes %}listo{% else %}actual{% endif %}"
+       {% if avisos_pendientes %}aria-current="step"{% endif %}>
+        <span class="numero">{% if not avisos_pendientes %}<i class="bi bi-check-lg"></i>{% else %}01{% endif %}</span>
+        <span class="titulo">Revisar avisos</span>
+        <div class="estado">{% if not hay_avisos %}Sin avisos{% elif avisos_pendientes %}{{ avisos_pendientes|floatformat:"0g" }} pendientes{% else %}Todos revisados{% endif %}</div>
+    </a>
+
+    {% if carga.estado == 'validado' %}
+        <div class="paso-carga listo">
+            <span class="numero"><i class="bi bi-check-lg"></i></span><span class="titulo">Confirmar la carga</span>
+            <div class="estado">Confirmada{% if carga.revisado_por %} por {{ carga.revisado_por.username }}{% endif %}</div>
+        </div>
+    {% elif avisos_pendientes %}
+        <div class="paso-carga">
+            <span class="numero">02</span><span class="titulo">Confirmar la carga</span>
+            <div class="estado">Después de revisar los avisos</div>
+        </div>
+    {% else %}
+        <a href="#confirmar-carga" class="paso-carga actual" aria-current="step">
+            <span class="numero">02</span><span class="titulo">Confirmar la carga</span>
+            <div class="estado">Lista para confirmar</div>
+        </a>
+    {% endif %}
+
+    {# 3. Atípicas: se cumple al revisar las más atípicas (las primeras del orden). #}
+    {% with m=primeras_atipicas %}
+    {% if m and m.primeras and m.primeras_revisadas >= m.primeras %}
+        <a href="?pestana=atipicas" class="paso-carga listo">
+            <span class="numero"><i class="bi bi-check-lg"></i></span><span class="titulo">Revisar atípicas</span>
+            <div class="estado">Las {{ m.primeras }} más atípicas revisadas{% if m.pendientes %} · {{ m.pendientes|floatformat:"0g" }} restantes opcionales{% endif %}</div>
+        </a>
+    {% else %}
+        <a href="?pestana=atipicas" class="paso-carga{% if carga.estado == 'validado' and m %} actual{% endif %}"
+           {% if carga.estado == 'validado' and m %}aria-current="step"{% endif %}>
+            <span class="numero">03</span><span class="titulo">Revisar atípicas</span>
+            <div class="estado">
+                {% if not analisis %}Sin analizar{% elif analisis.en_curso %}Analizando…{% elif m %}{{ m.primeras_revisadas }} de las {{ m.primeras }} más atípicas revisadas{% else %}{{ analisis.get_estado_display }}{% endif %}
+            </div>
+        </a>
+    {% endif %}
+    {% endwith %}
+
+    <a href="{% url 'reportes:hallazgos_gestion' carga.empresa_id carga.gestion_id %}?desde=carga-{{ carga.id }}" class="paso-carga">
+        <span class="numero">04</span><span class="titulo">Ver hallazgos</span>
+        <div class="estado">Papel de trabajo de la gestión {{ carga.gestion.anio }}</div>
+    </a>
+</nav>

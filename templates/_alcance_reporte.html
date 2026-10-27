@@ -1,0 +1,47 @@
+{% comment %}
+Alcance de un reporte: qué cargas entran y cuáles no. Variables: carga (si es de una sola),
+grupo (si es consolidado por gestión: incluidas, anuladas, en_proceso, posibles_duplicadas),
+cargas_sin_analisis (opcional, solo en el reporte de atípicas).
+{% endcomment %}
+{% if grupo %}
+    <section class="reporte-seccion">
+        {% for par in grupo.posibles_duplicadas %}
+            <div class="alert alert-warning py-2 small">
+                <strong>Posible carga duplicada:</strong> las cargas N.º {{ par.0.id }} y N.º {{ par.1.id }} tienen el
+                mismo tipo de libro, la misma cantidad de filas y el mismo movimiento total. Si son el mismo libro,
+                anular una de ellas para no contar dos veces las transacciones.
+            </div>
+        {% endfor %}
+        <details>
+        <summary class="small fw-semibold">Cargas incluidas en este reporte ({{ grupo.incluidas|length }}{% if grupo.anuladas %} · {{ grupo.anuladas|length }} anulada{{ grupo.anuladas|length|pluralize }} excluida{{ grupo.anuladas|length|pluralize }}{% endif %})</summary>
+        <table class="table table-sm table-bordered reporte-cuadro mt-2">
+            <thead><tr><th>Carga</th><th>Tipo de libro</th><th>Subida</th><th class="text-end">Filas guardadas</th><th>Estado</th><th>En este reporte</th></tr></thead>
+            <tbody>
+                {% for c in grupo.incluidas %}
+                    <tr>
+                        <td>N.º {{ c.id }}</td>
+                        <td>{{ c.get_formato_detectado_display|default:"Sin dato" }}</td>
+                        <td>{{ c.fecha_carga|date:"d/m/Y" }} · {{ c.usuario.username }}</td>
+                        <td class="text-end">{{ c.registros_validos|floatformat:"0g" }}</td>
+                        <td>{{ c.estado_revision_carga_display }}</td>
+                        <td>{% if c in cargas_sin_analisis %}No: sin análisis del modelo{% else %}Sí{% endif %}</td>
+                    </tr>
+                {% endfor %}
+                {% for c in grupo.anuladas %}
+                    <tr>
+                        <td>N.º {{ c.id }}</td>
+                        <td>{{ c.get_formato_detectado_display|default:"Sin dato" }}</td>
+                        <td>{{ c.fecha_carga|date:"d/m/Y" }} · {{ c.usuario.username }}</td>
+                        <td class="text-end">{{ c.registros_validos|floatformat:"0g" }}</td>
+                        <td>Anulada el {{ c.fecha_anulacion|date:"d/m/Y" }}</td>
+                        <td>No: anulada ({{ c.motivo_anulacion|truncatechars:60 }})</td>
+                    </tr>
+                {% endfor %}
+                {% for c in grupo.en_proceso %}
+                    <tr><td>N.º {{ c.id }}</td><td colspan="4">Todavía en proceso</td><td>No: en proceso</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        </details>
+    </section>
+{% endif %}

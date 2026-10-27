@@ -1,8 +1,5 @@
 # Generated manually on 2026-09-28
-# Agrega la clasificación individual del hallazgo (pendiente / válido /
-# observado) a ErrorValidacion, pedida por la firma auditora para poder
-# distinguir un aviso descartado como falso positivo de uno que sí es una
-# irregularidad real a documentar.
+# Distingue avisos pendientes, válidos y observados en la revisión del auditor.
 
 from django.db import migrations, models
 

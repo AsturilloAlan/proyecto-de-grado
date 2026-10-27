@@ -7,64 +7,85 @@
                  style="width:52px;height:52px;background:linear-gradient(135deg, var(--guindo), var(--guindo-oscuro));">
                 <i class="bi bi-people text-white fs-4"></i>
             </div>
-            <h1 class="text-guindo mb-0 h3">Usuarios del sistema</h1>
+            <div>
+                <h1 class="text-guindo mb-0 h3">Usuarios del sistema</h1>
+                {% if usuarios %}
+                    <p class="text-secondary small mb-0">{{ resumen.total }} cuenta{{ resumen.total|pluralize }} · {{ resumen.activos }} activa{{ resumen.activos|pluralize }} · {{ resumen.administradores }} administrador{{ resumen.administradores|pluralize:"es" }}</p>
+                {% endif %}
+            </div>
         </div>
         <a class="btn btn-guindo" href="{% url 'usuario_crear' %}">
-            Crear nuevo usuario
+            <i class="bi bi-person-plus me-1" aria-hidden="true"></i> Crear usuario
         </a>
     </div>
 
     {% if usuarios %}
         <div class="table-responsive">
-            <table class="table table-hover align-middle">
+            <table class="table tabla-fichas table-hover align-middle">
                 <thead>
                     <tr>
                         <th>Usuario</th>
                         <th>Correo</th>
                         <th>Rol</th>
                         <th>Estado</th>
+                        <th>Último ingreso</th>
                         <th></th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for item in usuarios %}
-                    <tr>
-                        <td>{{ item.objeto.username }}</td>
-                        <td>{{ item.objeto.email|default:"—" }}</td>
-                        <td>
-                            <span class="badge {% if item.rol == 'Administrador' %}text-bg-dark{% else %}text-bg-secondary{% endif %}">
-                                {{ item.rol }}
-                            </span>
+                    {% with u=item.objeto %}
+                    <tr class="{% if not u.is_active %}text-secondary{% endif %}">
+                        <td data-etiqueta="Usuario">
+                            <div class="d-flex align-items-center gap-2">
+                                <span class="inicial-usuario" aria-hidden="true">{{ u.first_name|default:u.username|slice:":1"|upper }}</span>
+                                <div class="min-w-0">
+                                    <div class="fw-semibold text-truncate">{{ u.get_full_name|default:u.username }}</div>
+                                    {% if u.get_full_name %}<div class="small text-secondary">{{ u.username }}</div>{% endif %}
+                                </div>
+                            </div>
                         </td>
-                        <td>
-                            {% if item.objeto.is_active %}
-                                <span class="badge text-bg-success">Activa</span>
+                        <td data-etiqueta="Correo" class="text-break">{{ u.email|default:"—" }}</td>
+                        <td data-etiqueta="Rol">
+                            <span class="badge fw-normal {% if item.rol == 'Administrador' %}text-bg-dark{% else %}text-bg-secondary{% endif %}">{{ item.rol }}</span>
+                        </td>
+                        <td data-etiqueta="Estado">
+                            {% if u.is_active %}
+                                <span class="estado-cuenta activa"><span class="punto"></span>Activa</span>
                             {% else %}
-                                <span class="badge text-bg-danger">Inactiva</span>
+                                <span class="estado-cuenta"><span class="punto"></span>Desactivada</span>
                             {% endif %}
                         </td>
-                        <td>
-                            <a class="btn btn-sm btn-outline-guindo" href="{% url 'usuario_editar' item.objeto.id %}">
-                                Editar
-                            </a>
+                        <td data-etiqueta="Último ingreso" class="small">{{ u.last_login|date:"d/m/Y H:i"|default:"Nunca" }}</td>
+                        <td data-etiqueta="Acciones" class="text-end">
+                            <a class="btn btn-sm btn-outline-guindo" href="{% url 'usuario_editar' u.id %}">Editar</a>
                         </td>
                     </tr>
+                    {% endwith %}
                     {% endfor %}
                 </tbody>
             </table>
         </div>
-        <p class="text-secondary small">
-            La cuenta propia no aparece en esta lista; se gestiona desde
-            <a href="{% url 'perfil' %}">Mi perfil</a>.
+        <p class="text-secondary small mb-0">
+            <i class="bi bi-info-circle me-1" aria-hidden="true"></i>Tu propia cuenta se gestiona desde <a href="{% url 'perfil' %}">Mi perfil</a>.
+            Las cuentas no se borran: se desactivan, para conservar sus revisiones y el historial.
         </p>
     {% else %}
         <div class="estado-vacio">
             <div class="estado-vacio-icono"><i class="bi bi-person-plus"></i></div>
             <h3 class="text-guindo">Todavía no hay otros usuarios</h3>
-            <p class="text-secondary">Todavía no hay otras cuentas registradas.</p>
-            <a class="btn btn-guindo btn-sm mt-2" href="{% url 'usuario_crear' %}">
-                Crear nuevo usuario
-            </a>
+            <p class="text-secondary">Crea las cuentas de los auditores de la firma.</p>
+            <a class="btn btn-guindo btn-sm mt-2" href="{% url 'usuario_crear' %}">Crear usuario</a>
         </div>
     {% endif %}
+    <style>
+        .inicial-usuario { width: 34px; height: 34px; border-radius: 50%; flex-shrink: 0; display: grid; place-items: center;
+            font-weight: 600; font-size: .85rem; color: #fff; background: var(--guindo); }
+        tr.text-secondary .inicial-usuario { background: var(--bs-secondary-color); }
+        .min-w-0 { min-width: 0; }
+        .estado-cuenta { display: inline-flex; align-items: center; gap: .4rem; font-size: .85rem; color: var(--bs-secondary-color); }
+        .estado-cuenta .punto { width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+        .estado-cuenta.activa { color: #198754; font-weight: 500; }
+        [data-bs-theme="dark"] .estado-cuenta.activa { color: #4ec48a; }
+    </style>
 {% endblock %}

@@ -1,0 +1,217 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Reporte de atípicas · {% if carga %}Carga #{{ carga.id }}{% else %}{{ empresa }} {{ gestion.anio }}{% endif %}{% endblock %}
+{% block content %}
+    {% include "_estilos_reporte.html" %}
+    <style>
+        .guia-lectura { border: 1px solid var(--bs-border-color); border-radius: .75rem; background: var(--bs-tertiary-bg); }
+        .guia-lectura > summary { list-style: none; cursor: pointer; padding: .8rem 1.1rem; font-weight: 600; display: flex; align-items: center; gap: .5rem; }
+        .guia-lectura > summary::-webkit-details-marker { display: none; }
+        .guia-lectura > summary::after { content: "\F282"; font-family: bootstrap-icons; margin-left: auto; transition: transform .2s ease; }
+        .guia-lectura[open] > summary::after { transform: rotate(180deg); }
+        .guia-lectura-lista { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: .9rem 1.5rem; margin: 0; padding: .25rem 1.1rem 1.1rem; }
+        .guia-lectura-lista dt { font-size: .82rem; font-weight: 600; color: var(--guindo); margin-bottom: .15rem; }
+        [data-bs-theme="dark"] .guia-lectura-lista dt { color: #e7b8cd; }
+        .guia-lectura-lista dd { font-size: .85rem; color: var(--bs-secondary-color); margin: 0; line-height: 1.45; }
+    </style>
+
+    {% include "_migas_reporte.html" with titulo="Reporte de atípicas" %}
+
+    <a class="btn btn-sm btn-outline-secondary no-print mb-3" href="{{ origen.url }}"><i class="bi bi-arrow-left" aria-hidden="true"></i> {{ origen.texto }}</a>
+    <form method="get" class="d-flex flex-wrap align-items-end justify-content-between gap-2 no-print mb-3">
+        <div class="d-flex flex-wrap align-items-end gap-2">
+            <div>
+                <label for="f-nivel" class="form-label small mb-1">Nivel</label>
+                <select id="f-nivel" name="nivel" class="form-select form-select-sm" onchange="this.form.submit()">
+                    <option value="">Todos</option>
+                    {% for clave, etiqueta, minimo, maximo in niveles %}
+                        <option value="{{ clave }}" {% if filtros.nivel == clave %}selected{% endif %}>{{ etiqueta }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label for="f-motivo" class="form-label small mb-1">Motivo principal</label>
+                <select id="f-motivo" name="motivo" class="form-select form-select-sm" onchange="this.form.submit()">
+                    <option value="">Todos</option>
+                    {% for m in por_motivo %}
+                        <option value="{{ m.clave }}" {% if filtros.motivo == m.clave %}selected{% endif %}>{{ m.etiqueta }} ({{ m.cantidad }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label for="f-validacion" class="form-label small mb-1">Revisión</label>
+                <select id="f-validacion" name="validacion" class="form-select form-select-sm" onchange="this.form.submit()">
+                    <option value="">Todas</option>
+                    {% for clave, etiqueta in validaciones.items %}
+                        <option value="{{ clave }}" {% if filtros.validacion == clave %}selected{% endif %}>{{ etiqueta }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-check ms-1 mb-1">
+                <input class="form-check-input" type="checkbox" name="tributarias" value="1" id="f-tributarias"
+                       {% if filtros.tributarias %}checked{% endif %} onchange="this.form.submit()">
+                <label class="form-check-label small" for="f-tributarias" title="Cuentas de IVA, IT, IUE, RC-IVA, ICE, retenciones e impuestos">Solo cuentas de impuestos</label>
+            </div>
+            <noscript><button type="submit" class="btn btn-sm btn-outline-guindo">Filtrar</button></noscript>
+            {% if request.GET.desde %}<input type="hidden" name="desde" value="{{ request.GET.desde }}">{% endif %}
+            {% if filtros_texto %}<a href="?{% if request.GET.desde %}desde={{ request.GET.desde|urlencode }}{% endif %}" class="btn btn-sm btn-link">Quitar filtros</a>{% endif %}
+            <a href="{% url 'reportes:panorama' empresa.id gestion.id %}" class="btn btn-sm btn-link"><i class="bi bi-bar-chart"></i> Ver análisis</a>
+        </div>
+        {% include "_descargas_reporte.html" with sin_imprimir=True %}
+    </form>
+
+    <article class="reporte">
+    <div class="reporte-membrete">
+        <div class="d-flex align-items-center gap-3">
+            <span class="reporte-logo">
+                <img src="{% static 'img/logo-sts-claro.png' %}" alt="ST&amp;S Auditores y Consultores" class="logo-tema-claro">
+                <img src="{% static 'img/logo-sts-oscuro.png' %}" alt="" class="logo-tema-oscuro">
+            </span>
+            <div>
+                <div class="razon-social">ST&amp;S AUDITORES Y CONSULTORES S.R.L.</div>
+                <div class="lema">Auditoría externa e informática forense</div>
+            </div>
+        </div>
+        <div class="encabezado-derecha">
+            <span class="etiqueta-documento">Reporte de apoyo</span>
+            <div class="small mt-1" style="color: var(--rep-secundario);">{% if carga %}Carga N.º {{ carga.id }}{% else %}Gestión {{ gestion.anio }} · consolidado{% endif %} · Emisión N.º {{ emision.id }}</div>
+        </div>
+    </div>
+
+    {% if carga and carga.estado == 'anulada' %}
+        <div class="alert alert-dark">
+            <strong>CARGA ANULADA.</strong> Anulada el {{ carga.fecha_anulacion|date:"d/m/Y" }} por
+            {{ carga.anulado_por.username }}. Motivo: {{ carga.motivo_anulacion }}. Este reporte no tiene
+            validez como papel de trabajo.
+        </div>
+    {% elif es_borrador %}
+        <div class="alert alert-warning d-flex flex-wrap align-items-center justify-content-between gap-2">
+            <span><strong>Revisión en curso:</strong> {{ validacion.revisadas }} de {{ total_atipicas }} atípicas revisadas.</span>
+            {% if carga or analisis|length == 1 %}
+                <a class="btn btn-sm btn-outline-guindo no-print" href="{% url 'registros:detalle_carga' carga.id|default:analisis.0.carga_id %}?pestana=atipicas">Revisar pendientes <i class="bi bi-arrow-right" aria-hidden="true"></i></a>
+            {% else %}
+                <a class="btn btn-sm btn-outline-guindo no-print" href="?validacion=pendiente{% if request.GET.desde %}&desde={{ request.GET.desde|urlencode }}{% endif %}#listado">Ver pendientes <i class="bi bi-arrow-down" aria-hidden="true"></i></a>
+            {% endif %}
+        </div>
+    {% endif %}
+
+    <h1 class="reporte-titulo h3">Reporte de transacciones atípicas priorizadas</h1>
+    <p class="reporte-intro mb-4">
+        De la más a la menos atípica, con el motivo y la decisión del auditor. El sistema señala; el auditor concluye.
+        {% if filtros_texto %}<br><strong>Filtros aplicados al listado:</strong> {{ filtros_texto }}.{% endif %}
+    </p>
+
+    <dl class="reporte-datos">
+        <div><dt>Empresa auditada</dt><dd>{{ empresa }}{% if empresa.nit %}<br><span class="small">NIT {{ empresa.nit }}</span>{% endif %}</dd></div>
+        <div><dt>Gestión</dt><dd>{{ gestion }}</dd></div>
+        {% if carga %}
+            <div><dt>Origen de los datos</dt><dd>Carga N.º {{ carga.id }} · {{ carga.get_formato_detectado_display|default:"Sin dato" }}<br><span class="small">Cargado por {{ carga.usuario.username }} el {{ carga.fecha_carga|date:"d/m/Y H:i" }}</span></dd></div>
+            <div><dt>Estado de la carga</dt><dd>Importación {{ carga.estado_importacion_display|lower }} · revisión {{ carga.estado_revision_carga_display|lower }}{% if carga.revisado_por %}<br><span class="small">Confirmada por {{ carga.revisado_por.username }} el {{ carga.fecha_revision|date:"d/m/Y" }}</span>{% endif %}</dd></div>
+        {% else %}
+            <div><dt>Alcance</dt><dd>Consolidado de {{ analisis|length }} carga{{ analisis|length|pluralize }} válida{{ analisis|length|pluralize }} con análisis{% if sin_analisis %}<br><span class="small">{{ sin_analisis|length }} sin analizar, no incluida{{ sin_analisis|length|pluralize }}</span>{% endif %}</dd></div>
+        {% endif %}
+        <div><dt>Modelo aplicado</dt><dd>{% for a in analisis %}{% ifchanged a.configuracion a.fecha_modelo %}{{ a.algoritmo }} ({{ a.configuracion }})<br><span class="small">Entrenado: {{ a.fecha_modelo|slice:":10"|default:"Sin dato" }}</span><br>{% endifchanged %}{% endfor %}<span class="small">Analizado el {{ analisis.0.fecha_fin|date:"d/m/Y H:i" }}</span></dd></div>
+        <div><dt>Reporte emitido</dt><dd>{{ fecha_generacion|date:"d/m/Y H:i" }} por {{ generado_por.username }}</dd></div>
+    </dl>
+
+    {% include "_alcance_reporte.html" with cargas_sin_analisis=sin_analisis %}
+
+    <section class="reporte-seccion">
+        <h2>1. Resumen</h2>
+        <dl class="reporte-datos">
+            <div><dt>Registros analizados</dt><dd class="dato-destacado">{{ total_registros|floatformat:"0g" }}</dd></div>
+            <div><dt>Transacciones atípicas</dt><dd class="dato-destacado">{{ total_atipicas|floatformat:"0g" }}</dd><dd class="small">{{ porcentaje_atipicas|floatformat:2 }} % de los registros</dd></div>
+            <div><dt>Importe involucrado</dt><dd class="dato-destacado">{{ importe_total_atipicas|floatformat:"2g" }}</dd><dd class="small">Debe {{ importe_atipicas.debe|floatformat:"2g" }} · Haber {{ importe_atipicas.haber|floatformat:"2g" }}<br>{{ porcentaje_importe|floatformat:2 }} % del movimiento total {% if varias_cargas %}de los libros{% else %}del libro{% endif %} ({{ movimiento_total|floatformat:"2g" }})</dd></div>
+            <div><dt>También señaladas por las reglas</dt><dd class="dato-destacado">{{ coinciden_con_reglas }}</dd><dd class="small">Atípicas que además tienen un aviso de validación.</dd></div>
+            <div><dt>En cuentas de impuestos</dt><dd class="dato-destacado">{{ tributarias.cantidad }}</dd><dd class="small">{{ tributarias.importe|floatformat:"2g" }} · {{ tributarias.relevantes }} observada{{ tributarias.relevantes|pluralize }}{% if tributarias.cantidad and not filtros.tributarias %}<br><a class="no-print" href="?tributarias=1{% if request.GET.desde %}&desde={{ request.GET.desde|urlencode }}{% endif %}#listado">Ver solo estas</a>{% endif %}</dd></div>
+        </dl>
+    </section>
+
+    <section class="reporte-seccion">
+        <h2 id="listado" style="scroll-margin-top: 1rem;">2. Listado priorizado ({{ listado|length }} {% if listado|length == 1 %}transacción{% else %}transacciones{% endif %}{% if filtros_texto %}, filtrado{% endif %})</h2>
+        {% if listado %}
+            <div class="table-responsive reporte-tabla-contenedor">
+                <table class="table table-sm table-bordered reporte-tabla">
+                    <colgroup>
+                        {% if varias_cargas %}<col style="width:5%">{% endif %}
+                        <col style="width:8%"><col style="width:12%"><col style="width:14%"><col style="width:18%">
+                        <col style="width:10%"><col style="width:21%"><col style="width:17%">
+                    </colgroup>
+                    <thead>
+                        <tr>
+                            {% if varias_cargas %}<th>Carga</th>{% endif %}
+                            <th>N.º · nivel</th>
+                            <th>Fecha · comprobante</th>
+                            <th>Cuenta</th>
+                            <th>Glosa</th>
+                            <th>Importe</th>
+                            <th>Por qué la señala el modelo</th>
+                            <th>Validación del auditor</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in pagina_listado %}
+                            {% with r=item.registro res=item.resultado %}
+                            <tr>
+                                {% if varias_cargas %}<td>{{ item.carga_id }}</td>{% endif %}
+                                <td>{{ item.prioridad }}<br><span class="small" style="color: var(--rep-secundario);">{{ res.nivel_texto }}</span></td>
+                                <td>{{ r.fecha|date:"d/m/Y" }}<br><span class="small" style="color: var(--rep-secundario);">{{ r.numero_comprobante|default:"Sin comprobante" }} · fila {{ r.fila_origen }}</span><br><a class="small d-print-none" href="{% url 'registros:detalle_carga' r.carga_id %}?pestana=registros&fila={{ r.fila_origen }}&volver={{ request.get_full_path|urlencode }}%23listado#fila-{{ r.fila_origen }}">Ver en registros</a></td>
+                                <td><span class="fw-semibold">{{ r.cuenta.codigo }}</span><br>{{ r.cuenta.nombre }}{% if item.tributaria %}<br><span class="badge text-bg-light border">Tributaria</span>{% endif %}</td>
+                                <td title="{{ r.glosa }}">{{ r.glosa|truncatechars:60 }}</td>
+                                <td class="text-end">{% if r.debe %}{{ r.debe|floatformat:"2g" }} D{% else %}{{ r.haber|floatformat:"2g" }} H{% endif %}</td>
+                                <td>
+                                    {% with principal=item.motivos.0 %}
+                                        {% if principal %}<div class="motivo-principal">{{ principal.texto }}</div>{% else %}Sin motivo registrado{% endif %}
+                                    {% endwith %}
+                                    {% if item.motivos|length > 1 %}
+                                        <details class="small d-print-none"><summary style="color: var(--rep-secundario);">{{ item.motivos|length|add:"-1" }} motivo{{ item.motivos|length|add:"-1"|pluralize }} más</summary>
+                                            {% for motivo in item.motivos|slice:"1:" %}<div>{{ motivo.texto }}</div>{% endfor %}
+                                        </details>
+                                    {% endif %}
+                                    {% if item.avisos %}
+                                        <div class="small mt-1" style="color: var(--rep-secundario);">Reglas: {% for a in item.avisos %}{{ a.descripcion }}{% if not forloop.last %}; {% endif %}{% endfor %}</div>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if res.revision == 'pendiente' %}
+                                        <span style="color: var(--rep-secundario);">Pendiente</span>
+                                    {% else %}
+                                        <strong>{{ res.get_revision_display }}</strong>
+                                        {% if res.comentario_revision %}<br><span title="{{ res.comentario_revision }}">{{ res.comentario_revision|truncatechars:70 }}</span>{% endif %}
+                                        <br><span class="small" style="color: var(--rep-secundario);">{{ res.revisado_por.username|default:"" }} · {{ res.fecha_revision|date:"d/m/Y" }}</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endwith %}
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% include "_paginacion.html" with pagina_obj=pagina_listado querystring=consulta_listado ancla="listado" %}
+        {% else %}
+            <div class="alert alert-info">No hay transacciones atípicas con los filtros elegidos.</div>
+        {% endif %}
+    </section>
+
+    <details class="guia-lectura no-print mt-4">
+        <summary><i class="bi bi-info-circle" aria-hidden="true"></i> Cómo leer este reporte</summary>
+        <dl class="guia-lectura-lista">
+            <div><dt>N.º</dt><dd>1 = la más atípica. No cambia al filtrar.</dd></div>
+            <div><dt>Nivel</dt><dd>Muy alto ≥ 0,90 · Alto 0,70–0,89 · Medio &lt; 0,70.</dd></div>
+            <div><dt>Revisión</dt><dd>Observada = hallazgo · En seguimiento = falta respaldo · Válida = sin observación.</dd></div>
+            <div><dt>Impuestos</dt><dd>IVA, IT, IUE, RC-IVA, ICE y retenciones.</dd></div>
+        </dl>
+    </details>
+    <p class="small text-secondary no-print mt-2 mb-0">
+        El PDF y el Excel traen el listado completo · Gráficos por nivel, motivo y mes en
+        <a href="{% url 'reportes:panorama' empresa.id gestion.id %}">Análisis de la gestión</a>.
+    </p>
+
+    <p class="reporte-pie">
+        Documento generado automáticamente por el sistema de apoyo a la auditoría externa de
+        ST&amp;S Auditores y Consultores S.R.L. Emisión N.º {{ emision.id }} del {{ fecha_generacion|date:"d/m/Y H:i" }}.
+        Uso interno, sujeto a revisión profesional.
+    </p>
+    </article>
+    {% include "_burbuja_nav.html" with ancla="listado" %}
+{% endblock %}

@@ -17,9 +17,10 @@
     <script>
         /* Aplica el tema guardado antes de pintar, sin parpadeo. */
         (function () {
-            var guardado = localStorage.getItem("tema");
+            var guardado;
+            try { guardado = localStorage.getItem("tema"); } catch (e) {}
             var prefiereOscuro = window.matchMedia("(prefers-color-scheme: dark)").matches;
-            var tema = guardado || (prefiereOscuro ? "dark" : "light");
+            var tema = /^(dark|light)$/.test(guardado) ? guardado : (prefiereOscuro ? "dark" : "light");
             document.documentElement.setAttribute("data-bs-theme", tema);
         })();
     </script>
@@ -31,12 +32,10 @@
             --bs-primary: var(--guindo);
         }
         html { min-height: 100%; background: var(--lavanda-claro); overflow-x: hidden; }
-        /* Sin scroll horizontal en móvil. */
         body { overflow-x: hidden; }
         body, .btn, .form-control, .form-select {
             font-family: "Plus Jakarta Sans", "Segoe UI", -apple-system, sans-serif;
         }
-        /* Logo con variante para fondo claro/oscuro. */
         .logo-tema-claro, .logo-tema-oscuro { transition: opacity .35s ease; }
         .logo-tema-oscuro { opacity: 0; }
         [data-bs-theme="dark"] .logo-tema-oscuro { opacity: 1; }
@@ -45,20 +44,17 @@
             .logo-tema-claro, .logo-tema-oscuro { transition: none; }
         }
 
-        /* Títulos en serif (Lora), afín al logo. */
         h1, h2, h3, h4, h5, h6, .navbar-brand, .fs-4 {
             font-family: "Lora", Georgia, "Times New Roman", serif;
             font-weight: 700;
             letter-spacing: -.01em;
         }
-        /* Scrollbar en tono guindo. */
         ::-webkit-scrollbar { width: 10px; height: 10px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: rgba(110,27,63,.3); border-radius: 8px; }
         ::-webkit-scrollbar-thumb:hover { background: rgba(110,27,63,.5); }
         [data-bs-theme="dark"] ::-webkit-scrollbar-thumb { background: rgba(231,184,205,.22); }
         [data-bs-theme="dark"] ::-webkit-scrollbar-thumb:hover { background: rgba(231,184,205,.4); }
-        /* Contenedor más ancho en pantallas grandes. */
         @media (min-width: 1400px) {
             .navbar-guindo > .container, main.container { max-width: 1600px; }
         }
@@ -102,7 +98,6 @@
         [data-bs-theme="dark"] .card-principal { background: rgba(36,26,46,.75); }
         [data-bs-theme="dark"] .text-secondary { color: #b9adc0 !important; }
 
-        /* Navbar translúcido; el link activo se marca con una línea. */
         .navbar-guindo {
             /* Sin backdrop-filter: atraparía el menú desplegable. */
             background: rgba(255,255,255,.92);
@@ -134,7 +129,6 @@
         }
         [data-bs-theme="dark"] .navbar-guindo .nav-link.active::after { background: #e7b8cd; }
 
-        /* Menú centrado en la barra. */
         @media (min-width: 768px) {
             .navbar-guindo > .container { position: relative; }
             .navbar-guindo .navbar-collapse {
@@ -159,8 +153,8 @@
             animation: logo-entrar .5s cubic-bezier(.2,.8,.2,1) both;
         }
         @keyframes logo-entrar {
-            from { opacity: 0; transform: translateY(-6px); }
-            to { opacity: 1; transform: translateY(0); }
+            from { opacity: 0; }
+            to { opacity: 1; }
         }
         .logo-navbar-caja img {
             position: absolute; inset: 0; margin: auto;
@@ -174,7 +168,6 @@
             .logo-navbar-caja:hover img { transform: none; }
         }
 
-        /* Tarjeta principal: efecto "glass" sutil, sin perder legibilidad */
         .card-principal {
             border: none;
             border-top: 4px solid var(--guindo);
@@ -207,7 +200,6 @@
         [data-bs-theme="dark"] .text-guindo { color: #e7b8cd; }
         .form-control, .form-select { transition: border-color .15s ease, box-shadow .2s ease; }
         .form-control:focus, .form-select:focus { border-color: var(--guindo); box-shadow: 0 0 0 .25rem rgba(110,27,63,.15); }
-        /* Campos de formulario en modo oscuro. */
         [data-bs-theme="dark"] .form-control,
         [data-bs-theme="dark"] .form-select {
             background-color: rgba(255,255,255,.06);
@@ -215,6 +207,14 @@
             color: #f1e9ee;
         }
         [data-bs-theme="dark"] .form-control::placeholder { color: #9c8ba3; }
+        /* Contraste mínimo 4,5:1 (WCAG 2.1 AA) en botones de contorno con tema oscuro. */
+        [data-bs-theme="dark"] .btn-outline-secondary { --bs-btn-color: #d4ccd9; --bs-btn-border-color: #8f8799; }
+        [data-bs-theme="dark"] .btn-outline-success { --bs-btn-color: #6fdca5; --bs-btn-border-color: #4ec48a; }
+        /* Área mínima de 24 px para enlaces y casillas pequeñas (WCAG 2.2, criterio 2.5.8). */
+        .btn-link.btn-sm.p-0 { min-height: 24px; display: inline-flex; align-items: center; }
+        .form-check-input { min-width: 1.15rem; min-height: 1.15rem; }
+        /* Opciones del menú desplegable nativo: sin esto quedan en blanco sobre blanco. */
+        [data-bs-theme="dark"] .form-select option { background-color: #241a2e; color: #f1e9ee; }
         [data-bs-theme="dark"] .form-control:focus,
         [data-bs-theme="dark"] .form-select:focus {
             background-color: rgba(255,255,255,.09);
@@ -224,7 +224,6 @@
         }
         [data-bs-theme="dark"] .input-group-text { background-color: rgba(255,255,255,.06); border-color: rgba(231,184,205,.25); color: #e7b8cd; }
 
-        /* Encabezados de tabla. */
         .table > thead > tr > th {
             background: rgba(110,27,63,.05);
             text-transform: uppercase;
@@ -255,27 +254,23 @@
         .dropdown-item { transition: background-color .15s ease, padding-left .15s ease; border-radius: .4rem; }
         .dropdown-item:hover { padding-left: 1.1rem; }
 
-        /* Breadcrumb. */
         .breadcrumb { background: transparent; padding: 0; margin-bottom: 0; }
         .breadcrumb-item + .breadcrumb-item::before { color: var(--bs-secondary-color); }
         .breadcrumb-item.active { color: var(--bs-secondary-color); }
         [data-bs-theme="dark"] .breadcrumb-item.active { color: #b9adc0; }
 
-        /* Tablas y botones pequeños: hover más vivo */
         .table-hover > tbody > tr { transition: background-color .15s ease; }
         .btn { transition: transform .15s ease, box-shadow .2s ease, filter .2s ease, background-color .15s ease, color .15s ease; }
         .btn:active { transform: translateY(0) scale(.98); }
         .badge { transition: transform .15s ease; }
         .alert { animation: aparecer-alerta .2s ease; }
-        @keyframes aparecer-alerta { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes aparecer-alerta { from { opacity: 0; } to { opacity: 1; } }
 
-        /* Entrada de la tarjeta principal. */
-        @keyframes entrar-tarjeta { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes entrar-tarjeta { from { opacity: 0; } to { opacity: 1; } }
         /* "backwards": sin transform al terminar, para que lo fijo adentro siga a la pantalla. */
         .card-principal { animation: entrar-tarjeta .35s cubic-bezier(.2,.8,.3,1) backwards; }
 
-        /* Filas de tabla en cascada (stagger), no todas de golpe. */
-        @keyframes entrar-fila { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes entrar-fila { from { opacity: 0; } to { opacity: 1; } }
         .table tbody tr { animation: entrar-fila .3s ease both; }
         .table tbody tr:nth-child(1) { animation-delay: .02s; }
         .table tbody tr:nth-child(2) { animation-delay: .05s; }
@@ -290,7 +285,6 @@
             .card-principal, .table tbody tr { animation: none; }
         }
 
-        /* Tarjetas de estadística. */
         .tarjeta-stat {
             transition: transform .2s ease, box-shadow .2s ease, border-color .2s ease;
         }
@@ -301,7 +295,6 @@
         }
         [data-bs-theme="dark"] .tarjeta-stat:hover { box-shadow: 0 10px 24px rgba(0,0,0,.35); }
 
-        /* Estado vacío. */
         .estado-vacio { text-align: center; padding: 2.75rem 1rem; }
         .estado-vacio .estado-vacio-icono {
             width: 64px; height: 64px; margin: 0 auto 1rem;
@@ -315,7 +308,6 @@
         .estado-vacio h3 { font-size: 1.05rem; margin-bottom: .35rem; }
         .estado-vacio p { max-width: 420px; margin: 0 auto; }
 
-        /* Spinner inline para botones que quedan "procesando". */
         .btn.cargando { pointer-events: none; opacity: .85; }
         .spinner-inline {
             width: .9rem; height: .9rem; display: inline-block;
@@ -326,7 +318,6 @@
         .btn-outline-guindo .spinner-inline { border-color: rgba(110,27,63,.35); border-top-color: var(--guindo); }
         @keyframes girar-spinner { to { transform: rotate(360deg); } }
 
-        /* Zona para arrastrar y soltar archivos. */
         .dropzone-archivo {
             display: flex; flex-direction: column; align-items: center; justify-content: center;
             text-align: center; gap: .35rem;
@@ -349,12 +340,10 @@
             position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
             overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0;
         }
-        /* Animación del ícono de subida. */
         @keyframes flotar-icono { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
         .dropzone-icono-flotante { display: inline-block; animation: flotar-icono 2.4s ease-in-out infinite; }
         @media (prefers-reduced-motion: reduce) { .dropzone-icono-flotante { animation: none; } }
 
-        /* Ficha del archivo ya elegido. */
         .dropzone-archivo-icono {
             width: 42px; height: 42px; border-radius: .6rem;
             background: rgba(110,27,63,.1); color: var(--guindo-oscuro);
@@ -363,7 +352,6 @@
         }
         [data-bs-theme="dark"] .dropzone-archivo-icono { background: rgba(231,184,205,.15); color: #e7b8cd; }
 
-        /* Barra de progreso indeterminada (decorativa). */
         .barra-progreso-indeterminada { display: none; height: 4px; border-radius: 4px; overflow: hidden; background: rgba(110,27,63,.12); margin-top: .75rem; position: relative; }
         [data-bs-theme="dark"] .barra-progreso-indeterminada { background: rgba(231,184,205,.15); }
         .barra-progreso-indeterminada.activa { display: block; }
@@ -375,7 +363,6 @@
         [data-bs-theme="dark"] .barra-progreso-indeterminada.activa::after { background: linear-gradient(90deg, transparent, #e7b8cd, transparent); }
         @keyframes deslizar-progreso { from { left: -40%; } to { left: 100%; } }
 
-        /* Ícono de prefijo de input con tamaño fijo. */
         .input-group-text-icono {
             width: 2.6rem;
             display: flex; align-items: center; justify-content: center;
@@ -389,7 +376,6 @@
             color: #e7b8cd;
         }
 
-        /* Alerta con colores de la marca. */
         .alert-guindo-suave {
             background: rgba(110,27,63,.06);
             border: 1px solid rgba(110,27,63,.18);
@@ -401,7 +387,6 @@
             color: #e7b8cd;
         }
 
-        /* Selector personalizado sobre el <select> nativo. */
         .select-oculto {
             position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
             overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0;
@@ -415,7 +400,6 @@
         .selector-boton .bi-chevron-down { transition: transform .2s ease; color: var(--guindo-oscuro); flex-shrink: 0; }
         [data-bs-theme="dark"] .selector-boton .bi-chevron-down { color: #e7b8cd; }
         .selector-abierto .bi-chevron-down { transform: rotate(180deg); }
-        /* El selector abierto queda por encima de los campos vecinos. */
         .selector-personalizado.selector-abierto { z-index: 1060; }
         .selector-lista {
             position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 1050;
@@ -436,9 +420,7 @@
         .selector-opcion-activa { background: rgba(110,27,63,.12); font-weight: 600; color: var(--guindo-oscuro); }
         [data-bs-theme="dark"] .selector-opcion-activa { background: rgba(231,184,205,.15); color: #e7b8cd; }
 
-        /* --- Retroalimentación de formularios, sitewide --- */
 
-        /* Asterisco en campos obligatorios. */
         label.form-label:has(+ input[required])::after,
         label.form-label:has(+ select[required])::after,
         label.form-label:has(+ textarea[required])::after,
@@ -448,13 +430,11 @@
             color: var(--bs-danger);
         }
 
-        /* Resalta el campo que tiene un error de validación. */
         .form-control:has(~ .text-danger.small.mt-1),
         .form-select:has(~ .text-danger.small.mt-1),
         .selector-personalizado:has(~ .text-danger.small.mt-1) .selector-boton,
         .input-group:has(~ .text-danger.small.mt-1) .form-control {
             border-color: var(--bs-danger) !important;
-            animation: campo-error-sacudida .4s ease-in-out both;
         }
         .form-control:has(~ .text-danger.small.mt-1):focus,
         .form-select:has(~ .text-danger.small.mt-1):focus,
@@ -476,7 +456,6 @@
             }
         }
 
-        /* Controles nativos con el color de marca. */
         input[type="checkbox"], input[type="radio"], input[type="range"] {
             accent-color: var(--guindo);
         }
@@ -486,7 +465,6 @@
             accent-color: #e7b8cd;
         }
 
-        /* Resalte temporal de la fila buscada. */
         .table tbody tr.fila-resaltada { animation: fila-resaltada-destello 2.5s ease-out; }
         @keyframes fila-resaltada-destello {
             0% { background-color: rgba(110,27,63,.35); }
@@ -501,11 +479,9 @@
             .table tbody tr.fila-resaltada { animation: none; background-color: rgba(110,27,63,.18); }
         }
 
-        /* Botón para mostrar u ocultar contraseña. */
         .boton-mostrar-clave-auto i.girar { animation: girar-icono-clave .3s ease; }
         @keyframes girar-icono-clave { from { transform: rotate(0deg) scale(.7); opacity: .4; } to { transform: rotate(360deg) scale(1); opacity: 1; } }
 
-        /* Alertas en línea: superficie neutra con una marca de color fina a la izquierda. */
         .alert {
             --alerta-acento: var(--bs-secondary);
             border: 1px solid var(--bs-border-color-translucent);
@@ -532,7 +508,6 @@
         [data-bs-theme="dark"] .alert-guindo-suave { --alerta-acento: #e7b8cd; }
         .alert a { color: inherit; font-weight: 600; }
 
-        /* Estado de una carga: importación y revisión. */
         .estado-carga { display: inline-flex; flex-wrap: wrap; gap: .35rem; vertical-align: middle; }
         .estado-carga-compacto { flex-direction: column; align-items: flex-start; gap: .25rem; }
         .chip-estado {
@@ -559,7 +534,6 @@
         [data-bs-theme="dark"] .chip-fallida { --chip: #ef7d88; }
         [data-bs-theme="dark"] .chip-por_confirmar { --chip: #e7b8cd; }
         [data-bs-theme="dark"] .chip-anulada, [data-bs-theme="dark"] .chip-procesando { --chip: #a89fb1; }
-        /* Punto que late mientras la carga está en proceso. */
         .chip-procesando::before {
             content: ""; width: .45rem; height: .45rem; border-radius: 50%;
             background: currentColor; animation: latir-chip 1.2s ease-in-out infinite;
@@ -567,12 +541,14 @@
         @keyframes latir-chip { 50% { opacity: .2; } }
         @media (prefers-reduced-motion: reduce) { .chip-procesando::before { animation: none; } }
 
-        /* Contador que acaba de cambiar. */
         .contador-cambio { animation: contador-cambio .45s ease; display: inline-block; }
         @keyframes contador-cambio { 40% { transform: scale(1.25); } }
         @media (prefers-reduced-motion: reduce) { .contador-cambio { animation: none; } }
 
-        /* Notificaciones flotantes (mensajes del sistema). */
+        .paginacion-sistema { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .75rem;
+            padding-top: .75rem; border-top: 1px solid var(--bs-border-color); }
+        .paginacion-sistema .salto-pagina::-webkit-inner-spin-button { opacity: .4; }
+        @media print { .paginacion-sistema { display: none !important; } }
         .zona-avisos {
             position: fixed; top: 5.25rem; right: 1.25rem; z-index: 1090;
             display: flex; flex-direction: column; gap: .6rem;
@@ -624,8 +600,6 @@
             .aviso-flotante, .aviso-flotante.saliendo { animation: none; }
         }
 
-        /* ---------- Responsive ---------- */
-        /* Tablet y celular. */
         @media (max-width: 991.98px) {
             .card-principal > .card-body { padding: 1.5rem !important; }
         }
@@ -650,17 +624,17 @@
         }
     </style>
     {% block extra_head %}{% endblock %}
+    <link href="{% static 'css/interfaz.css' %}?v=20261021-acceso-unificado" rel="stylesheet">
 </head>
 <body>
+    <a class="visually-hidden-focusable position-absolute top-0 start-0 p-3 bg-body text-guindo" style="z-index: 1100;" href="#contenido-principal">Saltar al contenido</a>
     {% if not user.is_authenticated %}
-        <!-- Encabezado mínimo para páginas sin sesión. -->
         <div class="d-flex justify-content-between align-items-center px-4 py-3">
             <div class="d-flex align-items-center gap-2">
-                <span class="rounded-circle d-inline-flex align-items-center justify-content-center flex-shrink-0"
-                      style="width:26px;height:26px;background:linear-gradient(135deg, var(--guindo), var(--guindo-oscuro));">
-                    <span class="text-white fw-bold" style="font-size:.68rem;">S</span>
+                <span class="logo-navbar-caja" role="img" aria-label="ST&S Auditores y Consultores">
+                    <img src="{% static 'img/logo-sts-claro.png' %}" alt="" class="logo-tema-claro">
+                    <img src="{% static 'img/logo-sts-oscuro.png' %}" alt="" class="logo-tema-oscuro">
                 </span>
-                <span class="fw-bold text-guindo" style="font-size:.9rem; letter-spacing:.02em;">ST&amp;S</span>
             </div>
             <div class="d-flex align-items-center gap-3">
                 <span class="d-none d-md-inline text-secondary small" id="frase-rotativa" style="min-width: 220px;"></span>
@@ -679,7 +653,6 @@
                     <img src="{% static 'img/logo-sts-oscuro.png' %}" alt="ST&amp;S Auditores y Consultores" class="logo-tema-oscuro">
                 </span>
             </a>
-            <!-- Tema y usuario: en celular quedan junto al botón de menú, en la primera fila. -->
             <div class="d-flex align-items-center gap-2 ms-auto order-md-2 acciones-navbar">
                 <button type="button" id="boton-tema" class="btn btn-sm btn-outline-light" title="Cambiar tema claro/oscuro">
                     <i class="bi bi-moon-stars" id="icono-tema"></i>
@@ -715,6 +688,15 @@
                                     Cambiar contraseña
                                 </a>
                             </li>
+                            {% if es_administrador %}
+                            <li><hr class="dropdown-divider"></li>
+                            <li><h6 class="dropdown-header">Administración</h6></li>
+                            <li>
+                                <a class="dropdown-item {% if 'usuario' in url_actual %}active{% endif %}" href="{% url 'usuarios_lista' %}">
+                                    Gestión de usuarios
+                                </a>
+                            </li>
+                            {% endif %}
                             <li><hr class="dropdown-divider"></li>
                             <li>
                                 <a class="dropdown-item text-danger" href="{% url 'logout' %}">
@@ -739,15 +721,18 @@
                                 Cargar registros
                             </a>
                         </li>
-                        {% if es_administrador %}
+                        {% if puede_confirmar_carga %}
+                            <li class="nav-item">
+                                <a class="nav-link {% if 'reportes:' in url_actual or url_actual == 'registros:reporte_observaciones' %}active fw-bold{% endif %}" href="{% url 'reportes:indice' %}">
+                                    Reportes
+                                </a>
+                            </li>
+                        {% endif %}
+                        {# Ambos roles ven las empresas; solo el Administrador las crea o edita. #}
+                        {% if puede_gestionar_gestiones %}
                             <li class="nav-item">
                                 <a class="nav-link {% if 'registros:empresa' in url_actual %}active fw-bold{% endif %}" href="{% url 'registros:empresas_lista' %}">
                                     Empresas
-                                </a>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nav-link {% if 'usuario' in url_actual %}active fw-bold{% endif %}" href="{% url 'usuarios_lista' %}">
-                                    Usuarios
                                 </a>
                             </li>
                         {% endif %}
@@ -757,7 +742,7 @@
     </nav>
     {% endif %}
 
-    <main class="container mb-5">
+    <main class="container mb-5" id="contenido-principal" tabindex="-1">
         {% block mensajes_globales %}
         {% if messages %}
             <div class="zona-avisos" aria-live="polite">
@@ -826,6 +811,7 @@
 
             function actualizarIcono(tema) {
                 icono.className = tema === "dark" ? "bi bi-sun" : "bi bi-moon-stars";
+                boton.setAttribute("aria-label", tema === "dark" ? "Activar tema claro" : "Activar tema oscuro");
             }
             actualizarIcono(document.documentElement.getAttribute("data-bs-theme"));
 
@@ -833,15 +819,16 @@
                 var actual = document.documentElement.getAttribute("data-bs-theme");
                 var nuevo = actual === "dark" ? "light" : "dark";
                 document.documentElement.setAttribute("data-bs-theme", nuevo);
-                localStorage.setItem("tema", nuevo);
+                try { localStorage.setItem("tema", nuevo); } catch (e) {}
                 actualizarIcono(nuevo);
             });
 
             // Reaplica el tema al volver con atrás/adelante (bfcache).
             window.addEventListener("pageshow", function (evento) {
                 if (evento.persisted) {
-                    var guardado = localStorage.getItem("tema");
-                    if (guardado) {
+                    var guardado;
+                    try { guardado = localStorage.getItem("tema"); } catch (e) {}
+                    if (/^(dark|light)$/.test(guardado)) {
                         document.documentElement.setAttribute("data-bs-theme", guardado);
                         actualizarIcono(guardado);
                     }
@@ -851,7 +838,6 @@
     </script>
     <script>
         (function () {
-            // Reloj del encabezado sin sesión.
             var reloj = document.getElementById("reloj-sistema");
             if (!reloj) return;
             function actualizarReloj() {
@@ -866,11 +852,10 @@
     </script>
     <script>
         (function () {
-            // Frase rotativa del encabezado sin sesión.
             var elemento = document.getElementById("frase-rotativa");
             if (!elemento) return;
             var frases = [
-                "Detecta anomalías con Machine Learning",
+                "Señala las transacciones que merecen revisión",
                 "Valida cada archivo antes de guardarlo",
                 "Registra quién cambió qué, y cuándo",
             ];
@@ -916,7 +901,6 @@
                 window.requestAnimationFrame(paso);
             });
 
-            // Spinner en botones con data-cargando-texto al enviar.
             document.querySelectorAll("form").forEach(function (formulario) {
                 formulario.addEventListener("submit", function () {
                     var boton = formulario.querySelector("[data-cargando-texto]");
@@ -925,7 +909,6 @@
                     boton.classList.add("cargando");
                     boton.innerHTML = '<span class="spinner-inline"></span> ' + boton.getAttribute("data-cargando-texto");
 
-                    // Activa la barra de progreso decorativa, si existe.
                     var barra = formulario.querySelector(".barra-progreso-indeterminada");
                     if (barra) barra.classList.add("activa");
                 });
@@ -943,7 +926,6 @@
                 });
             });
 
-            // Notificaciones flotantes: se cierran solas al terminar la barra; el hover la pausa.
             document.querySelectorAll(".aviso-flotante").forEach(function (aviso) {
                 var cerrar = function () {
                     aviso.classList.add("saliendo");
@@ -953,9 +935,9 @@
                 aviso.querySelector(".aviso-barra").addEventListener("animationend", cerrar);
             });
 
-            // Las alertas marcadas con alert-autocierre se cierran solas.
             document.querySelectorAll(".alert-autocierre").forEach(function (alerta) {
                 var urgente = alerta.classList.contains("alert-danger") || alerta.classList.contains("alert-warning");
+                if (urgente) return; // Los errores deben permanecer hasta que se corrijan o se cierren.
                 setTimeout(function () {
                     var instancia = bootstrap.Alert.getOrCreateInstance(alerta);
                     if (instancia) instancia.close();
@@ -965,8 +947,7 @@
     </script>
     <script>
         (function () {
-            // Selector personalizado (.selector-personalizado).
-            document.querySelectorAll(".selector-personalizado").forEach(function (contenedor) {
+            document.querySelectorAll(".selector-personalizado").forEach(function (contenedor, indiceSelector) {
                 var nativo = contenedor.querySelector("select");
                 var boton = contenedor.querySelector(".selector-boton");
                 var texto = contenedor.querySelector(".selector-texto");
@@ -974,11 +955,26 @@
                 if (!nativo || !boton || !texto || !lista) return;
 
                 var opciones = Array.prototype.slice.call(lista.querySelectorAll(".selector-opcion"));
+                lista.id = lista.id || "lista-selector-" + indiceSelector;
+                boton.setAttribute("aria-haspopup", "listbox");
+                boton.setAttribute("aria-controls", lista.id);
+                boton.setAttribute("aria-expanded", "false");
+                var etiqueta = nativo.labels && nativo.labels[0];
+                if (etiqueta) {
+                    etiqueta.id = etiqueta.id || "etiqueta-selector-" + indiceSelector;
+                    boton.setAttribute("aria-labelledby", etiqueta.id);
+                    lista.setAttribute("aria-labelledby", etiqueta.id);
+                    etiqueta.addEventListener("click", function (e) { e.preventDefault(); boton.focus(); });
+                }
+                nativo.tabIndex = -1;
+                nativo.setAttribute("aria-hidden", "true");
+                opciones.forEach(function (opcion) { opcion.tabIndex = -1; });
 
                 function marcarActiva() {
                     opciones.forEach(function (opcionEl) {
                         var esActiva = opcionEl.getAttribute("data-valor") === nativo.value;
                         opcionEl.classList.toggle("selector-opcion-activa", esActiva);
+                        opcionEl.setAttribute("aria-selected", String(esActiva));
                     });
                 }
 
@@ -988,20 +984,29 @@
                     marcarActiva();
                 }
                 sincronizarTexto();
+                nativo.addEventListener("change", sincronizarTexto);
+                nativo.addEventListener("invalid", function () {
+                    boton.setAttribute("aria-invalid", "true");
+                    boton.focus();
+                });
+                nativo.addEventListener("change", function () { boton.removeAttribute("aria-invalid"); });
+                if (nativo.form) nativo.form.addEventListener("reset", function () { setTimeout(sincronizarTexto, 0); });
 
                 function abrir() {
-                    // Solo un selector abierto a la vez.
                     document.querySelectorAll(".selector-personalizado.selector-abierto").forEach(function (otro) {
                         if (otro === contenedor) return;
                         otro.classList.remove("selector-abierto");
                         otro.querySelector(".selector-lista").classList.add("d-none");
+                        otro.querySelector(".selector-boton").setAttribute("aria-expanded", "false");
                     });
                     lista.classList.remove("d-none");
                     contenedor.classList.add("selector-abierto");
+                    boton.setAttribute("aria-expanded", "true");
                 }
                 function cerrar() {
                     lista.classList.add("d-none");
                     contenedor.classList.remove("selector-abierto");
+                    boton.setAttribute("aria-expanded", "false");
                 }
 
                 boton.addEventListener("click", function (e) {
@@ -1021,7 +1026,40 @@
                 });
 
                 boton.addEventListener("keydown", function (e) {
-                    if (e.key === "Escape") cerrar();
+                    if (e.key === "Escape") { cerrar(); return; }
+                    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+                        e.preventDefault(); abrir();
+                        var seleccionada = opciones.find(function (op) { return op.dataset.valor === nativo.value; });
+                        var destino = seleccionada || opciones[e.key === "ArrowDown" ? 0 : opciones.length - 1];
+                        if (destino) destino.focus();
+                    }
+                });
+                lista.addEventListener("keydown", function (e) {
+                    var actual = opciones.indexOf(document.activeElement);
+                    var siguiente = actual;
+                    if (e.key === "Escape") { e.preventDefault(); cerrar(); boton.focus(); return; }
+                    if (e.key === "Tab") { cerrar(); boton.focus(); return; }
+                    if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault(); if (actual >= 0) opciones[actual].click(); return;
+                    }
+                    if (e.key === "ArrowDown") siguiente = Math.min(opciones.length - 1, actual + 1);
+                    else if (e.key === "ArrowUp") siguiente = Math.max(0, actual - 1);
+                    else if (e.key === "Home") siguiente = 0;
+                    else if (e.key === "End") siguiente = opciones.length - 1;
+                    else if (e.key.length === 1 && !e.ctrlKey && !e.altKey && !e.metaKey) {
+                        // Busca desde la opción siguiente, también con nombres acentuados.
+                        var letra = e.key.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+                        for (var paso = 1; paso <= opciones.length; paso++) {
+                            var candidato = (actual + paso) % opciones.length;
+                            var nombre = opciones[candidato].textContent.trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+                            if (nombre.startsWith(letra)) { siguiente = candidato; break; }
+                        }
+                    } else return;
+                    e.preventDefault();
+                    if (opciones[siguiente]) opciones[siguiente].focus();
+                });
+                contenedor.addEventListener("focusout", function (e) {
+                    if (!contenedor.contains(e.relatedTarget)) cerrar();
                 });
 
                 document.addEventListener("click", function (e) {
@@ -1032,8 +1070,8 @@
     </script>
     <script>
         (function () {
-            // Botón de mostrar contraseña en todos los campos de clave.
             document.querySelectorAll('input[type="password"]').forEach(function (campo) {
+                campo.classList.add("clave-con-control");
                 if (campo.closest(".input-group")) return;
 
                 var envoltorio = document.createElement("div");
@@ -1044,14 +1082,16 @@
                 var boton = document.createElement("button");
                 boton.type = "button";
                 boton.className = "btn btn-outline-guindo boton-mostrar-clave-auto";
-                boton.tabIndex = -1;
                 boton.setAttribute("aria-label", "Mostrar contraseña");
+                boton.setAttribute("aria-controls", campo.id);
+                boton.setAttribute("aria-pressed", "false");
                 boton.innerHTML = '<i class="bi bi-eye"></i>';
                 envoltorio.appendChild(boton);
 
                 boton.addEventListener("click", function () {
                     var mostrando = campo.type === "text";
                     campo.type = mostrando ? "password" : "text";
+                    boton.setAttribute("aria-pressed", String(!mostrando));
                     var icono = boton.querySelector("i");
                     icono.className = (mostrando ? "bi bi-eye" : "bi bi-eye-slash") + " girar";
                     setTimeout(function () { icono.classList.remove("girar"); }, 300);

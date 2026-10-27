@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}Recuperar contraseña{% endblock %}
+{% block card_extra_class %}acceso-card acceso-flujo acceso-recuperacion mt-4 mt-md-5{% endblock %}
+{% block card_extra_style %}max-width: 560px;{% endblock %}
+{% block content %}
+{% include "usuarios/_pasos_recuperacion.html" with paso=1 %}
+<header class="acceso-cabecera acceso-cabecera-compacta">
+    <span class="acceso-icono"><i class="bi bi-key" aria-hidden="true"></i></span>
+    <h1 class="h4 text-guindo">Recuperar contraseña</h1>
+    <p class="text-secondary mb-0">Recibir un enlace para crear una nueva contraseña.</p>
+</header>
+<form method="post" novalidate class="mt-4">
+    {% csrf_token %}
+    {% if form.non_field_errors %}<div class="alert alert-danger" role="alert">{{ form.non_field_errors }}</div>{% endif %}
+    <label for="{{ form.email.id_for_label }}" class="form-label fw-semibold">Correo de la cuenta</label>
+    {{ form.email }}
+    <div id="correo-errores" role="alert">{% for error in form.email.errors %}<p class="text-danger small mt-2 mb-0">{{ error }}</p>{% endfor %}</div>
+    <p id="correo-ayuda" class="form-text mb-4">Correo registrado en la cuenta.</p>
+    <button class="btn btn-guindo w-100 acceso-accion" type="submit" data-cargando-texto="Enviando...">Enviar enlace <i class="bi bi-arrow-right ms-1" aria-hidden="true"></i></button>
+</form>
+<div class="acceso-ayuda small text-secondary"><i class="bi bi-shield-check me-1" aria-hidden="true"></i>La contraseña actual se conserva hasta cambiarla.</div>
+<a class="acceso-volver" href="{% url 'login' %}"><i class="bi bi-arrow-left me-1" aria-hidden="true"></i>Volver al inicio de sesión</a>
+{% endblock %}

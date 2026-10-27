@@ -1,0 +1,20 @@
+{% autoescape off %}ST&S AUDITORES Y CONSULTORES S.R.L.
+Sistema de apoyo a la auditoría externa
+
+Restablecer la contraseña de {{ nombre }}
+
+Para crear una contraseña nueva, abrir este enlace:
+
+{{ enlace }}
+
+El enlace sirve una sola vez y vence a las {{ vence|date:"H:i" }} ({{ minutos }} minutos).
+
+Detalle de la solicitud
+- Usuario: {{ usuario }}
+- Fecha y hora: {{ fecha_solicitud|date:"d/m/Y H:i" }}
+- Dirección IP: {{ ip }}
+
+Si la solicitud no fue hecha por el titular de la cuenta, ignorar este correo: la contraseña actual sigue igual.
+
+Correo automático, no responder. Referencia: {{ referencia }}
+{% endautoescape %}

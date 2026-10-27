@@ -1,0 +1,131 @@
+{% extends "base.html" %}
+{% block title %}Reportes{% endblock %}
+{% block content %}
+<h1 class="text-guindo mb-1">Reportes</h1>
+<p class="text-secondary mb-3">Consultar los resultados de una empresa y un periodo.</p>
+<style>
+    .selector-gestiones { display: flex; flex-wrap: wrap; gap: .4rem; }
+    .selector-gestiones a { padding: .45rem 1rem; min-height: 38px; display: inline-flex; align-items: center; border-radius: 999px; border: 1px solid var(--bs-border-color);
+        text-decoration: none; color: inherit; font-weight: 500; line-height: 1.4; }
+    .selector-gestiones a:hover { border-color: var(--guindo); color: var(--guindo); }
+    .selector-gestiones a.activa { background: var(--guindo); border-color: var(--guindo); color: #fff; }
+    [data-bs-theme="dark"] .selector-gestiones a:hover { border-color: #e7b8cd; color: #e7b8cd; }
+    .selector-gestiones .periodo { display: block; font-size: .72rem; font-weight: 400; opacity: .8; }
+    .expediente { border: 1px solid var(--bs-border-color); border-radius: 1rem; padding: 1.25rem 1.35rem; }
+    .expediente-cabecera { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-start; gap: .75rem; margin-bottom: 1.1rem; }
+    .tarjetas-reporte { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1rem; }
+    .tarjeta-reporte { display: flex; flex-direction: column; gap: .35rem; padding: 1.1rem 1.15rem; border-radius: .85rem;
+        background: var(--bs-tertiary-bg); border: 1px solid transparent; transition: border-color .15s ease; }
+    .tarjeta-reporte:hover { border-color: var(--bs-border-color); }
+    .tarjeta-reporte .icono { width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center;
+        background: var(--bs-body-bg); color: var(--guindo); border: 1px solid var(--bs-border-color); margin-bottom: .35rem; }
+    [data-bs-theme="dark"] .tarjeta-reporte .icono { color: #e7b8cd; }
+    .tarjeta-reporte h4 { font-size: 1rem; font-weight: 600; margin: 0; }
+    .tarjeta-reporte .descripcion { font-size: .85rem; color: var(--bs-secondary-color); margin: 0; }
+    .tarjeta-reporte .cifra { font-size: 1.6rem; font-weight: 700; line-height: 1.1; margin-top: .5rem; font-variant-numeric: tabular-nums; }
+    .tarjeta-reporte .cifra small { font-size: .8rem; font-weight: 500; color: var(--bs-secondary-color); }
+    .tarjeta-reporte .detalle { font-size: .8rem; color: var(--bs-secondary-color); }
+    .tarjeta-reporte .avance { height: 5px; border-radius: 99px; background: var(--bs-border-color); overflow: hidden; margin: .25rem 0 .1rem; }
+    .tarjeta-reporte .avance span { display: block; height: 100%; background: var(--guindo); }
+    .tarjeta-reporte .accion { margin-top: auto; padding-top: .75rem; }
+    .expediente-pie { display: flex; flex-wrap: wrap; justify-content: space-between; gap: .5rem; margin-top: 1rem; font-size: .85rem; }
+</style>
+<form method="get" class="d-flex flex-wrap gap-4 align-items-end mb-4" id="form-reportes">
+    <div>
+        <label class="form-label small mb-1" for="filtro-empresa">Empresa</label>
+        <select id="filtro-empresa" name="empresa" class="form-select" onchange="this.form.submit()">
+            {% if not empresa_id %}<option value="">Seleccionar empresa</option>{% endif %}
+            {% for empresa in empresas %}<option value="{{ empresa.id }}" {% if empresa_id == empresa.id|stringformat:"s" %}selected{% endif %}>{{ empresa.nombre }}</option>{% endfor %}
+        </select>
+    </div>
+    {% if opciones_gestion %}
+    <div>
+        <div class="form-label small mb-1" id="etiqueta-gestion">Gestión</div>
+        {% comment %}Mostrar las cuatro gestiones recientes y la seleccionada, aunque sea anterior.{% endcomment %}
+        <nav class="selector-gestiones" aria-labelledby="etiqueta-gestion">
+            {% for gestion in opciones_gestion %}
+                {% if forloop.counter <= 4 or gestion_id == gestion.pk %}
+                    <a href="?empresa={{ empresa_id }}&amp;gestion={{ gestion.pk }}" class="{% if gestion_id == gestion.pk %}activa{% endif %}"
+                       {% if gestion_id == gestion.pk %}aria-current="page"{% endif %}
+                       title="{{ gestion.fecha_inicio|date:'d/m/Y' }} al {{ gestion.fecha_fin|date:'d/m/Y' }}">{{ gestion.anio }}</a>
+                {% endif %}
+            {% endfor %}
+            {% if opciones_gestion|length > 4 %}
+                <div class="dropdown">
+                    <button type="button" class="btn btn-outline-secondary rounded-pill dropdown-toggle" style="min-height:38px;"
+                            data-bs-toggle="dropdown" aria-expanded="false">Anteriores</button>
+                    <ul class="dropdown-menu" style="max-height: 280px; overflow-y: auto;">
+                        {% for gestion in opciones_gestion %}
+                            {% if forloop.counter > 4 %}
+                                <li><a class="dropdown-item{% if gestion_id == gestion.pk %} active{% endif %}" href="?empresa={{ empresa_id }}&amp;gestion={{ gestion.pk }}">{{ gestion.anio }} <span class="small text-secondary">· {{ gestion.fecha_inicio|date:'d/m/Y' }} al {{ gestion.fecha_fin|date:'d/m/Y' }}</span></a></li>
+                            {% endif %}
+                        {% endfor %}
+                    </ul>
+                </div>
+            {% endif %}
+        </nav>
+    </div>
+    {% endif %}
+    <noscript><button type="submit" class="btn btn-guindo">Ver</button></noscript>
+</form>
+{% for expediente in expedientes %}
+{% with empresa=expediente.empresa %}
+<section class="mb-4" aria-label="Reportes de {{ empresa.nombre }}">
+    {% for g in expediente.gestiones %}
+    <section class="expediente mb-3">
+        <div class="expediente-cabecera">
+            <div><h3 class="h5 mb-1">Gestión {{ g.gestion.anio }}</h3><p class="small text-secondary mb-0">{{ g.gestion.fecha_inicio|date:"d/m/Y" }} al {{ g.gestion.fecha_fin|date:"d/m/Y" }} · {{ g.registros|floatformat:"0g" }} registros en {{ g.cargas }} carga{{ g.cargas|pluralize }} válida{{ g.cargas|pluralize }}</p></div>
+            {% if g.hay_analisis %}<a class="btn btn-sm btn-outline-guindo" href="{% url 'reportes:panorama' empresa.id g.gestion.id %}"><i class="bi bi-bar-chart" aria-hidden="true"></i> Análisis de la gestión</a>{% endif %}
+        </div>
+        {% for a,b in g.grupo.posibles_duplicadas %}<p class="alert alert-warning small">Posible carga duplicada: N.º {{ a.id }} y N.º {{ b.id }}. Revisar antes de emitir el reporte.</p>{% endfor %}
+        {% if g.cargas %}
+        <div class="tarjetas-reporte">
+            <article class="tarjeta-reporte">
+                <span class="icono"><i class="bi bi-sort-down" aria-hidden="true"></i></span>
+                <h4>Transacciones atípicas</h4>
+                <p class="descripcion">De la más a la menos atípica.</p>
+                {% if g.hay_analisis %}
+                    <div class="cifra">{{ g.atipicas|floatformat:"0g" }} <small>atípicas</small></div>
+                    <div class="avance" aria-hidden="true"><span style="width: {% widthratio g.revisadas g.atipicas 100 %}%"></span></div>
+                    <div class="detalle">{{ g.revisadas }} de {{ g.atipicas }} revisadas</div>
+                    <div class="accion"><a class="btn btn-guindo btn-sm" href="{% url 'reportes:atipicas_gestion' empresa.id g.gestion.id %}">Abrir reporte</a></div>
+                {% else %}
+                    <div class="detalle mt-2">Disponible cuando termine el análisis del modelo.</div>
+                {% endif %}
+            </article>
+            <article class="tarjeta-reporte">
+                <span class="icono"><i class="bi bi-clipboard-check" aria-hidden="true"></i></span>
+                <h4>Hallazgos</h4>
+                <p class="descripcion">Papel de trabajo: lo observado por el auditor.</p>
+                <div class="cifra">{{ g.observadas }} <small>atípica{{ g.observadas|pluralize }} observada{{ g.observadas|pluralize }}</small></div>
+                <div class="detalle">{% if g.observaciones %}Más {{ g.observaciones }} aviso{{ g.observaciones|pluralize }} observado{{ g.observaciones|pluralize }}{% if g.seguimiento %} · {% endif %}{% endif %}{% if g.seguimiento %}{{ g.seguimiento }} en seguimiento{% endif %}{% if not g.observaciones and not g.seguimiento %}Con su fundamento y firmas.{% endif %}</div>
+                <div class="accion"><a class="btn btn-outline-guindo btn-sm" href="{% url 'reportes:hallazgos_gestion' empresa.id g.gestion.id %}">Abrir hallazgos</a></div>
+            </article>
+            <article class="tarjeta-reporte">
+                <span class="icono"><i class="bi bi-pen" aria-hidden="true"></i></span>
+                <h4>Observaciones para firmar</h4>
+                <p class="descripcion">Avisos observados, para firmar con la empresa.</p>
+                <div class="cifra">{{ g.observaciones }} <small>{% if g.observaciones == 1 %}observación{% else %}observaciones{% endif %}</small></div>
+                <div class="detalle">Firman auditor, contador y representante legal.</div>
+                <div class="accion"><a class="btn btn-outline-guindo btn-sm" href="{% url 'reportes:observaciones_gestion' empresa.id g.gestion.id %}">Abrir observaciones</a></div>
+            </article>
+        </div>
+        {% else %}<p class="text-secondary mb-0">Todavía no hay cargas válidas para emitir reportes.</p>{% endif %}
+        <div class="expediente-pie">
+        <details><summary class="text-secondary">Cargas incluidas</summary>
+            <ul class="mt-2 mb-0">
+                {% for d in g.detalle_cargas %}<li><a href="{% url 'registros:detalle_carga' d.carga.id %}">Carga N.º {{ d.carga.id }}</a> · {{ d.carga.get_formato_detectado_display|default:"Sin dato" }} · {{ d.carga.fecha_carga|date:"d/m/Y" }}</li>{% endfor %}
+                {% for c in g.grupo.anuladas %}<li>Carga N.º {{ c.id }} · anulada, excluida del reporte</li>{% endfor %}
+                {% for c in g.grupo.en_proceso %}<li>Carga N.º {{ c.id }} · en proceso</li>{% endfor %}
+            </ul>
+        </details>
+        {% if g.cargas %}<span class="text-secondary">PDF y Excel dentro de cada reporte.</span>{% endif %}
+        </div>
+    </section>
+    {% endfor %}
+</section>
+{% endwith %}
+{% empty %}
+<div class="estado-vacio"><h2 class="h5">Todavía no hay reportes disponibles</h2><p class="text-secondary">Los reportes aparecen cuando una carga termina de procesarse.</p><a class="btn btn-outline-guindo" href="{% url 'registros:cargar' %}">Ir a cargas</a>{% if empresa_id %}<a class="btn btn-link" href="{% url 'reportes:indice' %}">Ver todas las empresas</a>{% endif %}</div>
+{% endfor %}
+{% endblock %}

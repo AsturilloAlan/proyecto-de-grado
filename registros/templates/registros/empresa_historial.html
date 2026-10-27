@@ -3,9 +3,11 @@
 {% block content %}
     <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
         <h1 class="text-guindo mb-0">Historial de cambios: {{ empresa.nombre }}</h1>
+        {% if es_administrador %}
         <a class="btn btn-sm btn-outline-guindo" href="{% url 'registros:empresa_editar' empresa.id %}">
             Editar empresa
         </a>
+        {% endif %}
     </div>
 
     {% if cambios %}

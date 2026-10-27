@@ -1,0 +1,99 @@
+{% comment %}
+Parámetros: campo1 (contraseña nueva), campo2 (confirmación).
+Similitud con el usuario, claves comunes e historial se validan solo en el servidor.
+{% endcomment %}
+{% with con_error=campo1.errors|default:campo2.errors %}
+<div class="requisitos-clave" id="requisitos-clave" {% if con_error %}hidden{% endif %} aria-live="polite">
+    <div class="barra-fuerza" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
+    <ul aria-label="Requisitos de la contraseña">
+        <li data-regla="largo" title="Al menos 10 caracteres">10+ caracteres</li>
+        <li data-regla="mayusculas" title="Mayúsculas y minúsculas">Aa</li>
+        <li data-regla="numero" title="Al menos un número">123</li>
+        <li data-regla="simbolo" title="Al menos un símbolo, por ejemplo - _ . ! #">#!?</li>
+    </ul>
+    <p>Sin parecerse a tu usuario ni repetir las últimas 5.</p>
+</div>
+<div class="coincide-clave" id="coincide-clave" hidden aria-live="polite"></div>
+{% if con_error %}
+    <div class="errores-clave" id="errores-clave" role="alert">
+        <i class="bi bi-exclamation-circle" aria-hidden="true"></i>
+        <ul>
+            {% for error in campo1.errors %}<li>{{ error }}</li>{% endfor %}
+            {% for error in campo2.errors %}{% if error not in campo1.errors %}<li>{{ error }}</li>{% endif %}{% endfor %}
+        </ul>
+    </div>
+{% endif %}
+{% endwith %}
+<style>
+    .requisitos-clave { font-size: .85rem; margin-top: .55rem; }
+    .barra-fuerza { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; margin-bottom: .55rem; }
+    .barra-fuerza span { height: 4px; border-radius: 99px; background: var(--bs-border-color); transition: background-color .2s ease; }
+    .barra-fuerza[data-nivel="1"] span:nth-child(-n+1) { background: #dc3545; }
+    .barra-fuerza[data-nivel="2"] span:nth-child(-n+2) { background: #e07a06; }
+    .barra-fuerza[data-nivel="3"] span:nth-child(-n+3) { background: #e0a106; }
+    .barra-fuerza[data-nivel="4"] span { background: #198754; }
+    .requisitos-clave ul, .errores-clave ul { list-style: none; padding: 0; margin: 0; }
+    .requisitos-clave ul { display: flex; flex-wrap: wrap; gap: .35rem; }
+    .requisitos-clave li { display: inline-flex; align-items: center; gap: .3rem; padding: .2rem .6rem; border-radius: 99px;
+        font-size: .78rem; font-weight: 500; color: var(--bs-secondary-color); background: var(--bs-tertiary-bg);
+        border: 1px solid var(--bs-border-color); transition: color .15s ease, background-color .15s ease, border-color .15s ease; }
+    .requisitos-clave li::before { content: "\F287"; font-family: bootstrap-icons; font-size: .45rem; opacity: .6; }
+    .requisitos-clave li.cumple { color: #146c43; background: rgba(25,135,84,.09); border-color: rgba(25,135,84,.3); }
+    .requisitos-clave li.cumple::before { content: "\F26E"; font-size: .85rem; opacity: 1; }
+    [data-bs-theme="dark"] .requisitos-clave li.cumple { color: #4ec48a; }
+    .requisitos-clave p { color: var(--bs-secondary-color); font-size: .76rem; margin: .45rem 0 0; }
+    .coincide-clave { display: flex; align-items: center; gap: .35rem; margin-top: .45rem; font-size: .8rem; font-weight: 500; }
+    .coincide-clave.si { color: #146c43; }
+    .coincide-clave.no { color: var(--bs-secondary-color); }
+    [data-bs-theme="dark"] .coincide-clave.si { color: #4ec48a; }
+    .errores-clave { display: flex; gap: .5rem; margin: -.25rem 0 1.1rem; padding: .65rem .8rem; border-radius: .6rem; font-size: .85rem;
+        color: #b02a37; background: rgba(220, 53, 69, .08); border: 1px solid rgba(220, 53, 69, .25); }
+    .errores-clave ul { display: grid; gap: .2rem; }
+    [data-bs-theme="dark"] .errores-clave { color: #f1aeb5; }
+    .errores-clave .bi { margin-top: .1rem; }
+</style>
+<script>
+(function () {
+    var c1 = document.getElementById("{{ campo1.id_for_label }}");
+    var c2 = document.getElementById("{{ campo2.id_for_label }}");
+    var lista = document.getElementById("requisitos-clave");
+    var coincide = document.getElementById("coincide-clave");
+    var errores = document.getElementById("errores-clave");
+    if (!c1 || !c2 || !lista) return;
+    var bloque1 = c1.closest(".mb-3"), bloque2 = c2.closest(".mb-3");
+    if (bloque1) bloque1.appendChild(lista);
+    if (bloque2) bloque2.appendChild(coincide);
+
+    var reglas = {
+        largo: function (v) { return v.length >= 10; },
+        mayusculas: function (v) { return /[A-ZÁÉÍÓÚÑ]/.test(v) && /[a-záéíóúñ]/.test(v); },
+        numero: function (v) { return /\d/.test(v); },
+        simbolo: function (v) { return /[^A-Za-z0-9ÁÉÍÓÚÑáéíóúñ\s]/.test(v); }
+    };
+    var barra = lista.querySelector(".barra-fuerza");
+    function revisar() {
+        var cumplidas = 0;
+        lista.querySelectorAll("[data-regla]").forEach(function (li) {
+            var ok = reglas[li.dataset.regla](c1.value);
+            li.classList.toggle("cumple", ok);
+            if (ok) cumplidas++;
+        });
+        barra.dataset.nivel = c1.value ? cumplidas : 0;
+        if (!c2.value || errores) { coincide.hidden = true; return; }
+        var igual = c1.value === c2.value;
+        coincide.hidden = false;
+        coincide.className = "coincide-clave " + (igual ? "si" : "no");
+        coincide.innerHTML = igual
+            ? '<i class="bi bi-check-circle-fill" aria-hidden="true"></i> Coinciden'
+            : '<i class="bi bi-dash-circle" aria-hidden="true"></i> Aún no coinciden';
+    }
+    function alEscribir() {
+        if (errores) { errores.remove(); errores = null; lista.hidden = false;
+            c1.classList.remove("is-invalid"); c2.classList.remove("is-invalid"); }
+        revisar();
+    }
+    c1.addEventListener("input", alEscribir);
+    c2.addEventListener("input", alEscribir);
+    revisar();
+})();
+</script>

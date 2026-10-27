@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}Revisar el correo{% endblock %}
+{% block card_extra_class %}acceso-card{% endblock %}
+{% block card_extra_style %}max-width: 560px;{% endblock %}
+{% block content %}
+{% include "usuarios/_pasos_recuperacion.html" with paso=2 %}
+<div class="acceso-estado">
+    <header class="acceso-cabecera">
+        <span class="acceso-icono"><i class="bi bi-envelope-check" aria-hidden="true"></i></span>
+        <p class="acceso-etapa">RECUPERACIÓN DE ACCESO</p>
+        <h1>Revisar el correo</h1>
+        <p class="text-secondary mb-0">Si el correo está registrado en una cuenta activa, en unos minutos llegará un enlace para crear una contraseña nueva.</p>
+    </header>
+    <div class="acceso-ayuda small text-secondary"><i class="bi bi-clock me-1" aria-hidden="true"></i>El enlace sirve una sola vez y vence en {{ minutos }} minutos.<br>Revisar también la carpeta de correo no deseado.</div>
+    <a class="btn btn-guindo w-100 acceso-accion" href="{% url 'login' %}">Volver al inicio de sesión</a>
+    <a class="acceso-volver" href="{% url 'recuperar_clave' %}">Intentar con otro correo</a>
+</div>
+{% endblock %}

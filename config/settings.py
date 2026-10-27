@@ -19,6 +19,8 @@ DEBUG = os.environ.get("DEBUG", "True") == "True"
 
 # Las cargas se procesan en segundo plano; en las pruebas automáticas, en el momento.
 PROCESAR_EN_SEGUNDO_PLANO = "test" not in sys.argv
+# Aplicar el modelo One-Class SVM a cada carga procesada (las pruebas lo activan a mano).
+ANALIZAR_CON_MODELO = "test" not in sys.argv
 
 ALLOWED_HOSTS = [
     h.strip() for h in os.environ.get("ALLOWED_HOSTS", "localhost,127.0.0.1").split(",") if h.strip()
@@ -31,7 +33,6 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
-    # Apps del proyecto (una por cada bloque de la Iteración correspondiente)
     "usuarios",
     "registros",
     "analisis",
@@ -45,6 +46,7 @@ MIDDLEWARE = [
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
+    "usuarios.middleware.JWTMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "usuarios.middleware.SinCacheMiddleware",
 ]
@@ -70,7 +72,6 @@ TEMPLATES = [
 
 WSGI_APPLICATION = "config.wsgi.application"
 
-# Base de datos: MySQL Server.
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.mysql",
@@ -85,11 +86,15 @@ DATABASES = {
     }
 }
 
+# Validadores comunes al alta, cambio y recuperación de contraseña.
 AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
-    {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator"},
+    {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator",
+     "OPTIONS": {"min_length": 10}},
     {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"},
     {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
+    {"NAME": "usuarios.validadores.ComplejidadValidator"},
+    {"NAME": "usuarios.validadores.HistorialValidator", "OPTIONS": {"cantidad": 5}},
 ]
 
 LANGUAGE_CODE = "es"
@@ -100,14 +105,14 @@ USE_TZ = True
 STATIC_URL = "static/"
 STATICFILES_DIRS = [BASE_DIR / "static"]
 
-# Archivos cargados por los usuarios (ej. archivos de registros contables, RF-01)
 MEDIA_URL = "media/"
 MEDIA_ROOT = BASE_DIR / "media"
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
-# Autenticación (RF-07: gestión de usuarios, con control de acceso por roles)
 LOGIN_URL = "login"
+# Enlace de recuperación de contraseña: un solo uso y vence a los 30 minutos.
+PASSWORD_RESET_TIMEOUT = 60 * 30
 LOGIN_REDIRECT_URL = "home"
 LOGOUT_REDIRECT_URL = "login"
 
@@ -116,6 +121,11 @@ SESSION_EXPIRE_AT_BROWSER_CLOSE = True
 SESSION_COOKIE_AGE = 60 * 30  # 30 minutos
 # Renueva el plazo con cada petición: cuenta desde la última actividad, no desde el login.
 SESSION_SAVE_EVERY_REQUEST = True
+
+# JWT del inicio de sesión (usuarios/jwt_tokens.py). Si no se define JWT_SECRET en el
+# .env, se firma con SECRET_KEY. Vence con la misma inactividad que la sesión.
+JWT_SECRET = os.environ.get("JWT_SECRET", "")
+JWT_MINUTOS_VIGENCIA = SESSION_COOKIE_AGE // 60
 SESSION_COOKIE_HTTPONLY = True
 CSRF_COOKIE_HTTPONLY = True
 
@@ -126,7 +136,14 @@ CSRF_COOKIE_SECURE = USAR_HTTPS
 SESSION_COOKIE_SAMESITE = "Lax"
 CSRF_COOKIE_SAMESITE = "Lax"
 
-# Envío de correo.
+SECURE_CONTENT_TYPE_NOSNIFF = True  # el navegador no "adivina" tipos de archivo
+SECURE_REFERRER_POLICY = "same-origin"  # no se filtran URLs internas a otros sitios
+SECURE_CROSS_ORIGIN_OPENER_POLICY = "same-origin"
+X_FRAME_OPTIONS = "DENY"  # el sistema no puede incrustarse en otra página
+if USAR_HTTPS:
+    SECURE_SSL_REDIRECT = True  # HTTP se redirige a HTTPS
+    SECURE_HSTS_SECONDS = 60 * 60 * 24 * 30  # el navegador recuerda usar HTTPS 30 días
+
 if os.environ.get("EMAIL_HOST_USER") and os.environ.get("EMAIL_HOST_PASSWORD"):
     EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
 else:
@@ -148,8 +165,7 @@ CACHES = {
     }
 }
 
-# Registro de errores: consola y archivo sistema.log (ignorado por git). Los fallos del
-# procesamiento en segundo plano quedan aquí aunque nadie esté mirando la consola.
+# sistema.log conserva los errores del procesamiento en segundo plano.
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
@@ -173,3 +189,16 @@ LOGGING = {
         "analisis": {"handlers": ["consola", "archivo"], "level": "WARNING"},
     },
 }
+
+# Pruebas: archivos temporales y registro en disco desactivado.
+if "test" in sys.argv:
+    import tempfile
+
+    MEDIA_ROOT = tempfile.mkdtemp(prefix="pruebas_media_")
+    # Hash rápido solo para pruebas; en producción se usa PBKDF2.
+    PASSWORD_HASHERS = ["django.contrib.auth.hashers.MD5PasswordHasher"]
+    LOGGING["handlers"]["archivo"] = {"class": "logging.NullHandler"}
+    # Silencia los errores provocados intencionalmente por las pruebas.
+    LOGGING["handlers"]["consola"] = {"class": "logging.NullHandler"}
+    # Clave de prueba de longitud adecuada (la del .env no se usa en las pruebas).
+    JWT_SECRET = "clave-jwt-solo-para-pruebas-automaticas-0123456789"

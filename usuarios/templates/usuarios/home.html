@@ -13,8 +13,52 @@
         </span>
     </div>
 
+    {% if trabajo_pendiente or cargas_atipicas_pendientes %}
+    <section class="panel-continuar mb-4" aria-labelledby="titulo-continuar">
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+            <div>
+                <h2 id="titulo-continuar" class="h5 mb-1">Continuar la revisión</h2>
+                <p class="small text-secondary mb-0">Acceso directo a las cargas más antiguas con trabajo pendiente.</p>
+            </div>
+        </div>
+        <div class="lista-continuar">
+            {% for carga in trabajo_pendiente %}
+            <a class="accion-continuar" href="{% url 'registros:detalle_carga' carga.id %}{{ carga.destino_pendiente }}">
+                <span class="icono-continuar"><i class="bi bi-clipboard-check" aria-hidden="true"></i></span>
+                <span class="contenido-continuar"><strong>{{ carga.empresa.nombre }}</strong><span class="small text-secondary">Gestión {{ carga.gestion.anio }} · Carga N.º {{ carga.id }}{% if carga.avisos_pendientes_anotado %} · {{ carga.avisos_pendientes_anotado }} avisos pendientes{% endif %}</span></span>
+                <span class="destino-continuar">{{ carga.accion_pendiente }} <i class="bi bi-arrow-right" aria-hidden="true"></i></span>
+            </a>
+            {% endfor %}
+            {% for carga in cargas_atipicas_pendientes %}
+            <a class="accion-continuar" href="{% url 'registros:detalle_carga' carga.id %}?pestana=atipicas&amp;validacion=pendiente">
+                <span class="icono-continuar"><i class="bi bi-activity" aria-hidden="true"></i></span>
+                <span class="contenido-continuar"><strong>{{ carga.empresa.nombre }}</strong><span class="small text-secondary">Gestión {{ carga.gestion.anio }} · Carga N.º {{ carga.id }} · Atípicas sin revisar</span></span>
+                <span class="destino-continuar">Revisar atípicas <i class="bi bi-arrow-right" aria-hidden="true"></i></span>
+            </a>
+            {% endfor %}
+        </div>
+    </section>
+    {% endif %}
+
+    <div class="d-flex flex-wrap gap-2 mb-4">
+        <a class="btn btn-guindo" href="{% url 'registros:cargar' %}">
+            Cargar registros contables
+        </a>
+        <a class="btn btn-outline-guindo" href="{% url 'reportes:indice' %}">
+            Reportes y gráficos
+        </a>
+        {% if puede_gestionar_gestiones %}
+            <a class="btn btn-outline-guindo" href="{% url 'registros:empresas_lista' %}">
+                {% if puede_gestionar_empresas %}Gestionar empresas clientes{% else %}Empresas clientes{% endif %}
+            </a>
+        {% endif %}
+    </div>
+
+    <details class="mb-4">
+        <summary class="text-guindo fw-semibold">Resumen general</summary>
+        <div class="mt-3">
     <div class="row g-3 mb-4">
-        <div class="col-sm-6 col-lg-4">
+        <div class="col-sm-6 col-xl-3">
             <div class="p-3 rounded border h-100 tarjeta-stat">
                 <div class="d-flex align-items-center gap-3">
                     <div class="rounded-circle d-flex align-items-center justify-content-center"
@@ -28,7 +72,7 @@
                 </div>
             </div>
         </div>
-        <div class="col-sm-6 col-lg-4">
+        <div class="col-sm-6 col-xl-3">
             <div class="p-3 rounded border h-100 tarjeta-stat">
                 <div class="d-flex align-items-center gap-3">
                     <div class="rounded-circle d-flex align-items-center justify-content-center"
@@ -42,7 +86,11 @@
                 </div>
             </div>
         </div>
-        <div class="col-sm-6 col-lg-4">
+        <div class="col-sm-6 col-xl-3">
+            {% with primera=trabajo_pendiente.0 %}
+            <a href="{% if primera %}{% url 'registros:detalle_carga' primera.id %}{{ primera.destino_pendiente }}{% else %}{% url 'registros:cargar' %}#historial-cargas{% endif %}"
+               class="d-block h-100" style="color: inherit; text-decoration: none;"
+               title="{% if primera %}Ir a la carga más antigua por revisar{% else %}Ver historial de cargas{% endif %}">
             <div class="p-3 rounded border h-100 tarjeta-stat">
                 <div class="d-flex align-items-center gap-3">
                     <div class="rounded-circle d-flex align-items-center justify-content-center"
@@ -55,24 +103,57 @@
                     </div>
                 </div>
             </div>
-        </div>
-    </div>
-
-    <div class="d-flex flex-wrap gap-2 mb-4">
-        <a class="btn btn-guindo" href="{% url 'registros:cargar' %}">
-            Cargar registros contables
-        </a>
-        {% if es_administrador %}
-            <a class="btn btn-outline-guindo" href="{% url 'registros:empresas_lista' %}">
-                Gestionar empresas clientes
             </a>
+            {% endwith %}
+        </div>
+        <div class="col-sm-6 col-xl-3">
+            {% with primera=cargas_atipicas_pendientes.0 %}
+            <a href="{% if primera %}{% url 'registros:detalle_carga' primera.id %}?pestana=atipicas&amp;validacion=pendiente{% else %}{% url 'reportes:indice' %}{% endif %}"
+               class="d-block h-100" style="color: inherit; text-decoration: none;"
+               title="{% if primera %}Ir a las atípicas sin revisar{% else %}Ver reportes{% endif %}">
+            <div class="p-3 rounded border h-100 tarjeta-stat">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="rounded-circle d-flex align-items-center justify-content-center"
+                         style="width:48px;height:48px;background:{% if atipicas_por_validar %}#c27c00{% else %}var(--guindo){% endif %};color:#fff;">
+                        <i class="bi bi-cpu fs-5"></i>
+                    </div>
+                    <div>
+                        <div class="fs-4 fw-bold" data-contar="{{ atipicas_por_validar }}">{{ atipicas_por_validar }}</div>
+                        <div class="text-secondary small">Atípicas por revisar</div>
+                    </div>
+                </div>
+            </div>
+            </a>
+            {% endwith %}
+        </div>
+        {% if cargas_en_cola %}
+        <div class="col-sm-6 col-xl-3">
+            <div class="p-3 rounded border h-100 tarjeta-stat">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="rounded-circle d-flex align-items-center justify-content-center"
+                         style="width:48px;height:48px;background:var(--guindo);color:#fff;">
+                        <i class="bi bi-hourglass-split fs-5"></i>
+                    </div>
+                    <div>
+                        <div class="fs-4 fw-bold">{{ cargas_en_cola }}</div>
+                        <div class="text-secondary small">Cargas en cola o procesándose</div>
+                    </div>
+                </div>
+            </div>
+        </div>
         {% endif %}
     </div>
 
-    <h2 class="h5 text-guindo mb-3">Actividad reciente</h2>
+        </div>
+    </details>
+
+    <div class="d-flex justify-content-between align-items-center gap-2 mb-3">
+        <h2 class="h5 text-guindo mb-0">Actividad reciente</h2>
+        {% if ultimas_cargas %}<a class="small" href="{% url 'registros:cargar' %}#historial-cargas">Ver historial completo <i class="bi bi-arrow-right" aria-hidden="true"></i></a>{% endif %}
+    </div>
     {% if ultimas_cargas %}
         <div class="table-responsive">
-            <table class="table table-hover align-middle mb-0">
+            <table class="table tabla-fichas table-hover align-middle mb-0">
                 <thead>
                     <tr>
                         <th>Fecha</th>
@@ -86,14 +167,14 @@
                 <tbody>
                     {% for carga in ultimas_cargas %}
                     <tr>
-                        <td>{{ carga.fecha_carga|date:"d/m/Y H:i" }}</td>
-                        <td>{{ carga.empresa }}</td>
-                        <td>{{ carga.gestion }}</td>
-                        <td>{{ carga.usuario.username }}</td>
-                        <td>
+                        <td data-etiqueta="Fecha">{{ carga.fecha_carga|date:"d/m/Y H:i" }}</td>
+                        <td data-etiqueta="Empresa">{{ carga.empresa }}</td>
+                        <td data-etiqueta="Gestión">{{ carga.gestion }}</td>
+                        <td data-etiqueta="Subido por">{{ carga.usuario.username }}</td>
+                        <td data-etiqueta="Estado">
                             {% include "registros/_estado_carga.html" with carga=carga compacto=True %}
                         </td>
-                        <td>
+                        <td data-etiqueta="Acciones">
                             <a href="{% url 'registros:detalle_carga' carga.id %}">Ver detalle</a>
                         </td>
                     </tr>
@@ -108,9 +189,11 @@
             <p class="text-secondary">
                 Las cargas de registros contables aparecerán aquí.
             </p>
-            <a class="btn btn-guindo btn-sm mt-2" href="{% url 'registros:cargar' %}">
-                Cargar registros contables
-            </a>
+            {% if not total_empresas and puede_gestionar_empresas %}
+                <a class="btn btn-guindo btn-sm mt-2" href="{% url 'registros:empresa_crear' %}">Registrar primera empresa</a>
+            {% else %}
+                <a class="btn btn-guindo btn-sm mt-2" href="{% url 'registros:cargar' %}">Cargar registros contables</a>
+            {% endif %}
         </div>
     {% endif %}
 {% endblock %}

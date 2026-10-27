@@ -43,13 +43,17 @@ El sistema queda en `http://127.0.0.1:8000/`.
 - [x] Carga y validación de registros contables (Excel, CSV y PDF del Libro Diario), en segundo plano
 - [x] Revisión de avisos por el auditor (válido u observado) y reporte de observaciones
 - [x] Evaluación comparativa de los tres algoritmos (`python manage.py evaluar_modelos`)
-- [ ] Entrenamiento del modelo elegido e integración en el sistema web
+- [x] Configuración y entrenamiento del modelo elegido (`configurar_modelo`, `entrenar_modelo`)
+- [ ] Integración del modelo en el sistema web
 - [ ] Visualización y exportación de resultados del análisis
 
 ## Comandos útiles
 
 - `python manage.py test usuarios registros`: pruebas automatizadas.
 - `python manage.py evaluar_modelos <id_carga> ...`: evaluación comparativa de los algoritmos.
+- `python manage.py configurar_modelo <id_2022> <id_2023>`: elige la configuración de One-Class SVM.
+- `python manage.py entrenar_modelo <id_2022> <id_2023>`: entrena y guarda el modelo en `modelos_ml/`.
+- `python manage.py puntuar_carga <id_carga>`: aplica el modelo guardado a una carga.
 - `python manage.py exportar_dataset <id_carga>`: dataset de una carga en CSV.
 - `python manage.py reclasificar_cuentas`: corrige el tipo de cuenta según su código.
 - `python manage.py revisar_base_datos`: busca tablas o migraciones que ya no corresponden al código (solo informa).

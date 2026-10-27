@@ -1,0 +1,149 @@
+    <style>
+        /* Paleta del reporte por tema; al imprimir siempre se usa la clara. */
+        .reporte {
+            --rep-tinta: var(--guindo-oscuro);
+            --rep-acento: var(--guindo);
+            --rep-suave: rgba(110,27,63,.05);
+            --rep-borde: rgba(110,27,63,.16);
+            --rep-secundario: #7a6f76;
+            --rep-cabecera: var(--guindo-oscuro);
+            --rep-cebra: rgba(110,27,63,.035);
+            --rep-firma: #333;
+        }
+        [data-bs-theme="dark"] .reporte {
+            --rep-tinta: #f1e3ea;
+            --rep-acento: #e7b8cd;
+            --rep-suave: rgba(231,184,205,.06);
+            --rep-borde: rgba(231,184,205,.18);
+            --rep-secundario: #b9adc0;
+            --rep-cabecera: #5a1d38;
+            --rep-cebra: rgba(231,184,205,.04);
+            --rep-firma: #b9adc0;
+        }
+
+        .reporte-membrete {
+            display: flex; align-items: center; justify-content: space-between; gap: 1.5rem;
+            padding-bottom: 1rem; margin-bottom: 1.5rem;
+            border-bottom: 3px solid var(--rep-acento);
+        }
+        .reporte-logo { position: relative; width: 150px; height: 52px; flex-shrink: 0; }
+        .reporte-logo img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; object-position: left center; }
+        .reporte-membrete .razon-social {
+            font-family: Georgia, "Times New Roman", serif; font-weight: 700; font-size: 1.05rem;
+            color: var(--rep-tinta); letter-spacing: .02em;
+        }
+        .reporte-membrete .lema { font-size: .75rem; color: var(--rep-secundario); letter-spacing: .05em; text-transform: uppercase; }
+        .reporte-membrete .encabezado-derecha { text-align: end; }
+        .reporte-membrete .etiqueta-documento {
+            display: inline-block; padding: .2rem .65rem; border-radius: 999px;
+            border: 1px solid var(--rep-borde); color: var(--rep-tinta);
+            font-size: .72rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+        }
+        .reporte-titulo { color: var(--rep-tinta); font-family: Georgia, "Times New Roman", serif; font-weight: 700; }
+        .reporte-intro { color: var(--rep-secundario); max-width: 70ch; }
+
+        .reporte-datos {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem 1.5rem;
+            margin: 0 0 1.75rem; padding: 1.1rem 1.35rem;
+            background: var(--rep-suave); border: 1px solid var(--rep-borde); border-radius: .75rem;
+        }
+        .reporte-datos dt {
+            font-size: .7rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+            color: var(--rep-secundario); margin-bottom: .15rem;
+        }
+        .reporte-datos dd { margin: 0; color: var(--bs-body-color); }
+        .reporte-datos .dato-destacado { font-size: 1.5rem; font-weight: 700; color: var(--rep-acento); line-height: 1.1; }
+
+        .reporte-tabla { border-color: var(--rep-borde); }
+        /* Selector más específico que el estilo general de encabezados de base.html. */
+        .reporte .reporte-tabla > thead > tr > th,
+        [data-bs-theme="dark"] .reporte .reporte-tabla > thead > tr > th {
+            --bs-table-bg: var(--rep-cabecera);
+            background: var(--rep-cabecera); color: #fff !important; border-color: var(--rep-cabecera);
+            font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; white-space: nowrap;
+        }
+        .reporte-tabla { table-layout: fixed; width: 100%; min-width: 900px; }
+        .reporte-tabla th { white-space: normal !important; vertical-align: bottom; }
+        .reporte-tabla td { border-color: var(--rep-borde); vertical-align: top; overflow-wrap: anywhere; }
+        .reporte-tabla .celda-justificacion { height: 3.5rem; }
+        .reporte-tabla tbody tr:nth-child(even) td { background: var(--rep-cebra); }
+
+        .firma-bloque { display: flex; gap: 3rem; margin-top: 4.5rem; break-inside: avoid; }
+        .firma-bloque > div { flex: 1 1 0; }
+        .firma-linea { border-top: 1px solid var(--rep-firma); margin: 3.5rem auto 0; padding-top: .4rem; width: 85%; text-align: center; }
+        .firma-linea .cargo { font-size: .8rem; color: var(--rep-secundario); }
+        .reporte-pie {
+            margin-top: 3rem; padding-top: .75rem; border-top: 1px solid var(--rep-borde);
+            font-size: .75rem; color: var(--rep-secundario); text-align: center;
+        }
+
+        /* En pantalla se trabaja, no se archiva: el membrete y la ficha de datos del documento
+           (empresa, NIT, modelo, emisión) solo aparecen al imprimir y en el PDF. */
+        @media screen {
+            .reporte > .reporte-membrete, .reporte > dl.reporte-datos { display: none !important; }
+        }
+        @media print {
+            @page { size: auto; margin: 12mm 10mm; }
+            /* Al imprimir sale solo el documento: nada de botones, enlaces del sistema,
+               avisos flotantes, secciones plegadas ni paneles de ayuda. */
+            .no-print, .navbar-guindo, .footer-app, .zona-avisos, .aviso-flotante, .position-fixed,
+            .que-procede, .reporte button, .reporte .btn, .reporte summary,
+            .reporte details:not([open]), .breadcrumb { display: none !important; }
+            .reporte details[open] > *:not(summary) { display: block; }
+            .reporte a { color: inherit !important; text-decoration: none !important; }
+            html, body, main.container { background: #fff !important; }
+            * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            .card-principal {
+                background: #fff !important; box-shadow: none !important; border: none !important;
+                backdrop-filter: none !important; animation: none !important;
+            }
+            .card-principal > .card-body { padding: 0 !important; }
+            .reporte, [data-bs-theme="dark"] .reporte {
+                --rep-tinta: #4A1129; --rep-acento: #6E1B3F; --rep-suave: #f8f2f5;
+                --rep-borde: #d9c9d1; --rep-secundario: #555; --rep-cabecera: #4A1129;
+                --rep-cebra: #faf6f8; --rep-firma: #333;
+                color: #000;
+            }
+            .reporte .reporte-datos dd, .reporte td { color: #000 !important; }
+            .reporte .logo-tema-claro { opacity: 1 !important; }
+            .reporte .logo-tema-oscuro { opacity: 0 !important; }
+            .reporte .alert { background: #fff !important; color: #000 !important; }
+            /* En modo oscuro Bootstrap pinta las celdas con su fondo oscuro; al imprimir se fuerza blanco. */
+            .reporte .reporte-tabla {
+                --bs-table-bg: #fff; --bs-table-color: #000; --bs-table-striped-bg: #faf6f8;
+                --bs-table-hover-bg: #fff; --bs-table-active-bg: #fff; --bs-table-border-color: #d9c9d1;
+            }
+            .reporte .reporte-tabla > tbody > tr > td { background-color: #fff !important; box-shadow: none !important; }
+            .reporte .reporte-tabla > tbody > tr:nth-child(even) > td { background-color: #faf6f8 !important; }
+            .reporte .reporte-tabla td, .reporte .reporte-tabla td * { color: #000 !important; }
+            .reporte-tabla-contenedor { overflow: visible !important; }
+            .reporte-tabla { min-width: 0 !important; font-size: 8.5pt; }
+            .reporte-tabla th { font-size: 7pt !important; padding: .3rem .35rem !important; }
+            .reporte-tabla td { padding: .3rem .35rem !important; }
+            .reporte-datos { grid-template-columns: repeat(3, 1fr); font-size: 9.5pt; }
+            .reporte-intro { font-size: 10pt; }
+            .reporte-tabla thead { display: table-header-group; }
+            .reporte-tabla tr { break-inside: avoid; }
+        }
+        .reporte-seccion { margin-top: 2rem; break-inside: avoid-page; }
+        .reporte-seccion > h2 {
+            font-family: Georgia, "Times New Roman", serif; color: var(--rep-tinta);
+            font-size: 1.1rem; font-weight: 700; border-bottom: 1px solid var(--rep-borde);
+            padding-bottom: .35rem; margin-bottom: .85rem;
+        }
+        .reporte-cuadro { width: 100%; font-size: .88rem; }
+        .reporte .reporte-cuadro > thead > tr > th {
+            background: var(--rep-suave); color: var(--rep-tinta); font-size: .7rem; font-weight: 700;
+            text-transform: uppercase; letter-spacing: .04em; border-color: var(--rep-borde);
+        }
+        .reporte-cuadro td { border-color: var(--rep-borde); }
+        .barra-reporte { height: 6px; background: var(--rep-borde); border-radius: 3px; overflow: hidden; min-width: 60px; }
+        .barra-reporte > span { display: block; height: 100%; background: var(--rep-acento); }
+        .reporte-nota { font-size: .82rem; color: var(--rep-secundario); }
+        .motivo-principal { font-weight: 600; }
+        @media print {
+            .reporte-cuadro { font-size: 8.5pt; }
+            .reporte-seccion > h2 { font-size: 11pt; }
+            .barra-reporte > span { background: #6E1B3F !important; }
+        }
+    </style>

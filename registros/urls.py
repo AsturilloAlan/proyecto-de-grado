@@ -13,6 +13,18 @@ urlpatterns = [
         name="carga_confirmar_validacion",
     ),
     path("cargar/<int:carga_id>/anular/", views.carga_anular, name="carga_anular"),
+    path("cargar/<int:carga_id>/analizar/", views.carga_analizar, name="carga_analizar"),
+    path(
+        "cargar/<int:carga_id>/atipicas/<int:resultado_id>/asiento/",
+        views.atipica_asiento,
+        name="atipica_asiento",
+    ),
+    path(
+        "cargar/<int:carga_id>/atipicas/<int:resultado_id>/revisar/",
+        views.atipica_revisar,
+        name="atipica_revisar",
+    ),
+    path("cargar/<int:carga_id>/mayor/", views.libro_mayor, name="libro_mayor"),
     path("cargar/<int:carga_id>/estado/", views.carga_estado, name="carga_estado"),
     path(
         "cargar/<int:carga_id>/avisos/marcar-revisados/",

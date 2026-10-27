@@ -1,4 +1,5 @@
 from django.conf import settings
+from pathlib import Path
 from django.contrib import admin
 from django.contrib.auth.views import redirect_to_login
 from django.urls import include, path, re_path
@@ -23,21 +24,23 @@ admin.site.login = _login_admin_con_2fa
 @login_required
 def _servir_avatar(request, path):
     """Fotos de perfil: solo para usuarios con sesión iniciada."""
-    return serve(request, "avatares/" + path, document_root=settings.MEDIA_ROOT)
+    return serve(request, path, document_root=Path(settings.MEDIA_ROOT) / "avatares")
 
 
 @rol_requerido("Administrador", "Auditor")
 def _servir_original(request, path):
     """Originales contables: solo con sesión y rol de negocio."""
-    return serve(request, "cargas/" + path, document_root=settings.MEDIA_ROOT)
+    respuesta = serve(request, path, document_root=Path(settings.MEDIA_ROOT) / "cargas")
+    respuesta["Content-Disposition"] = "attachment"
+    return respuesta
 
 
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("", include("usuarios.urls")),
     path("registros/", include("registros.urls")),
-    # Archivos subidos (MEDIA): siempre a través de vistas con control de acceso, nunca
-    # con `static()` abierto.
+    path("reportes/", include("reportes.urls")),
+    # MEDIA se sirve mediante vistas con control de acceso, no con static().
     re_path(r"^media/avatares/(?P<path>.+)$", _servir_avatar),
     re_path(r"^media/cargas/(?P<path>.+)$", _servir_original),
 ]

@@ -1,0 +1,15 @@
+{% comment %}Las métricas de utilidad del modelo se consultan en Excel y resumen_validacion.{% endcomment %}
+{% with m=metricas_validacion %}
+<div class="avance-revision mb-3" id="validacion-preliminar"
+     data-pendiente="{{ m.pendientes }}" data-relevante="{{ m.observadas }}"
+     data-seguimiento="{{ m.seguimiento }}" data-no_relevante="{{ m.no_relevantes }}">
+    <div class="d-flex flex-wrap justify-content-between align-items-baseline gap-2 small mb-1">
+        <span><strong>{{ m.revisadas }} / {{ m.atipicas }}</strong> <span class="text-secondary">revisadas</span></span>
+        <span class="text-secondary">{{ m.observadas }} observada{{ m.observadas|pluralize }} · {{ m.seguimiento }} en seguimiento · {{ m.no_relevantes }} válida{{ m.no_relevantes|pluralize }}</span>
+    </div>
+    <div class="progress" style="height: 6px;" role="progressbar" aria-label="Avance de la revisión"
+         aria-valuenow="{{ m.revisadas }}" aria-valuemin="0" aria-valuemax="{{ m.atipicas }}">
+        <div class="progress-bar bg-guindo" style="width: {% widthratio m.revisadas m.atipicas 100 %}%; background: var(--guindo, #6e1b3f);"></div>
+    </div>
+</div>
+{% endwith %}

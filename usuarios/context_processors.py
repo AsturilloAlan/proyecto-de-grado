@@ -21,6 +21,7 @@ def navegacion(request):
         "es_auditor": False,
         "puede_confirmar_carga": False,
         "puede_gestionar_gestiones": False,
+        "puede_gestionar_empresas": False,
     }
 
     usuario = getattr(request, "user", None)
@@ -31,10 +32,10 @@ def navegacion(request):
         contexto["es_auditor"] = usuario.is_superuser or usuario.groups.filter(
             name="Auditor"
         ).exists()
-        # Roles que pueden confirmar una carga con pendientes.
         contexto["puede_confirmar_carga"] = contexto["es_administrador"] or contexto["es_auditor"]
-        # Roles que pueden crear y editar gestiones.
+        # Gestiones: ambos roles. Empresas (datos del cliente): solo el Administrador (RF-09).
         contexto["puede_gestionar_gestiones"] = contexto["es_administrador"] or contexto["es_auditor"]
+        contexto["puede_gestionar_empresas"] = contexto["es_administrador"]
 
     try:
         coincidencia = resolve(request.path_info)

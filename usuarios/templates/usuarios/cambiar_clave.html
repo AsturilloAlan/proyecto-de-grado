@@ -19,17 +19,13 @@
             <div class="mb-3">
                 <label for="{{ form.new_password1.id_for_label }}" class="form-label">Nueva contraseña</label>
                 {{ form.new_password1 }}
-                {% if form.new_password1.help_text %}
-                    <div class="form-text">{{ form.new_password1.help_text|safe }}</div>
-                {% endif %}
-                {% for error in form.new_password1.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
             </div>
 
             <div class="mb-3">
                 <label for="{{ form.new_password2.id_for_label }}" class="form-label">Confirmar nueva contraseña</label>
                 {{ form.new_password2 }}
-                {% for error in form.new_password2.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
             </div>
+            {% include "usuarios/_requisitos_clave.html" with campo1=form.new_password1 campo2=form.new_password2 %}
 
             <button class="btn btn-guindo w-100" type="submit">
                 Cambiar contraseña

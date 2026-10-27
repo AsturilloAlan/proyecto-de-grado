@@ -1,0 +1,20 @@
+{% comment %}
+Migas de un reporte según de dónde vino el usuario (origen: carga, gráficos o Reportes).
+Uso: {% include "_migas_reporte.html" with titulo="Hallazgos" %}
+{% endcomment %}
+<nav aria-label="breadcrumb" class="no-print">
+    <ol class="breadcrumb small mb-3">
+        <li class="breadcrumb-item"><a href="{% url 'home' %}">Inicio</a></li>
+        {% if origen.tipo == 'carga' %}
+            <li class="breadcrumb-item"><a href="{% url 'registros:cargar' %}">Cargar registros</a></li>
+            <li class="breadcrumb-item"><a href="{{ origen.url }}">{{ origen.miga }}</a></li>
+        {% elif origen.tipo == 'graficos' %}
+            <li class="breadcrumb-item"><a href="{% url 'reportes:indice' %}?empresa={{ empresa.id }}&amp;gestion={{ gestion.id }}">Reportes</a></li>
+            <li class="breadcrumb-item"><a href="{{ origen.url }}">Análisis {{ gestion.anio }}</a></li>
+        {% else %}
+            <li class="breadcrumb-item"><a href="{{ origen.url }}">Reportes</a></li>
+            <li class="breadcrumb-item">{{ empresa }} · {{ gestion.anio }}</li>
+        {% endif %}
+        <li class="breadcrumb-item active" aria-current="page">{{ titulo }}</li>
+    </ol>
+</nav>

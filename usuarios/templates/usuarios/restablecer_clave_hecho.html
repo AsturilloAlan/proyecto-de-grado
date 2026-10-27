@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}Contraseña restablecida{% endblock %}
+{% block card_extra_class %}acceso-card{% endblock %}
+{% block card_extra_style %}max-width: 560px;{% endblock %}
+{% block content %}
+<div class="acceso-estado">
+    <header class="acceso-cabecera">
+        <span class="acceso-icono acceso-icono-exito"><i class="bi bi-check-lg" aria-hidden="true"></i></span>
+        <p class="acceso-etapa">RECUPERACIÓN COMPLETADA</p>
+        <h1>Contraseña restablecida</h1>
+        <p class="text-secondary mb-0">Ya se puede iniciar sesión con la contraseña nueva.</p>
+    </header>
+    <a class="btn btn-guindo w-100 acceso-accion" href="{% url 'login' %}">Iniciar sesión <i class="bi bi-arrow-right ms-2" aria-hidden="true"></i></a>
+</div>
+{% endblock %}

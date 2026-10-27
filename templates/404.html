@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block title %}Página no encontrada{% endblock %}
+{% block content %}
+    <div class="estado-vacio">
+        <div class="estado-vacio-icono"><i class="bi bi-signpost-split"></i></div>
+        <h1 class="h3 text-guindo">No encontramos esta página</h1>
+        <p class="text-secondary">Puede que el enlace esté incompleto o que el registro ya no exista.</p>
+        <a class="btn btn-guindo btn-sm mt-2" href="{% url 'home' %}">Ir al inicio</a>
+    </div>
+{% endblock %}

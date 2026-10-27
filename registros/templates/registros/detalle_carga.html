@@ -1,13 +1,20 @@
 {% extends "base.html" %}
-{% block title %}Detalle de carga #{{ carga.id }}{% endblock %}
+{% load textos_auditoria %}{% block title %}{{ carga.empresa }} · Gestión {{ carga.gestion.anio }}{% endblock %}
 {% block content %}
     <style>
-        /* Tablas de errores y avisos. */
+        .revision-atipica summary { cursor: pointer; padding-block: .35rem; }
+        .revision-atipica summary:focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }
+        @media (max-width: 767.98px) {
+            #tabla-atipicas, #tabla-atipicas > tbody { display: block; width: 100%; }
+            #tabla-atipicas > thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+            #tabla-atipicas > tbody > tr:not([hidden]) { display: block; margin-bottom: 1rem; padding: .75rem; border: 1px solid var(--bs-border-color); border-radius: .75rem; }
+            #tabla-atipicas > tbody > tr > td { display: block; width: 100%; min-width: 0; border: 0; padding: .4rem 0; white-space: normal !important; text-align: left !important; overflow-wrap: anywhere; }
+            #tabla-atipicas td[data-etiqueta]::before { content: attr(data-etiqueta); display: block; color: var(--bs-secondary-color); font-size: .75rem; margin-bottom: .15rem; }
+        }
         .tabla-avisos td, .tabla-avisos th { padding-top: .65rem; padding-bottom: .65rem; }
         .tabla-avisos .celda-descripcion { line-height: 1.5; }
         .tabla-avisos .celda-descripcion { padding-right: 1.5rem; }
         .tabla-avisos .celda-criterio { padding-left: 1rem; font-size: .85rem; color: var(--bs-secondary-color); line-height: 1.4; }
-        /* Botón de aviso pendiente. */
         .estados-aviso { display: inline-flex; gap: .25rem; padding: .25rem; margin: 0 0 .9rem; border-radius: .6rem; background: var(--bs-tertiary-bg); }
         .estados-aviso a {
             padding: .35rem .85rem; border-radius: .45rem; font-size: .85rem; font-weight: 600;
@@ -22,7 +29,6 @@
         [data-bs-theme="dark"] .enlace-corregir:hover { color: #e7b8cd; }
         .boton-revisar { white-space: nowrap; padding: .2rem .65rem; font-weight: 600; }
 
-        /* Errores: tarjetas por tipo y por fila. */
         .encabezado-errores { display: flex; align-items: center; gap: .9rem; margin-bottom: 1rem; }
         .icono-errores {
             width: 46px; height: 46px; border-radius: 12px; flex-shrink: 0;
@@ -65,7 +71,6 @@
 
         #inicio-carga, #registros, #errores, #avisos { scroll-margin-top: 1.25rem; }
 
-        /* Enlace de un aviso a su fila y resaltes al llegar. */
         .enlace-fila { text-decoration: none; color: inherit; white-space: nowrap; }
         .enlace-fila .bi { font-size: .75rem; opacity: .45; transition: opacity .15s ease; }
         .enlace-fila:hover { color: var(--guindo); text-decoration: underline; }
@@ -80,7 +85,6 @@
         .tabla-avisos tbody tr { scroll-margin-top: 6rem; }
         .table tbody tr:target { animation: fila-resaltada-destello 2.5s ease-out; }
 
-        /* Pestañas de la carga. */
         .pestanas-carga {
             display: flex; flex-wrap: wrap; gap: .25rem;
             margin: 1.5rem 0 .5rem; border-bottom: 1px solid rgba(110,27,63,.15);
@@ -111,7 +115,6 @@
         [data-bs-theme="dark"] .pestana-contador.aviso { background: rgba(240,193,75,.18); color: #f0c14b; }
 
 
-        /* Barra para decidir sobre el aviso sin salir de la fila. */
         .barra-decision {
             display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .75rem;
             padding: .75rem 1rem; border-radius: .75rem;
@@ -122,10 +125,20 @@
         [data-bs-theme="dark"] .barra-decision { background: #2a2033; border-color: rgba(231,184,205,.2); }
         @keyframes entrar-barra { from { opacity: 0; transform: translateY(-6px); } }
 
-        /* Justificaciones frecuentes. */
         .frases-rapidas { display: flex; flex-direction: column; gap: .4rem; }
         .grupo-frases { display: flex; flex-wrap: wrap; align-items: center; gap: .35rem; }
+        .tabla-avisos .aviso-principal { font-weight: 500; line-height: 1.3; }
+        .tabla-avisos .enlace-aviso { display: inline-block; margin-top: .2rem; color: var(--guindo); }
+        [data-bs-theme="dark"] .tabla-avisos .enlace-aviso { color: #e7b8cd; }
+        .tabla-avisos .aviso-detalle { font-size: .82rem; color: var(--bs-secondary-color); line-height: 1.35; margin-top: .1rem; }
         .selector-decision { display: grid; grid-template-columns: 1fr 1fr; gap: .5rem; }
+        .selector-decision.selector-tres { grid-template-columns: repeat(3, 1fr); }
+        .opcion-decision[data-estado="relevante"]:hover, .opcion-decision[data-estado="relevante"].activa { border-color: var(--bs-danger); color: var(--bs-danger); }
+        .opcion-decision[data-estado="relevante"].activa { background: var(--bs-danger-bg-subtle); }
+        .opcion-decision[data-estado="seguimiento"]:hover, .opcion-decision[data-estado="seguimiento"].activa { border-color: var(--bs-warning); color: var(--bs-warning-text-emphasis); }
+        .opcion-decision[data-estado="seguimiento"].activa { background: var(--bs-warning-bg-subtle); }
+        .opcion-decision[data-estado="no_relevante"]:hover, .opcion-decision[data-estado="no_relevante"].activa { border-color: var(--bs-success); color: var(--bs-success); }
+        .opcion-decision[data-estado="no_relevante"].activa { background: var(--bs-success-bg-subtle); }
         .opcion-decision {
             padding: .6rem; border-radius: .6rem; font-weight: 600; background: transparent;
             border: 2px solid var(--bs-border-color); color: var(--bs-secondary-color);
@@ -144,7 +157,6 @@
         .frase-rapida:hover { background: var(--guindo); color: #fff; }
         [data-bs-theme="dark"] .frase-rapida { color: #e7b8cd; border-color: rgba(231,184,205,.3); }
 
-        /* Burbuja flotante de navegación. */
         .burbuja-nav {
             position: fixed; right: 1.25rem; bottom: 1.25rem; z-index: 1030;
             display: flex; flex-direction: column; gap: .4rem;
@@ -166,7 +178,6 @@
         .ir-a-fila { display: flex; align-items: center; gap: .4rem; }
         .ir-a-fila input { width: 7.5rem; }
         @media (max-width: 575.98px) {
-            /* Una sola fila que nunca se sale: campo flexible y botones de igual alto. */
             .herramientas-registros { width: 100%; flex-wrap: nowrap; gap: .4rem; }
             .ir-a-fila { flex: 1 1 auto; min-width: 0; gap: .4rem; }
             .ir-a-fila label { display: none; }
@@ -178,7 +189,6 @@
         }
         .filtros-registros .selector-boton { white-space: nowrap; }
 
-        /* Celular: pestañas deslizables, barra no fija y burbuja más chica. */
         @media (max-width: 767.98px) {
             .pestanas-carga { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin-top: 1rem; }
             .pestanas-carga::-webkit-scrollbar { display: none; }
@@ -194,49 +204,51 @@
             .selector-decision .opcion-decision { padding: .75rem .5rem; }
         }
 
+        .resumen-carga { display: flex; flex-wrap: wrap; align-items: center; gap: .35rem 1.1rem; font-size: .925rem; color: var(--bs-secondary-color); }
+        .resumen-carga .icono-ok { color: var(--bs-success); }
+        .resumen-rechazadas { color: var(--bs-danger-text-emphasis); text-decoration: none; }
+        .resumen-rechazadas:hover { text-decoration: underline; }
+        .resumen-carga .chip-estado { font-size: .8rem; }
     </style>
 
     <nav aria-label="breadcrumb">
         <ol class="breadcrumb small mb-3">
             <li class="breadcrumb-item"><a href="{% url 'home' %}">Inicio</a></li>
             <li class="breadcrumb-item"><a href="{% url 'registros:cargar' %}">Cargar registros</a></li>
-            <li class="breadcrumb-item active" aria-current="page">Carga #{{ carga.id }}</li>
+            <li class="breadcrumb-item active" aria-current="page">{{ carga.empresa }} · {{ carga.gestion.anio }}</li>
         </ol>
     </nav>
-    <h1 class="text-guindo" id="inicio-carga">Carga #{{ carga.id }}</h1>
-    <ul class="list-unstyled">
-        <li><strong>Empresa:</strong> {{ carga.empresa }}</li>
-        {% if carga.formato_detectado %}
-            <li><strong>Tipo de libro:</strong> {{ carga.get_formato_detectado_display }}</li>
-        {% endif %}
-        <li><strong>Gestión:</strong> {{ carga.gestion }}</li>
-        <li><strong>Cargado por:</strong> {{ carga.usuario.username }} · {{ carga.fecha_carga|date:"d/m/Y H:i" }}</li>
-        <li><strong>Estado:</strong>
-            {% include "registros/_estado_carga.html" with carga=carga %}
-        </li>
-        {% if carga.revisado_por %}
-            <li><strong>Revisado y confirmado por:</strong> {{ carga.revisado_por.username }} · {{ carga.fecha_revision|date:"d/m/Y H:i" }}</li>
-        {% endif %}
-        {% if carga.estado == 'anulada' %}
-            <li><strong>Anulada por:</strong> {{ carga.anulado_por.username }} · {{ carga.fecha_anulacion|date:"d/m/Y H:i" }}</li>
-            <li><strong>Motivo:</strong> {{ carga.motivo_anulacion }}</li>
-        {% endif %}
-        <li><strong>Total de filas procesadas:</strong> {{ carga.total_registros }}</li>
-        <li>
-            <strong>Resultado:</strong>
-            <span class="badge text-bg-success fw-normal">{{ carga.registros_validos }} válido{{ carga.registros_validos|pluralize }}</span>
-            <span class="badge text-bg-warning fw-normal">{{ carga.registros_con_aviso }} aviso{{ carga.registros_con_aviso|pluralize }}</span>
-            <span class="badge text-bg-danger fw-normal">{{ carga.registros_con_error }} error{{ carga.registros_con_error|pluralize:"es" }}</span>
-        </li>
-        {% if carga.registros_con_aviso %}
-            <li>
-                <strong>Reporte:</strong>
-                <a href="{% url 'registros:reporte_observaciones' carga.id %}">
-                    Ver reporte de observaciones
-                </a>
-            </li>
-        {% endif %}
-    </ul>
+    <div class="d-flex flex-wrap justify-content-between align-items-start gap-2">
+        <div>
+            <h1 class="text-guindo mb-1" id="inicio-carga">{{ carga.empresa }} · Gestión {{ carga.gestion.anio }}</h1>
+            <p class="text-secondary mb-2">
+                {{ carga.get_formato_detectado_display|default:"Libro contable" }} ·
+                subido por {{ carga.usuario.username }} el {{ carga.fecha_carga|date:"d/m/Y" }}
+                <span class="small">· Carga N.º {{ carga.id }}</span>
+            </p>
+            <div class="resumen-carga">
+                <span><i class="bi bi-check2-circle icono-ok" aria-hidden="true"></i> {{ carga.registros_validos|floatformat:"0g" }} filas guardadas</span>
+                {% if carga.registros_con_error %}
+                    <a href="?pestana=errores" class="resumen-rechazadas"><i class="bi bi-x-circle" aria-hidden="true"></i> {{ carga.registros_con_error|floatformat:"0g" }} fila{{ carga.registros_con_error|pluralize }} rechazada{{ carga.registros_con_error|pluralize }}</a>
+                {% endif %}
+                {% with rev=carga.estado_revision_carga imp=carga.estado_importacion %}
+                    {% if rev == 'anulada' %}<span class="chip-estado chip-anulada">Anulada</span>
+                    {% elif imp == 'fallida' %}<span class="chip-estado chip-fallida">Importación fallida</span>
+                    {% elif imp == 'procesando' %}<span class="chip-estado chip-procesando">{% if carga.inicio_proceso %}Procesando{% else %}En cola{% endif %}</span>
+                    {% else %}<span class="chip-estado chip-{{ rev }}">{{ carga.estado_revision_carga_display }}</span>{% endif %}
+                {% endwith %}
+            </div>
+        </div>
+        <div class="d-flex gap-2">
+            {% if carga.estado != 'anulada' and puede_anular %}
+                <a href="{% url 'registros:carga_anular' carga.id %}" class="btn btn-sm btn-outline-danger">Anular carga</a>
+            {% endif %}
+        </div>
+    </div>
+
+    {% if carga.estado != 'anulada' %}
+        {% include "registros/_pasos_carga.html" %}
+    {% endif %}
 
     {% if carga.estado == 'anulada' %}
         <div class="alert alert-dark">
@@ -246,12 +258,8 @@
     {% endif %}
 
     {% if carga.estado == 'con_observaciones' and puede_confirmar_carga %}
-        {% if avisos_pendientes %}
-            <div class="alert alert-warning">
-                <strong>{{ avisos_pendientes }} aviso{{ avisos_pendientes|pluralize }}</strong> pendiente{{ avisos_pendientes|pluralize }} de revisión antes de confirmar la carga.
-            </div>
-        {% else %}
-            <div class="alert alert-warning d-flex flex-wrap align-items-center justify-content-between gap-2">
+        {% if not avisos_pendientes %}
+            <div class="alert alert-warning d-flex flex-wrap align-items-center justify-content-between gap-2" id="confirmar-carga">
                 <div>
                     Avisos ya revisados{% if carga.registros_con_error %}, quedan {{ carga.registros_con_error }} error{{ carga.registros_con_error|pluralize:"es" }}{% endif %}. ¿Confirmar la carga?
                 </div>
@@ -266,13 +274,6 @@
         {% endif %}
     {% endif %}
 
-    {% if carga.estado != 'anulada' and es_administrador %}
-        <p class="text-end">
-            <a href="{% url 'registros:carga_anular' carga.id %}" class="btn btn-sm btn-outline-danger">
-                Anular carga
-            </a>
-        </p>
-    {% endif %}
 
     <nav class="pestanas-carga" aria-label="Secciones de la carga">
         {% if hay_avisos %}
@@ -289,9 +290,379 @@
             Registros
             <span class="pestana-contador">{{ carga.registros_validos }}</span>
         </a>
+        {% if analisis or puede_analizar %}
+            <a href="?pestana=atipicas" class="pestana{% if pestana == 'atipicas' %} activa{% endif %}"{% if pestana == 'atipicas' %} aria-current="page"{% endif %}>
+                Atípicas
+                {% if analisis.estado == 'completado' %}
+                    <span class="pestana-contador{% if analisis.total_atipicas %} aviso{% endif %}">{{ analisis.total_atipicas }}</span>
+                {% elif analisis.en_curso %}
+                    <span class="pestana-contador">en curso</span>
+                {% endif %}
+            </a>
+        {% endif %}
     </nav>
 
+    {% if pestana == 'atipicas' %}
+        <div class="d-flex flex-wrap align-items-end justify-content-between gap-3 mt-4">
+            <div>
+                <h2 id="atipicas" class="h4 text-guindo mb-1">Transacciones atípicas</h2>
+                <p class="text-secondary small mb-0">
+                    Movimientos fuera de lo habitual en este libro.
+                </p>
+            </div>
+            <div class="d-flex flex-wrap gap-2">
+            {% if analisis.estado == 'completado' %}
+                <a href="{% url 'reportes:atipicas_gestion' carga.empresa_id carga.gestion_id %}?desde=carga-{{ carga.id }}" class="btn btn-sm btn-outline-guindo text-nowrap">
+                    <i class="bi bi-file-earmark-text"></i> Reporte de la gestión {{ carga.gestion.anio }}
+                </a>
+                <a href="{% url 'reportes:panorama' carga.empresa_id carga.gestion_id %}?desde=carga-{{ carga.id }}" class="btn btn-sm btn-outline-guindo text-nowrap">
+                    <i class="bi bi-bar-chart"></i> Análisis
+                </a>
+            {% endif %}
+            {% if puede_analizar and not analisis.en_curso %}
+                <form method="post" action="{% url 'registros:carga_analizar' carga.id %}">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-sm btn-outline-guindo text-nowrap">
+                        <i class="bi bi-cpu"></i>
+                        {% if analisis %}Volver a analizar{% else %}Analizar con el modelo{% endif %}
+                    </button>
+                </form>
+            {% endif %}
+            </div>
+        </div>
+
+        {% if not analisis %}
+            <div class="estado-vacio">
+                <div class="estado-vacio-icono"><i class="bi bi-cpu"></i></div>
+                <h3 class="text-guindo">Carga sin analizar</h3>
+                <p class="text-secondary">Esta carga todavía no pasó por el modelo.</p>
+            </div>
+        {% elif analisis.en_curso %}
+            <div class="alert alert-guindo-suave mt-3" role="status" id="analisis-en-curso">
+                <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>
+                {% if analisis.estado == 'en_cola' %}
+                    Análisis en cola: se procesa cuando terminen las cargas y análisis anteriores.
+                {% else %}
+                    Analizando las transacciones con el modelo.
+                {% endif %}
+                La página se actualiza sola.
+            </div>
+            <script>setTimeout(function () { window.location.reload(); }, 4000);</script>
+        {% elif analisis.estado == 'completado' %}
+            <p class="mt-3 mb-2">
+                <strong>{{ analisis.total_atipicas }}</strong> de {{ analisis.total_registros }}
+                transacciones señaladas como atípicas ({{ analisis.porcentaje_atipicas|floatformat:1 }} %).
+            </p>
+            {% if metricas_validacion.atipicas %}
+                {% include "registros/_metricas_validacion.html" %}
+                {% if tipos_atipica %}
+                    <div class="d-flex flex-wrap align-items-center gap-2 mb-2" aria-label="Atípicas por tipo de motivo">
+                        <span class="small text-secondary">Por tipo:</span>
+                        <a href="?pestana=atipicas{% if validacion_filtro %}&validacion={{ validacion_filtro }}{% endif %}"
+                           class="btn btn-sm {% if not motivo_filtro %}btn-guindo{% else %}btn-outline-guindo{% endif %}">Todos</a>
+                        {% for tipo in tipos_atipica %}
+                            <a href="?pestana=atipicas&motivo={{ tipo.clave }}{% if validacion_filtro %}&validacion={{ validacion_filtro }}{% endif %}"
+                               class="btn btn-sm {% if motivo_filtro == tipo.clave %}btn-guindo{% else %}btn-outline-guindo{% endif %}">
+                                {{ tipo.etiqueta }} <span class="badge text-bg-light ms-1">{{ tipo.total }}</span>
+                            </a>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+                {% with m=metricas_validacion mq=motivo_filtro|default:"" %}
+                <nav class="estados-aviso" aria-label="Estado de revisión de las atípicas">
+                    <a href="?pestana=atipicas&validacion=pendiente{% if mq %}&motivo={{ mq|urlencode }}{% endif %}"
+                       class="{% if validacion_filtro == 'pendiente' %}activo{% endif %}">Pendientes <span data-conteo="pendiente">{{ m.pendientes }}</span></a>
+                    <a href="?pestana=atipicas&validacion=relevante{% if mq %}&motivo={{ mq|urlencode }}{% endif %}"
+                       class="{% if validacion_filtro == 'relevante' %}activo{% endif %}">Observadas <span data-conteo="relevante">{{ m.observadas }}</span></a>
+                    <a href="?pestana=atipicas&validacion=seguimiento{% if mq %}&motivo={{ mq|urlencode }}{% endif %}"
+                       class="{% if validacion_filtro == 'seguimiento' %}activo{% endif %}">En seguimiento <span data-conteo="seguimiento">{{ m.seguimiento }}</span></a>
+                    <a href="?pestana=atipicas&validacion=no_relevante{% if mq %}&motivo={{ mq|urlencode }}{% endif %}"
+                       class="{% if validacion_filtro == 'no_relevante' %}activo{% endif %}">Válidas <span data-conteo="no_relevante">{{ m.no_relevantes }}</span></a>
+                </nav>
+                {% endwith %}
+            {% endif %}
+            {% if atipicas_pagina and atipicas_pagina.object_list %}
+                <div class="table-responsive">
+                    <table class="table align-middle table-sm" id="tabla-atipicas" style="scroll-margin-top: 1rem;">
+                        <thead>
+                            <tr>
+                                <th>Nivel</th>
+                                <th>Fecha · fila</th>
+                                <th>Cuenta</th>
+                                <th>Glosa</th>
+                                <th class="text-end">Importe</th>
+                                <th style="min-width: 280px;">Por qué la señala el modelo</th>
+                                <th class="text-nowrap">Estado</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for resultado in atipicas_pagina %}
+                                {% with r=resultado.registro %}
+                                <tr id="atipica-{{ resultado.id }}">
+                                    <td data-etiqueta="Nivel">
+                                        <span class="badge {% if resultado.nivel_texto == 'Muy alto' %}text-bg-danger{% elif resultado.nivel_texto == 'Alto' %}text-bg-warning{% else %}text-bg-light border{% endif %}"
+                                              title="Nivel de anomalía {{ resultado.nivel|floatformat:2 }} (de 0 a 1)">{{ resultado.nivel_texto }}</span>
+                                    </td>
+                                    <td class="text-nowrap" data-etiqueta="Fecha · fila">
+                                        {{ r.fecha|date:"d/m/Y" }}
+                                        <div class="small text-secondary">fila {{ r.fila_origen }}</div>
+                                    </td>
+                                    <td data-etiqueta="Cuenta">{{ r.cuenta.codigo }}<div class="small text-secondary">{{ r.cuenta.nombre|truncatechars:30 }}</div></td>
+                                    <td data-etiqueta="Glosa">
+                                        {{ r.glosa|truncatechars:60 }}
+                                        <div class="small">
+                                            {% if r.numero_comprobante %}<span class="text-secondary">{{ r.numero_comprobante }}</span> · {% endif %}
+                                            <button type="button" class="btn btn-link btn-sm p-0 boton-asiento"
+                                                    data-url="{% url 'registros:atipica_asiento' carga.id resultado.id %}"
+                                                    data-destino="asiento-{{ resultado.id }}" aria-expanded="false">
+                                                <i class="bi bi-list-ul"></i> Ver asiento
+                                            </button>
+                                            ·
+                                            <a href="?pestana=registros&fila={{ r.fila_origen }}&volver={{ request.get_full_path|urlencode }}%23atipica-{{ resultado.id }}#fila-{{ r.fila_origen }}">Ver en registros</a>
+                                        </div>
+                                    </td>
+                                    <td class="text-end text-nowrap" data-etiqueta="Importe">
+                                        {% if r.debe %}{{ r.debe|floatformat:"2g" }} <span class="small text-secondary">D</span>{% else %}{{ r.haber|floatformat:"2g" }} <span class="small text-secondary">H</span>{% endif %}
+                                    </td>
+                                    <td class="small" data-etiqueta="Por qué la señala el modelo">
+                                        {% with motivos=resultado.lista_motivos %}
+                                            {% if motivos %}
+                                                <ul class="list-unstyled mb-0">
+                                                    {% for motivo in motivos %}
+                                                        <li class="mb-1">{% if forloop.first %}<strong>{{ motivo.texto }}</strong>{% else %}<span class="text-secondary">También:</span> {{ motivo.texto }}{% endif %}</li>
+                                                    {% endfor %}
+                                                </ul>
+                                            {% else %}
+                                                <span class="text-secondary">Volver a analizar la carga para ver los motivos.</span>
+                                            {% endif %}
+                                        {% endwith %}
+                                    </td>
+                                    <td id="validacion-{{ resultado.id }}" class="text-nowrap" data-etiqueta="Estado">
+                                        {% include "registros/_validacion_atipica.html" with siguiente=request.get_full_path %}
+                                    </td>
+                                </tr>
+                                <tr id="asiento-{{ resultado.id }}" class="fila-asiento" hidden>
+                                    <td colspan="7" class="bg-body-tertiary"></td>
+                                </tr>
+                                {% endwith %}
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% include "_paginacion.html" with pagina_obj=atipicas_pagina querystring=atipicas_querystring parametro="pagina_atipicas" ancla="tabla-atipicas" %}
+                <div class="modal fade" id="modalRevisarAtipica" tabindex="-1" aria-hidden="true" aria-labelledby="atipica-accion">
+                    <div class="modal-dialog">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title text-guindo"><span id="atipica-accion">Revisar atípica</span> de la fila <span id="atipica-fila"></span></h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                            </div>
+                            <div class="modal-body">
+                                {% csrf_token %}
+                                <p id="atipica-glosa" class="mb-3 text-secondary small"></p>
+                                <div class="selector-decision selector-tres mb-3" role="group" aria-label="Decisión">
+                                    <button type="button" class="opcion-decision" data-estado="relevante"><i class="bi bi-flag"></i> Observada</button>
+                                    <button type="button" class="opcion-decision" data-estado="seguimiento"><i class="bi bi-hourglass-split"></i> En seguimiento</button>
+                                    <button type="button" class="opcion-decision" data-estado="no_relevante"><i class="bi bi-check2-circle"></i> Válida</button>
+                                </div>
+                                <div id="frases-atipica" class="frases-rapidas mb-2 d-none" aria-label="Justificaciones frecuentes">
+                                    {% for estado, lista in frases_atipicas.items %}
+                                        <div class="grupo-frases" data-estado="{{ estado }}">
+                                            {% for etiqueta, frase in lista %}<button type="button" class="frase-rapida" data-frase="{{ frase }}">{{ etiqueta }}</button>{% endfor %}
+                                        </div>
+                                    {% endfor %}
+                                </div>
+                                <label for="atipica-comentario" class="form-label small mb-1">Justificación (obligatoria)</label>
+                                <textarea id="atipica-comentario" class="form-control" rows="3" maxlength="300"></textarea>
+                                <div id="atipica-error" class="text-danger small mt-1 d-none" role="alert"></div>
+                                <p class="small text-secondary mt-2 mb-0">Observada: es un hallazgo. En seguimiento: falta revisarla con otros documentos o cuentas. Válida: revisada, sin observación.</p>
+                            </div>
+                            <div class="modal-footer justify-content-between">
+                                <div class="form-check form-switch small mb-0">
+                                    <input class="form-check-input" type="checkbox" id="atipica-continuar" checked>
+                                    <label class="form-check-label" for="atipica-continuar">Abrir la siguiente pendiente</label>
+                                </div>
+                                <div class="d-flex gap-2">
+                                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                                    <button type="button" id="atipica-guardar" class="btn btn-guindo" disabled>Guardar</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <script>
+                document.addEventListener("DOMContentLoaded", function () {
+                    var tabla = document.getElementById("tabla-atipicas");
+                    if (!tabla || !window.fetch) return;
+                    tabla.addEventListener("click", function (e) {
+                        var boton = e.target.closest(".boton-asiento");
+                        if (!boton) return;
+                        var fila = document.getElementById(boton.dataset.destino);
+                        var abierto = !fila.hidden;
+                        fila.hidden = abierto;
+                        boton.setAttribute("aria-expanded", String(!abierto));
+                        if (abierto || fila.dataset.cargado) return;
+                        var celda = fila.querySelector("td");
+                        celda.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Cargando asiento...';
+                        fetch(boton.dataset.url, { headers: { "X-Requested-With": "fetch" } })
+                            .then(function (r) { if (!r.ok || r.redirected) throw new Error(); return r.text(); })
+                            .then(function (html) { celda.innerHTML = html; fila.dataset.cargado = "1"; })
+                            .catch(function () { celda.textContent = "No se pudo cargar el asiento. Recargar la página."; });
+                    });
+
+                    var modalEl = document.getElementById("modalRevisarAtipica");
+                    document.body.appendChild(modalEl);
+                    var modal = new bootstrap.Modal(modalEl);
+                    var campo = document.getElementById("atipica-comentario");
+                    var errorEl = document.getElementById("atipica-error");
+                    var guardar = document.getElementById("atipica-guardar");
+                    var frases = document.getElementById("frases-atipica");
+                    var activa = null; // { url, celda }
+                    var decision = null;
+                    var TEXTOS = { relevante: ["btn-danger", "Guardar como observada"],
+                                   seguimiento: ["btn-warning", "Dejar en seguimiento"],
+                                   no_relevante: ["btn-success", "Guardar como válida"] };
+
+                    function elegir(valor) {
+                        decision = valor;
+                        modalEl.querySelectorAll(".opcion-decision").forEach(function (b) {
+                            b.classList.toggle("activa", b.dataset.estado === valor);
+                        });
+                        frases.classList.toggle("d-none", !valor);
+                        frases.querySelectorAll(".grupo-frases").forEach(function (g) {
+                            if (g.dataset.estado !== valor) {
+                                g.querySelectorAll(".frase-rapida").forEach(function (f) {
+                                    if (f.dataset.frase === campo.value.trim()) campo.value = "";
+                                });
+                            }
+                            g.classList.toggle("d-none", g.dataset.estado !== valor);
+                        });
+                        guardar.disabled = !valor;
+                        guardar.className = "btn " + (valor ? TEXTOS[valor][0] : "btn-guindo");
+                        guardar.textContent = valor ? TEXTOS[valor][1] : "Guardar";
+                    }
+                    modalEl.querySelectorAll(".opcion-decision").forEach(function (b) {
+                        b.addEventListener("click", function () { elegir(b.dataset.estado); });
+                    });
+                    frases.addEventListener("click", function (e) {
+                        var f = e.target.closest(".frase-rapida");
+                        if (!f) return;
+                        e.stopPropagation();
+                        campo.value = f.dataset.frase + " ";
+                        campo.focus();
+                        campo.setSelectionRange(campo.value.length, campo.value.length);
+                    });
+
+                    var FILTRO_ATIPICAS = "{{ validacion_filtro|escapejs }}";
+                    // Revisión en cadena: al guardar se abre la siguiente pendiente de la página.
+                    var continuar = document.getElementById("atipica-continuar");
+                    try { continuar.checked = localStorage.getItem("revision_en_cadena") !== "no"; } catch (err) {}
+                    continuar.addEventListener("change", function () {
+                        try { localStorage.setItem("revision_en_cadena", continuar.checked ? "si" : "no"); } catch (err) {}
+                    });
+                    function siguientePendiente(desde) {
+                        var botones = Array.prototype.slice.call(tabla.querySelectorAll(".atipica-revisar:not(.enlace-corregir)"));
+                        for (var i = 0; i < botones.length; i++) {
+                            if (desde.compareDocumentPosition(botones[i]) & Node.DOCUMENT_POSITION_FOLLOWING) return botones[i];
+                        }
+                        return null;
+                    }
+
+                    tabla.addEventListener("click", function (e) {
+                        var boton = e.target.closest(".atipica-revisar");
+                        if (!boton) return;
+                        abrir(boton);
+                    });
+                    function abrir(boton) {
+                        activa = { url: boton.dataset.url, celda: boton.closest("td") };
+                        var corrigiendo = boton.dataset.estado !== undefined;
+                        document.getElementById("atipica-accion").textContent = corrigiendo ? "Corregir revisión" : "Revisar atípica";
+                        document.getElementById("atipica-fila").textContent = boton.dataset.fila;
+                        document.getElementById("atipica-glosa").textContent = boton.dataset.glosa || "";
+                        campo.value = corrigiendo ? (boton.dataset.comentario || "") : "";
+                        errorEl.classList.add("d-none");
+                        elegir(corrigiendo ? boton.dataset.estado : null);
+                        modal.show();
+                    }
+
+                    guardar.addEventListener("click", function () {
+                        if (!activa || !decision) return;
+                        var comentario = campo.value.trim();
+                        if (comentario.length < 5) {
+                            errorEl.textContent = "La justificación es obligatoria (mínimo 5 caracteres).";
+                            errorEl.classList.remove("d-none");
+                            campo.focus();
+                            return;
+                        }
+                        var datos = new FormData();
+                        datos.append("csrfmiddlewaretoken", modalEl.querySelector("input[name=csrfmiddlewaretoken]").value);
+                        datos.append("decision", decision);
+                        datos.append("comentario", comentario);
+                        guardar.disabled = true;
+                        fetch(activa.url, { method: "POST", body: datos, headers: { "X-Requested-With": "fetch" } })
+                            .then(window.leerRespuestaJson)
+                            .then(function (data) {
+                                if (!data.ok) throw new Error(data.error || "");
+                                var fila = activa.celda.closest("tr");
+                                activa.celda.innerHTML = data.celda;
+                                var metricas = document.getElementById("validacion-preliminar");
+                                if (metricas && data.metricas) {
+                                    metricas.outerHTML = data.metricas;
+                                    var nuevas = document.getElementById("validacion-preliminar");
+                                    document.querySelectorAll("[data-conteo]").forEach(function (span) {
+                                        var valor = nuevas && nuevas.dataset[span.dataset.conteo];
+                                        if (valor !== undefined) span.textContent = valor;
+                                    });
+                                }
+                                var siguiente = continuar.checked ? siguientePendiente(fila) : null;
+                                // Retirar la fila si su nuevo estado no corresponde a la pestaña activa.
+                                var sale = decision !== FILTRO_ATIPICAS;
+                                if (sale) {
+                                    fila.style.transition = "opacity .25s ease";
+                                    fila.style.opacity = "0";
+                                    setTimeout(function () {
+                                        fila.remove();
+                                        if (!tabla.querySelector("tbody tr")) window.location.reload();
+                                    }, 250);
+                                }
+                                if (siguiente) {
+                                    siguiente.closest("tr").scrollIntoView({ block: "center", behavior: "smooth" });
+                                    abrir(siguiente);
+                                    campo.focus();
+                                } else {
+                                    modal.hide();
+                                    if (!sale) fila.scrollIntoView({ block: "center", behavior: "smooth" });
+                                }
+                            })
+                            .catch(function (err) {
+                                guardar.disabled = false;
+                                errorEl.textContent = err && err.motivo ? window.mensajeFalloRed(err) : (err.message || "No se pudo guardar la revisión. Intentar de nuevo.");
+                                errorEl.classList.remove("d-none");
+                            });
+                    });
+                });
+                </script>
+            {% elif metricas_validacion.atipicas %}
+                <div class="alert alert-light border">{% if validacion_filtro == 'pendiente' %}No quedan atípicas pendientes{% if motivo_filtro %} de este tipo{% endif %}. Las revisadas están en las otras pestañas.{% else %}No hay atípicas en esta pestaña{% if motivo_filtro %} para este tipo{% endif %}.{% endif %}</div>
+            {% else %}
+                <div class="alert alert-success">El modelo no señaló transacciones atípicas en esta carga.</div>
+            {% endif %}
+        {% else %}
+            <div class="alert alert-warning mt-3">{{ analisis.mensaje }}</div>
+        {% endif %}
+    {% endif %}
+
     {% if pestana == 'registros' %}
+        {% if volver_atipicas %}
+            <a href="{{ volver_atipicas }}" class="btn btn-guindo shadow position-fixed bottom-0 start-0 m-4" style="z-index: 1030;">
+                <i class="bi bi-arrow-left"></i> {% if volver_atipicas|slice:":10" == "/reportes/" %}Volver al reporte{% else %}Volver a las atípicas{% endif %}
+            </a>
+        {% elif aviso_origen %}
+            <a href="?pestana=avisos&{{ avisos_querystring }}#aviso-fila-{{ desde_aviso }}" class="btn btn-guindo shadow position-fixed bottom-0 start-0 m-4" style="z-index: 1030;">
+                <i class="bi bi-arrow-left"></i> Volver a los avisos
+            </a>
+        {% endif %}
         <div class="d-flex flex-wrap align-items-end justify-content-between gap-3 mt-4">
             <div>
                 <h2 id="registros" class="h4 text-guindo mb-1">Registros cargados</h2>
@@ -325,7 +696,7 @@
             <div class="barra-decision mt-3" id="barra-decision">
                 <div class="small">
                     <div>
-                        <span class="badge rounded-pill bg-warning-subtle text-warning-emphasis border border-warning-subtle fw-medium">{{ aviso_origen.campo|default:"general" }}</span>
+                        <span class="badge rounded-pill bg-warning-subtle text-warning-emphasis border border-warning-subtle fw-medium">{{ aviso_origen.campo|nombre_regla }}</span>
                         <span class="ms-1">Fila {{ fila_buscada }}{% if fila_relacionada %} (coincide con la fila {{ fila_relacionada }}){% endif %}</span>
                         <span id="estado-aviso-origen" class="ms-1">
                             {% if aviso_origen.estado_revision == 'observado' %}<span class="badge text-bg-danger fw-normal">Observado</span>
@@ -362,7 +733,7 @@
                     <div class="modal-content">
                         <div class="modal-header">
                             <h5 class="modal-title text-guindo">Marcar el aviso de la fila {{ aviso_origen.fila }} como <span id="decision-titulo"></span></h5>
-                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
                         </div>
                         <div class="modal-body">
                             {% include "registros/_frases_rapidas.html" %}
@@ -399,7 +770,6 @@
                     function abrir(estado) {
                         estadoElegido = estado;
                         document.getElementById("decision-titulo").textContent = estado === "valido" ? "válido" : "observado";
-                        // Solo las frases de la decisión elegida.
                         modalEl.querySelectorAll(".grupo-frases").forEach(function (g) {
                             g.classList.toggle("d-none", g.dataset.estado !== estado);
                         });
@@ -509,6 +879,9 @@
                     <button type="submit" class="btn btn-sm btn-guindo flex-fill text-nowrap">
                         <i class="bi bi-funnel"></i> Filtrar
                     </button>
+                    <a href="{% url 'registros:libro_mayor' carga.id %}" class="btn btn-sm btn-outline-guindo flex-fill text-nowrap" title="Movimientos de una cuenta en orden de fecha">
+                        <i class="bi bi-list-columns"></i> Por cuenta
+                    </a>
                     {% if hay_filtro_registros %}
                         <a href="?pestana=registros" class="btn btn-sm btn-outline-guindo flex-fill text-nowrap" title="Quitar filtro">
                             <i class="bi bi-x-lg"></i><span class="d-lg-none"> Quitar filtro</span>
@@ -528,7 +901,6 @@
                         <th>Glosa</th>
                         <th class="text-end">Debe</th>
                         <th class="text-end">Haber</th>
-                        <th class="text-end">Saldo</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -541,11 +913,10 @@
                         <td>{{ registro.glosa|default:"—" }}</td>
                         <td class="text-end text-nowrap">{{ registro.debe|floatformat:"2g" }}</td>
                         <td class="text-end text-nowrap">{{ registro.haber|floatformat:"2g" }}</td>
-                        <td class="text-end text-nowrap text-secondary">{% if registro.saldo is None %}—{% else %}{{ registro.saldo|floatformat:"2g" }}{% endif %}</td>
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="8" class="text-center text-secondary py-4">
+                        <td colspan="7" class="text-center text-secondary py-4">
                             Ningún registro coincide con el filtro.
                             <a href="?pestana=registros">Quitar filtro</a>
                         </td>
@@ -554,7 +925,7 @@
                 </tbody>
             </table>
         </div>
-        {% include "_paginacion.html" with pagina_obj=registros_pagina querystring=registros_querystring %}
+        {% include "_paginacion.html" with pagina_obj=registros_pagina querystring=registros_querystring ancla="registros" %}
         {% if fila_buscada %}
             <script>
                 document.addEventListener("DOMContentLoaded", function () {
@@ -625,7 +996,7 @@
                 </article>
             {% endfor %}
         </div>
-        {% include "_paginacion.html" with pagina_obj=errores querystring=paginacion_errores_qs parametro="pagina_errores" %}
+        {% include "_paginacion.html" with pagina_obj=errores querystring=paginacion_errores_qs parametro="pagina_errores" ancla="errores" %}
     {% else %}
         <div class="alert alert-success mt-3" id="errores">
             No se registraron errores de validación en esta carga.
@@ -634,10 +1005,16 @@
     {% endif %}
 
     {% if pestana == 'avisos' %}
-        <h2 id="avisos" class="h4 text-guindo mt-4">Avisos (filas guardadas, pero a revisar)</h2>
-        <p class="text-secondary small mb-3">
-            Filas guardadas, con algo puntual para revisar.
-        </p>
+        <div class="d-flex flex-wrap justify-content-between align-items-end gap-2 mt-4 mb-3">
+            <div>
+                <h2 id="avisos" class="h4 text-guindo mb-1">Avisos</h2>
+                <p class="text-secondary small mb-0">Filas guardadas que tienen algo puntual para revisar.</p>
+            </div>
+            <a class="btn btn-sm btn-outline-guindo" href="{% url 'registros:reporte_observaciones' carga.id %}"
+               title="Avisos marcados como observados, para imprimir y firmar con la empresa">
+                <i class="bi bi-printer" aria-hidden="true"></i> Reporte de observaciones
+            </a>
+        </div>
 
         <div class="table-responsive mb-3">
             <table class="table table-sm align-middle mb-0 border">
@@ -662,8 +1039,9 @@
                     <tr class="grupo-aviso-fila {% if campo_aviso_filtro == item.campo %}table-primary-subtle{% endif %}" data-campo="{{ item.campo }}">
                         <td>
                             <a href="?pestana=avisos&estado_aviso={{ estado_aviso }}&campo_aviso={{ item.campo|urlencode }}" class="text-decoration-none {% if campo_aviso_filtro == item.campo %}text-guindo fw-semibold{% else %}text-body{% endif %}">
-                                {{ item.campo|default:"general" }}
+                                {{ item.campo|nombre_regla }}
                             </a>
+                            {% if item.criterio %}<div class="small text-secondary">Se verifica: {{ item.criterio|lower }}</div>{% endif %}
                         </td>
                         <td class="text-end grupo-aviso-total">{{ item.total }}</td>
                         <td class="text-end">
@@ -690,33 +1068,39 @@
         </nav>
         <div class="table-responsive">
             <table class="table table-hover table-striped align-middle tabla-avisos">
+                <colgroup>
+                    <col style="width:7%"><col style="width:12%"><col style="width:14%">
+                    <col style="width:42%"><col style="width:25%">
+                </colgroup>
                 <thead>
                     <tr>
-                        <th style="width:1%;white-space:nowrap;">Fila</th>
-                        <th style="width:1%;white-space:nowrap;">Campo</th>
-                        <th style="width:30%;">Descripción</th>
-                        <th style="width:1%;white-space:nowrap;">Comprobante</th>
-                        <th class="col-criterio">Qué se verifica</th>
-                        <th style="width:1%;white-space:nowrap;">Estado</th>
+                        <th class="text-nowrap">Fila</th>
+                        <th class="text-nowrap">Comprobante</th>
+                        <th class="text-nowrap">Tipo</th>
+                        <th>Descripción</th>
+                        <th class="text-nowrap">Estado</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for aviso in avisos %}
                     <tr id="aviso-fila-{{ aviso.id }}" data-campo="{{ aviso.campo }}" class="{% if aviso.estado_revision == 'observado' %}table-danger-subtle{% elif aviso.revisado %}table-success-subtle{% endif %}">
-                        <td class="text-nowrap fw-semibold">
-                            <a class="enlace-fila" title="Ver esta fila en Registros cargados"
-                               href="?pestana=registros&{{ avisos_querystring }}&fila={{ aviso.fila }}{% if aviso.fila_relacionada %}&relacionada={{ aviso.fila_relacionada }}{% endif %}&desde_aviso={{ aviso.id }}#fila-buscada">
-                                {{ aviso.fila }} <i class="bi bi-box-arrow-in-up-right"></i>
-                            </a>
-                        </td>
+                        <td class="text-nowrap fw-semibold">{{ aviso.fila }}</td>
+                        <td class="text-nowrap text-secondary">{{ aviso.comprobante|default:"—" }}</td>
                         <td class="text-nowrap">
                             <span class="badge rounded-pill bg-warning-subtle text-warning-emphasis border border-warning-subtle fw-medium">
-                                {{ aviso.campo|default:"general" }}
+                                {{ aviso.campo|nombre_regla }}
                             </span>
                         </td>
-                        <td class="celda-descripcion">{{ aviso.descripcion_corta }}</td>
-                        <td class="text-nowrap">{{ aviso.comprobante|default:"—" }}</td>
-                        <td class="celda-criterio col-criterio">{{ aviso.criterio }}</td>
+                        <td class="celda-descripcion">
+                            {% with partes=aviso.descripcion_corta|partes_aviso %}
+                                <div class="aviso-principal">{{ partes.0 }}</div>
+                                {% if partes.1 %}<div class="aviso-detalle">{{ partes.1 }}</div>{% endif %}
+                            {% endwith %}
+                            <a class="enlace-aviso small" title="Abre Registros en esta fila{% if aviso.fila_relacionada %} y resalta la fila {{ aviso.fila_relacionada }}{% endif %}"
+                               href="?pestana=registros&{{ avisos_querystring }}&fila={{ aviso.fila }}{% if aviso.fila_relacionada %}&relacionada={{ aviso.fila_relacionada }}{% endif %}&desde_aviso={{ aviso.id }}#fila-buscada">
+                                <i class="bi bi-list-ul" aria-hidden="true"></i> {% if aviso.fila_relacionada %}Ver las dos filas en registros{% else %}Ver en registros{% endif %}
+                            </a>
+                        </td>
                         <td class="text-nowrap aviso-estado">
                             {% if aviso.revisado %}
                                 <span class="badge fw-normal {% if aviso.estado_revision == 'observado' %}text-bg-danger{% else %}text-bg-success{% endif %}"
@@ -751,17 +1135,16 @@
                 </tbody>
             </table>
         </div>
-        {% include "_paginacion.html" with pagina_obj=avisos querystring=paginacion_avisos_qs parametro="pagina_avisos" %}
+        {% include "_paginacion.html" with pagina_obj=avisos querystring=paginacion_avisos_qs parametro="pagina_avisos" ancla="avisos" %}
 
         {% csrf_token %}
 
-        <!-- Modal para marcar todo un tipo de aviso. -->
         <div class="modal fade" id="modalMarcarGrupo" tabindex="-1" aria-hidden="true">
             <div class="modal-dialog">
                 <div class="modal-content">
                     <div class="modal-header">
                         <h5 class="modal-title text-guindo">Marcar todo un tipo de aviso como válido</h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
                     </div>
                     <div class="modal-body">
                         <p id="modal-marcar-grupo-texto" class="mb-3"></p>
@@ -783,13 +1166,12 @@
             </div>
         </div>
 
-        <!-- Modal de justificación individual. -->
         <div class="modal fade" id="modalMarcarIndividual" tabindex="-1" aria-hidden="true">
             <div class="modal-dialog">
                 <div class="modal-content">
                     <div class="modal-header">
                         <h5 class="modal-title text-guindo"><span id="modal-individual-accion">Justificar aviso</span> de la fila <span id="modal-individual-fila"></span></h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
                     </div>
                     <div class="modal-body">
                         <p id="modal-individual-descripcion" class="mb-3 text-secondary small"></p>
@@ -802,11 +1184,17 @@
                         <textarea id="modal-comentario-individual" class="form-control" rows="3"></textarea>
                         <div id="modal-individual-error" class="text-danger small mt-1 d-none"></div>
                     </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-                        <button type="button" id="modal-guardar-individual" class="btn btn-guindo" disabled>
-                            Guardar
-                        </button>
+                    <div class="modal-footer justify-content-between">
+                        <div class="form-check form-switch small mb-0">
+                            <input class="form-check-input" type="checkbox" id="aviso-continuar" checked>
+                            <label class="form-check-label" for="aviso-continuar">Abrir el siguiente pendiente</label>
+                        </div>
+                        <div class="d-flex gap-2">
+                            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                            <button type="button" id="modal-guardar-individual" class="btn btn-guindo" disabled>
+                                Guardar
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -834,17 +1222,14 @@
                         var el = document.getElementById(id);
                         if (!el || valores[id] === undefined || el.textContent === String(valores[id])) return;
                         el.textContent = valores[id];
-                        // Pequeño pulso para que se note qué contador cambió.
                         el.classList.remove("contador-cambio");
                         void el.offsetWidth;
                         el.classList.add("contador-cambio");
                     });
                 }
 
-                // Estado que muestra la pestaña actual (pendientes, observados o válidos).
                 var ESTADO_VISTA = { pendientes: "pendiente", observados: "observado", validos: "valido" }["{{ estado_aviso|escapejs }}"];
 
-                // Una fila que ya no corresponde a la vista se desvanece y se quita.
                 function sacarSiNoCorresponde(filaTr, estado) {
                     if (!filaTr || !ESTADO_VISTA || estado === ESTADO_VISTA) return;
                     filaTr.style.transition = "opacity .3s ease";
@@ -865,7 +1250,6 @@
                     }, 300);
                 }
 
-                // Resta uno al pendiente del tipo de aviso en la tabla resumen.
                 function descontarGrupo(campo) {
                     document.querySelectorAll(".grupo-aviso-fila").forEach(function (fila) {
                         if (fila.dataset.campo !== campo) return;
@@ -894,7 +1278,6 @@
                 }
 
                 function enviarMarcado(payload, btn) {
-                    // Spinner mientras se envía el lote.
                     btn.disabled = true;
                     if (btn.dataset.textoOriginal === undefined) {
                         btn.dataset.textoOriginal = btn.innerHTML;
@@ -969,7 +1352,6 @@
                     });
                 });
 
-                // Cada aviso pendiente abre el modal de justificación.
                 var modalMarcarIndividualEl = document.getElementById("modalMarcarIndividual");
                 document.body.appendChild(modalMarcarIndividualEl);
                 var modalMarcarIndividual = new bootstrap.Modal(modalMarcarIndividualEl);
@@ -981,7 +1363,6 @@
                 var frasesIndividual = document.getElementById("frases-individual");
                 var decisionIndividual = null;
 
-                // Primero se elige la decisión; después aparecen solo sus frases.
                 function elegirDecision(estado) {
                     decisionIndividual = estado;
                     modalMarcarIndividualEl.querySelectorAll(".opcion-decision").forEach(function (b) {
@@ -989,7 +1370,6 @@
                     });
                     frasesIndividual.classList.toggle("d-none", !estado);
                     frasesIndividual.querySelectorAll(".grupo-frases").forEach(function (g) {
-                        // Si el texto es una frase de la otra decisión, se borra.
                         if (g.dataset.estado !== estado) {
                             g.querySelectorAll(".frase-rapida").forEach(function (f) {
                                 if (f.dataset.frase === modalComentarioIndividual.value.trim()) modalComentarioIndividual.value = "";
@@ -1007,11 +1387,9 @@
                 var avisoActivo = null; // { id, fila_tr, corrigiendo }
 
                 function urlEstadoAviso(avisoId) {
-                    // URL con id de relleno que se reemplaza.
                     return "{% url 'registros:aviso_marcar_estado' carga.id 999999 %}".replace("999999", avisoId);
                 }
 
-                // Abre el modal para justificar un aviso pendiente o corregir uno ya revisado.
                 document.addEventListener("click", function (e) {
                     var boton = e.target.closest(".aviso-marcar-individual");
                     if (!boton) return;
@@ -1019,7 +1397,7 @@
                     var corrigiendo = boton.dataset.estado !== undefined;
                     avisoActivo = { id: boton.dataset.id, fila_tr: fila_tr, corrigiendo: corrigiendo };
                     modalIndividualFila.textContent = fila_tr ? fila_tr.querySelector("td").textContent.trim() : "";
-                    modalIndividualDescripcion.textContent = fila_tr ? fila_tr.querySelector(".celda-descripcion").textContent.trim() : "";
+                    modalIndividualDescripcion.textContent = fila_tr ? Array.prototype.map.call(fila_tr.querySelectorAll(".aviso-principal, .aviso-detalle"), function (n) { return n.textContent.trim(); }).join(" · ") : "";
                     modalComentarioIndividual.value = corrigiendo ? (boton.dataset.comentario || "") : "";
                     document.getElementById("modal-individual-accion").textContent = corrigiendo ? "Corregir revisión" : "Justificar aviso";
                     elegirDecision(corrigiendo ? boton.dataset.estado : null);
@@ -1027,8 +1405,23 @@
                     modalMarcarIndividual.show();
                 });
 
+                var avisoContinuar = document.getElementById("aviso-continuar");
+                try { avisoContinuar.checked = localStorage.getItem("revision_en_cadena") !== "no"; } catch (err) {}
+                avisoContinuar.addEventListener("change", function () {
+                    try { localStorage.setItem("revision_en_cadena", avisoContinuar.checked ? "si" : "no"); } catch (err) {}
+                });
+                function siguienteAvisoPendiente(fila) {
+                    if (!fila) return null;
+                    var botones = document.querySelectorAll(".aviso-marcar-individual.boton-revisar");
+                    for (var i = 0; i < botones.length; i++) {
+                        if (!fila.contains(botones[i]) && (fila.compareDocumentPosition(botones[i]) & Node.DOCUMENT_POSITION_FOLLOWING)) return botones[i];
+                    }
+                    return null;
+                }
+
                 function enviarEstadoIndividual(estado, btn) {
                     if (!avisoActivo) return;
+                    var siguienteAviso = avisoContinuar.checked ? siguienteAvisoPendiente(avisoActivo.fila_tr) : null;
                     var comentario = modalComentarioIndividual.value.trim();
                     if (!comentario) {
                         modalIndividualError.textContent = "La justificación es obligatoria.";
@@ -1070,8 +1463,15 @@
                             }
                             if (eraPendiente) descontarGrupo(data.campo);
                             actualizarContadores(data);
-                            modalMarcarIndividual.hide();
                             avisoActivo = null;
+                            if (siguienteAviso && document.body.contains(siguienteAviso) && data.avisos_pendientes !== 0) {
+                                var filaSiguiente = siguienteAviso.closest("tr");
+                                if (filaSiguiente) filaSiguiente.scrollIntoView({ block: "center", behavior: "smooth" });
+                                siguienteAviso.click();
+                                modalComentarioIndividual.focus();
+                                return;
+                            }
+                            modalMarcarIndividual.hide();
                             if (eraPendiente && data.avisos_pendientes === 0) {
                                 var destino = new URL(window.location.href); destino.searchParams.set("pestana", "avisos"); window.location.href = destino.toString();
                             }
@@ -1112,7 +1512,6 @@
         </script>
     {% endif %}
 
-    <!-- Burbuja flotante: arriba, filas marcadas y abajo. -->
     <div class="burbuja-nav" id="burbuja-nav" aria-label="Navegación rápida">
         <button type="button" class="secundario oculto" id="nav-arriba" title="Ir arriba"><i class="bi bi-arrow-up"></i></button>
         <button type="button" class="d-none" id="nav-marcadas" title="Ir a la fila marcada"><i class="bi bi-crosshair"></i></button>
@@ -1147,7 +1546,6 @@
                 fila.classList.add("destello");
             }
 
-            // Filas marcadas (la revisada y la que coincide): cada clic va a la siguiente.
             var marcadas = Array.prototype.slice.call(document.querySelectorAll("tr.fila-resaltada, tr.fila-relacionada"));
             var indice = -1;
             if (marcadas.length) {
@@ -1158,13 +1556,11 @@
                 });
             }
 
-            // Justificaciones frecuentes: escriben la frase en el campo del mismo modal.
             document.addEventListener("click", function (e) {
                 var boton = e.target.closest(".frase-rapida");
                 if (!boton) return;
                 var campo = boton.closest(".modal-body").querySelector("textarea, input[type=text]");
                 if (!campo) return;
-                // Cursor al final, para agregar la referencia del documento revisado.
                 campo.value = boton.dataset.frase + " ";
                 campo.focus();
                 campo.setSelectionRange(campo.value.length, campo.value.length);

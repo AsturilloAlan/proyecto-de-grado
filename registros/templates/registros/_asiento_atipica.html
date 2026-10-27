@@ -1,0 +1,21 @@
+<div class="p-2">
+    <div class="small text-secondary mb-2">
+        {% if comprobante %}Comprobante <strong>{{ comprobante }}</strong>{% else %}Movimientos del {{ fecha|date:"d/m/Y" }} con la misma glosa{% endif %}
+        · {{ lineas|length }} línea{{ lineas|length|pluralize }}{% if recortado %} (se muestran las primeras {{ lineas|length }}){% endif %}
+        · Debe {{ total_debe|floatformat:2 }} · Haber {{ total_haber|floatformat:2 }}
+    </div>
+    <table class="table table-sm mb-1">
+        <thead><tr><th>Fila</th><th>Cuenta</th><th>Glosa</th><th class="text-end">Debe</th><th class="text-end">Haber</th></tr></thead>
+        <tbody>
+            {% for linea in lineas %}
+                <tr{% if linea.id == registro_id %} class="table-warning fw-semibold"{% endif %}>
+                    <td>{{ linea.fila_origen }}</td>
+                    <td>{{ linea.cuenta.codigo }} {{ linea.cuenta.nombre|truncatechars:35 }}</td>
+                    <td>{{ linea.glosa|truncatechars:70 }}</td>
+                    <td class="text-end text-nowrap">{{ linea.debe|floatformat:2 }}</td>
+                    <td class="text-end text-nowrap">{{ linea.haber|floatformat:2 }}</td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>

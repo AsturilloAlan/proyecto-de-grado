@@ -1,0 +1,24 @@
+{% comment %}Parámetros: resultado y carga. Las decisiones requieren justificación.{% endcomment %}
+{% if resultado.revision == 'pendiente' %}
+    {% if carga.estado != 'anulada' %}
+        <button type="button" class="btn btn-sm btn-outline-guindo boton-revisar atipica-revisar"
+                data-url="{% url 'registros:atipica_revisar' carga.id resultado.id %}"
+                data-fila="{{ resultado.registro.fila_origen }}" data-glosa="{{ resultado.registro.glosa|truncatechars:120 }}"
+                title="Decidir si es observada, en seguimiento o válida">
+            <i class="bi bi-pencil-square" aria-hidden="true"></i> Revisar
+        </button>
+    {% else %}
+        <span class="badge text-bg-light text-secondary fw-normal border">Pendiente</span>
+    {% endif %}
+{% else %}
+    <span class="badge fw-normal {% if resultado.revision == 'relevante' %}text-bg-danger{% elif resultado.revision == 'seguimiento' %}text-bg-warning{% else %}text-bg-success{% endif %}"
+          title="{{ resultado.comentario_revision }} ({{ resultado.revisado_por.username|default:'' }})">{{ resultado.get_revision_display }}</span>
+    {% if carga.estado != 'anulada' %}
+        <button type="button" class="btn btn-link btn-sm p-0 ms-2 align-baseline enlace-corregir atipica-revisar"
+                data-url="{% url 'registros:atipica_revisar' carga.id resultado.id %}"
+                data-fila="{{ resultado.registro.fila_origen }}" data-glosa="{{ resultado.registro.glosa|truncatechars:120 }}"
+                data-estado="{{ resultado.revision }}" data-comentario="{{ resultado.comentario_revision }}">
+            Corregir
+        </button>
+    {% endif %}
+{% endif %}
