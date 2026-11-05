@@ -1,9 +1,4 @@
-"""Aplica la regla actual de "posible duplicado" a cargas ya procesadas.
-
-La regla ahora exige que también coincida la glosa. Las cargas subidas antes conservan
-los avisos de la regla anterior; este comando quita los avisos de duplicado que la regla
-actual ya no generaría, solo si siguen pendientes (los que el auditor ya revisó no se
-tocan). No modifica registros contables.
+"""Quita los avisos de duplicado pendientes que la regla actual (con glosa) ya no generaría.
 
 Uso:
     python manage.py recalcular_duplicados             # muestra cuántos se quitarían

@@ -256,9 +256,7 @@ class UsuarioCrearForm(UserCreationForm):
 
 
 class UsuarioEditarForm(NombresMixin, forms.ModelForm):
-    """Editar una cuenta existente desde el panel de usuarios: nombre, correo, si está
-    activa, y su rol.
-    """
+    """Edición de una cuenta por el Administrador. El correo solo lo cambia su dueño."""
 
     rol = forms.ChoiceField(
         label="Rol",
@@ -268,23 +266,13 @@ class UsuarioEditarForm(NombresMixin, forms.ModelForm):
 
     class Meta:
         model = User
-        fields = ["first_name", "last_name", "email", "is_active"]
-        labels = {"first_name": "Nombre", "last_name": "Apellido",
-                  "email": "Correo electrónico", "is_active": "Cuenta activa"}
+        fields = ["first_name", "last_name", "is_active"]
+        labels = {"first_name": "Nombre", "last_name": "Apellido", "is_active": "Cuenta activa"}
         widgets = {
             "first_name": forms.TextInput(attrs=ATRIBUTOS_NOMBRE),
             "last_name": forms.TextInput(attrs=ATRIBUTOS_APELLIDO),
-            "email": forms.EmailInput(attrs={"class": "form-control"}),
             "is_active": forms.CheckboxInput(attrs={"class": "form-check-input"}),
         }
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        # Sin correo la cuenta no puede completar el 2FA al iniciar sesión.
-        self.fields["email"].required = True
-
-    def clean_email(self):
-        return _validar_email_unico(self.cleaned_data["email"], self.instance)
 
 
 class RecuperarClaveForm(forms.Form):

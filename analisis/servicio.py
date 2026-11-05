@@ -1,9 +1,4 @@
-"""Integración del modelo con el flujo de carga (actividad 14).
-
-Cuando una carga termina de procesarse, el análisis entra en la misma cola de una en
-una (registros/procesamiento.py). El trabajador aplica el modelo guardado por
-entrenar_modelo, sin reentrenar, y guarda el puntaje de cada registro.
-"""
+"""Análisis de una carga con el modelo guardado (se ejecuta desde la cola de cargas)."""
 import json
 import logging
 import time

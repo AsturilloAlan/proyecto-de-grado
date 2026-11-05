@@ -98,13 +98,13 @@
                 <h4>Hallazgos</h4>
                 <p class="descripcion">Papel de trabajo: lo observado por el auditor.</p>
                 <div class="cifra">{{ g.observadas }} <small>atípica{{ g.observadas|pluralize }} observada{{ g.observadas|pluralize }}</small></div>
-                <div class="detalle">{% if g.observaciones %}Más {{ g.observaciones }} aviso{{ g.observaciones|pluralize }} observado{{ g.observaciones|pluralize }}{% if g.seguimiento %} · {% endif %}{% endif %}{% if g.seguimiento %}{{ g.seguimiento }} en seguimiento{% endif %}{% if not g.observaciones and not g.seguimiento %}Con su fundamento y firmas.{% endif %}</div>
+                <div class="detalle">{% if g.avisos_observados %}Más {{ g.avisos_observados }} aviso{{ g.avisos_observados|pluralize }} observado{{ g.avisos_observados|pluralize }}{% if g.seguimiento %} · {% endif %}{% endif %}{% if g.seguimiento %}{{ g.seguimiento }} en seguimiento{% endif %}{% if not g.avisos_observados and not g.seguimiento %}Con su fundamento y firmas.{% endif %}</div>
                 <div class="accion"><a class="btn btn-outline-guindo btn-sm" href="{% url 'reportes:hallazgos_gestion' empresa.id g.gestion.id %}">Abrir hallazgos</a></div>
             </article>
             <article class="tarjeta-reporte">
                 <span class="icono"><i class="bi bi-pen" aria-hidden="true"></i></span>
                 <h4>Observaciones para firmar</h4>
-                <p class="descripcion">Avisos observados, para firmar con la empresa.</p>
+                <p class="descripcion">Avisos y atípicas observados, para firmar con la empresa.</p>
                 <div class="cifra">{{ g.observaciones }} <small>{% if g.observaciones == 1 %}observación{% else %}observaciones{% endif %}</small></div>
                 <div class="detalle">Firman auditor, contador y representante legal.</div>
                 <div class="accion"><a class="btn btn-outline-guindo btn-sm" href="{% url 'reportes:observaciones_gestion' empresa.id g.gestion.id %}">Abrir observaciones</a></div>

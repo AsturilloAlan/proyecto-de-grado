@@ -1,4 +1,4 @@
-"""Actividad 11: fija One-Class SVM y elige su configuración (nu y gamma).
+"""Elige la configuración de One-Class SVM (nu y gamma).
 
 Uso:
     python manage.py configurar_modelo 45 44

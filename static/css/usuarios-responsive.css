@@ -1,0 +1,39 @@
+.usuarios-pagina { min-width: 0; }
+.usuarios-pagina .correo-lectura { height: auto; white-space: normal; overflow-wrap: anywhere; }
+.usuarios-pagina .cabecera-usuario h1,
+.usuarios-pagina .cabecera-usuario p { overflow-wrap: anywhere; }
+.usuarios-pagina .opciones-rol { grid-template-columns: repeat(auto-fit, minmax(min(100%, 210px), 1fr)); }
+.usuarios-pagina .opcion-rol-cuerpo > span { min-width: 0; overflow-wrap: anywhere; }
+.usuarios-pagina .acciones-usuario { flex-wrap: wrap; }
+.usuarios-pagina .errores-clave { min-width: 0; overflow-wrap: anywhere; }
+.usuarios-pagina .errores-clave ul { min-width: 0; }
+.usuarios-pagina .coincide-clave[hidden],
+.usuarios-pagina .requisitos-clave[hidden],
+.usuarios-pagina .fila-usuario[hidden] { display: none !important; }
+[data-bs-theme="dark"] .usuarios-pagina .opcion-rol input:checked + .opcion-rol-cuerpo { border-color: #e7b8cd; box-shadow: inset 0 0 0 1px #e7b8cd; }
+[data-bs-theme="dark"] .usuarios-pagina .opcion-rol input:checked + .opcion-rol-cuerpo > i,
+[data-bs-theme="dark"] .usuarios-pagina .opcion-rol input:checked + .opcion-rol-cuerpo strong,
+[data-bs-theme="dark"] .usuarios-pagina .filtro-usuarios button.activo { color: #e7b8cd; }
+@media (max-width: 767.98px) {
+    .usuarios-pagina .tarjeta-usuario { padding: 1rem; }
+    .usuarios-pagina .form-control, .usuarios-pagina .form-select,
+    .usuarios-pagina .buscador-usuarios input { font-size: 16px; min-height: 44px; }
+    .usuarios-pagina .btn, .usuarios-pagina .filtro-usuarios button { min-height: 44px; }
+    .usuarios-pagina .opcion-rol-cuerpo { min-height: 64px; }
+    .usuarios-pagina .acciones-usuario .btn { flex: 1 1 130px; }
+    .usuarios-pagina .barra-usuarios { align-items: stretch; }
+    .usuarios-pagina .filtro-usuarios { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); width: 100%; }
+    .usuarios-pagina .filtro-usuarios button { padding: .5rem .35rem; font-size: .8rem; overflow-wrap: anywhere; }
+    .usuarios-pagina .buscador-usuarios { flex: 1 1 100%; max-width: none; min-width: 0; }
+    .usuarios-pagina .enlace-usuario { gap: .4rem .65rem; padding: .85rem .75rem; }
+    .usuarios-pagina .nombre-usuario,
+    .usuarios-pagina .detalle-usuario { white-space: normal; overflow-wrap: anywhere; overflow: visible; }
+    .usuarios-pagina .rol-usuario, .usuarios-pagina .ingreso-usuario { min-width: 0; max-width: 100%; overflow-wrap: anywhere; }
+}
+@media (max-width: 359.98px) {
+    .usuarios-pagina .acciones-usuario { flex-direction: column; }
+    .usuarios-pagina .acciones-usuario .btn { flex: none; width: 100%; }
+    .usuarios-pagina .opciones-rol { grid-template-columns: minmax(0, 1fr); }
+    .usuarios-pagina .enlace-usuario { grid-template-columns: 32px minmax(0, 1fr) 12px; }
+    .usuarios-pagina .avatar-usuario { width: 32px; height: 32px; }
+}

@@ -257,13 +257,13 @@ class GestionUsuariosTests(TestCase):
         self.assertEqual(respuesta.status_code, 200)  # no redirige: el form no es válido
         self.assertFalse(User.objects.filter(username="otro_mas").exists())
 
-    def test_no_se_puede_editar_usuario_con_correo_de_otra_cuenta(self):
+    def test_administrador_no_puede_cambiar_el_correo_de_otro_usuario(self):
         self.client.login(username="admin2", password="Clave-Segura123")
         respuesta = self.client.post(
             reverse("usuario_editar", args=[self.auditor.id]),
-            {"email": "admin2@sts.com", "is_active": "on", "rol": "Auditor"},
+            {"email": "otro@sts.com", "is_active": "on", "rol": "Auditor"},
         )
-        self.assertEqual(respuesta.status_code, 200)
+        self.assertRedirects(respuesta, reverse("usuarios_lista"))
         self.auditor.refresh_from_db()
         self.assertEqual(self.auditor.email, "auditor5@sts.com")
 

@@ -1,12 +1,4 @@
-"""JSON Web Token (JWT) del inicio de sesión.
-
-Tras la verificación en dos pasos, el sistema emite un token firmado (HS256) con el
-usuario, su rol y la sesión a la que pertenece. El token viaja en una cookie HttpOnly,
-por lo que el JavaScript de la página no puede leerlo (protección ante XSS). En cada
-petición el middleware verifica la firma, la vigencia y que el token corresponda al
-usuario y a la sesión; si falla, cierra la sesión. El token se renueva solo mientras el
-usuario sigue activo y vence a los 30 minutos de inactividad, igual que la sesión.
-"""
+"""JWT del inicio de sesión (HS256, cookie HttpOnly, vence a los 30 minutos de inactividad)."""
 import hashlib
 import uuid
 from datetime import timedelta

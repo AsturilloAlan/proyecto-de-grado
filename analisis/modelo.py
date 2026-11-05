@@ -1,9 +1,4 @@
-"""Modelo elegido en la evaluación comparativa: One-Class SVM (CRISP-DM: Modelado).
-
-Actividad 11: se fija el algoritmo y se elige su configuración (nu y gamma).
-Actividad 12: se entrena una sola vez con las cargas oficiales y se guarda; después se
-usa para puntuar cualquier carga sin volver a entrenar.
-"""
+"""One-Class SVM: configuración, entrenamiento, guardado y puntuación de cargas."""
 import json
 import time
 from datetime import datetime
@@ -68,7 +63,7 @@ def _escalar(X):
     return StandardScaler().fit_transform(X)
 
 
-# Actividad 11: configuración
+# Configuración
 
 def _candidatas():
     return [{"kernel": "rbf", "nu": nu, "gamma": gamma}
@@ -148,7 +143,7 @@ def leer_configuracion(carpeta=None):
     return json.loads(ruta.read_text(encoding="utf-8"))["configuracion"], True
 
 
-# Actividad 12: entrenamiento y uso
+# Entrenamiento y uso
 
 def _particion(n, proporcion_prueba, semilla):
     """Índices de entrenamiento y de prueba al azar (reproducible con la semilla)."""
@@ -165,17 +160,8 @@ def _observados(df):
 
 def entrenar(datasets, configuracion, porcentaje_atipicas=PORCENTAJE_ATIPICAS,
              proporcion_prueba=PROPORCION_PRUEBA, semilla=SEMILLA_PARTICION):
-    """Entrena el modelo final y lo evalúa con datos que no vio.
-
-    Cada carga se divide al azar en entrenamiento (por defecto 80 %) y prueba (20 %).
-    Las variables se calculan sobre la carga completa, como cuando el sistema analiza un
-    libro. El modelo aprende solo con la parte de entrenamiento, sin los registros que el
-    auditor confirmó como observados, para aprender el comportamiento habitual.
-
-    La parte de prueba se usa para medir: se le agregan casos atípicos conocidos (los
-    mismos cinco tipos de la evaluación comparativa) y se calcula AUC-PR, AUC-ROC,
-    precisión en los primeros k, y precisión/recall/F1 con el umbral del modelo.
-    """
+    """Entrena con el 80 % de cada carga (sin observados) y mide con el 20 % restante
+    más casos atípicos conocidos."""
     from sklearn.preprocessing import StandardScaler
 
     bloques, excluidos, por_carga = [], 0, {}

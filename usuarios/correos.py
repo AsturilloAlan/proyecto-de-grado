@@ -1,9 +1,4 @@
-"""Envío de correos del sistema con registro único por envío (RegistroCorreo).
-
-Todo correo sale por `enviar`: se guarda el tipo, el destinatario, si se envió o falló,
-y un identificador único que aparece al pie del correo. Así, ante un reclamo ("no me
-llegó el código", "yo no pedí esto"), se puede rastrear cada envío.
-"""
+"""Envío de correos. Cada envío queda en RegistroCorreo con un identificador único."""
 import logging
 from email.mime.image import MIMEImage
 from pathlib import Path

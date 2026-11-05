@@ -1,11 +1,4 @@
-"""Variables de entrada de los modelos (CRISP-DM: Preparación de los datos).
-
-Revisión tras la validación con la auditora (actividad 13): el día de la semana y el día
-del mes como números hacían ver "lejanos" los asientos de cierre (el 30 o 31, aunque
-caigan en domingo), que en contabilidad son normales. Se reemplazan por dos indicadores
-con sentido contable: si la transacción es de cierre de mes (o apertura de la gestión) y
-si se registró en un día no hábil fuera de esos casos.
-"""
+"""Las 12 variables de entrada del modelo (monto, fecha, cuenta y comprobante)."""
 import numpy as np
 import pandas as pd
 

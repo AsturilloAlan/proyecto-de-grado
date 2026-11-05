@@ -1,11 +1,6 @@
-"""Procesamiento de las cargas en segundo plano, con una cola de una en una.
+"""Cola de cargas en segundo plano: un solo hilo procesa validación y análisis en orden.
 
-Al subir un archivo, la carga entra en cola ("En cola") y la página responde de
-inmediato. Al terminar, su análisis con el modelo entra en la misma cola. Un único trabajador, en un hilo aparte, toma las cargas en orden de llegada
-y las procesa de una en una ("Procesando"). Así varias personas pueden subir archivos a
-la vez sin que el servidor procese varios libros en paralelo. No requiere servicios
-adicionales: la cola es la propia tabla de cargas, por lo que sobrevive a un reinicio
-del servidor.
+La cola es la propia tabla de cargas, por eso sobrevive a un reinicio del servidor.
 """
 import logging
 import threading

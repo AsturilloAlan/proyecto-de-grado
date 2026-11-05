@@ -1,7 +1,4 @@
-"""Resumen de la validación preliminar del modelo (actividad 13).
-
-Muestra, por carga analizada, cuántas transacciones atípicas revisó el auditor y qué
-proporción consideró relevante (precisión preliminar).
+"""Atípicas revisadas por carga y proporción útil según el auditor.
 
 Uso:
     python manage.py resumen_validacion

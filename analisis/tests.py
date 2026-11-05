@@ -141,7 +141,7 @@ class EntrenamientoTests(SimpleTestCase):
                 modelo.cargar(carpeta)
 
 
-# Actividad 14: integración del modelo con el flujo de carga
+# Integración del modelo con el flujo de carga
 
 from datetime import date, timedelta  # noqa: E402
 from unittest.mock import patch  # noqa: E402
@@ -318,7 +318,7 @@ class IntegracionModeloTests(TestCase):
         self.assertEqual(analisis.estado, "error")
 
 
-# Actividad 13: validación preliminar con los auditores
+# Validación preliminar con los auditores
 
 from io import StringIO  # noqa: E402
 

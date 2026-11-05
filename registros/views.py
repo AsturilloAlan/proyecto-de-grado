@@ -1125,10 +1125,12 @@ def empresas_lista(request):
 
     paginador = Paginator(empresas_qs, 10)
     empresas = paginador.get_page(request.GET.get("pagina"))
+    filtros = request.GET.copy()
+    filtros.pop("pagina", None)
     return render(
         request,
         "registros/empresas_lista.html",
-        {"empresas": empresas, "busqueda": busqueda},
+        {"empresas": empresas, "busqueda": busqueda, "querystring": filtros.urlencode()},
     )
 
 
@@ -1186,21 +1188,51 @@ def empresa_editar(request, empresa_id):
     return render(
         request,
         "registros/empresa_form.html",
-        {"form": form, "titulo": f"Editar empresa: {empresa.nombre}", "empresa": empresa},
+        {"form": form, "titulo": f"Editar empresa: {empresa.nombre}", "empresa": empresa,
+         "cambios": _cambios_empresa(empresa.id, limite=100)},
     )
+
+
+ETIQUETAS_CAMPO_EMPRESA = {
+    "nombre": "Nombre", "nit": "NIT", "rubro": "Rubro", "categoria_cierre": "Cierre de gestión",
+    "contacto_nombre": "Representante legal", "contacto_email": "Correo del representante",
+    "contacto_telefono": "Teléfono del representante", "contador_nombre": "Contador",
+    "contador_email": "Correo del contador", "contador_telefono": "Teléfono del contador",
+}
+
+
+def _cambios_empresa(empresa_id, limite=None):
+    """Historial de una empresa con etiquetas legibles, del más reciente al más antiguo."""
+    categorias = dict(EmpresaAuditada.CATEGORIA_CIERRE_CHOICES)
+    qs = (HistorialCambio.objects.filter(modelo="EmpresaAuditada", objeto_id=empresa_id)
+          .select_related("usuario").order_by("-fecha", "-id"))
+    if limite:
+        qs = qs[:limite]
+    cambios = []
+    for c in qs:
+        anterior, nuevo = c.valor_anterior, c.valor_nuevo
+        if c.campo == "categoria_cierre":
+            anterior, nuevo = categorias.get(anterior, anterior), categorias.get(nuevo, nuevo)
+        cambios.append({
+            "accion": c.accion,
+            "campo": c.campo or "",
+            "etiqueta": ETIQUETAS_CAMPO_EMPRESA.get(c.campo, "Empresa registrada" if c.accion == "creacion" else c.campo),
+            "anterior": anterior, "nuevo": nuevo, "fecha": c.fecha,
+            "por": c.usuario.username if c.usuario else "sistema",
+        })
+    return cambios
 
 
 @rol_requerido(*ROLES_OPERATIVOS)
 def empresa_historial(request, empresa_id):
     empresa = get_object_or_404(EmpresaAuditada, pk=empresa_id)
-    cambios = (
-        HistorialCambio.objects.filter(modelo="EmpresaAuditada", objeto_id=empresa_id)
-        .select_related("usuario")
-    )
+    cambios = _cambios_empresa(empresa_id)
+    campos = sorted({(c["campo"], c["etiqueta"]) for c in cambios if c["campo"]}, key=lambda x: x[1])
+    usuarios = sorted({c["por"] for c in cambios})
     return render(
         request,
         "registros/empresa_historial.html",
-        {"empresa": empresa, "cambios": cambios},
+        {"empresa": empresa, "cambios": cambios, "campos": campos, "usuarios_cambio": usuarios},
     )
 
 

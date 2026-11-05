@@ -192,6 +192,10 @@
         }).join("; "));
         if (!total || !window.Chart) return;
         var circular = tipo === "doughnut";
+        // Con un nivel elegido, el gráfico de niveles atenúa los demás para resaltarlo.
+        if (serie.elegido && serie.claves && Array.isArray(colores)) {
+            colores = colores.map(function (c, i) { return serie.claves[i] === serie.elegido ? c : c + "40"; });
+        }
         graficos[clave] = new Chart(lienzo, {
             type: tipo,
             data: {
@@ -257,7 +261,7 @@
         document.getElementById("k-importe").textContent = dinero.format(r.importe);
         document.getElementById("k-movimiento").textContent = dinero.format(r.porcentaje_movimiento) + " %";
         document.getElementById("k-revisadas").textContent = entero.format(r.revisadas) + " de " + entero.format(r.atipicas);
-        document.getElementById("k-relevantes").textContent = "Revisadas · " + entero.format(r.relevantes) + " útiles (observadas o en seguimiento)";
+        document.getElementById("k-relevantes").textContent = "Revisadas · " + entero.format(r.relevantes) + (r.relevantes === 1 ? " útil" : " útiles") + " (observadas o en seguimiento)";
 
         dibujar("mes", "bar", datos.por_mes, "#6E1B3F", false);
         dibujar("nivel", "doughnut", datos.por_nivel, NIVELES, false);
@@ -353,7 +357,9 @@
     form.elements.cuenta.addEventListener("change", cargar);
     form.elements.nivel.addEventListener("change", cargar);
     form.addEventListener('input', function () { form.elements.hasta.setCustomValidity(''); document.getElementById('error-filtros').classList.add('d-none'); });
-    document.getElementById("limpiar").addEventListener("click", function () { parametros.delete('cuenta'); form.reset(); document.querySelectorAll(".rango-propio").forEach(function (c) { c.classList.add("d-none"); }); form.elements.hasta.setCustomValidity(''); document.getElementById('error-filtros').classList.add('d-none'); cargar(); });
+    document.getElementById("limpiar").addEventListener("click", function () { parametros.delete('cuenta'); form.reset();
+        // Asignar el valor de nuevo para que los selectores personalizados muestren "Todos".
+        periodo.selectedIndex = 0; form.elements.cuenta.value = ""; form.elements.nivel.value = ""; document.querySelectorAll(".rango-propio").forEach(function (c) { c.classList.add("d-none"); }); form.elements.hasta.setCustomValidity(''); document.getElementById('error-filtros').classList.add('d-none'); cargar(); });
     new MutationObserver(function () { if (panel.classList.contains("listo")) cargar(); })
         .observe(document.documentElement, { attributes: true, attributeFilter: ["data-bs-theme"] });
     cargar();

@@ -1,13 +1,6 @@
-"""Contenido de los reportes (actividad 15).
+"""Contenido de los reportes, por gestión (cargas válidas consolidadas) o por una sola carga.
 
-En el trabajo real, la unidad de auditoría es el encargo: una empresa en una gestión
-(por ejemplo, "Empresa X, gestión 2023"). Una gestión puede tener varias cargas (libro
-mayor y libro diario, o un libro subido por partes) y también cargas anuladas que ya no
-cuentan. Por eso los reportes se emiten por empresa y gestión, consolidando las cargas
-válidas, y también se pueden emitir para una sola carga.
-
-Las mismas funciones alimentarán la exportación a PDF y Excel (actividad 17), para que
-todas las salidas digan exactamente lo mismo.
+Las mismas funciones alimentan la pantalla y la exportación a PDF y Excel.
 """
 import re
 import unicodedata
@@ -332,12 +325,36 @@ def reporte_atipicas(cargas, nivel="", motivo="", validacion="", tributarias="")
 # Reporte de transacciones observadas
 
 def reporte_observaciones(cargas):
-    """Hallazgos confirmados por el auditor (avisos marcados como observados)."""
+    """Hallazgos confirmados por el auditor: avisos de las reglas y transacciones atípicas
+    marcados como observados. Una transacción señalada por las dos vías aparece una vez."""
+    from types import SimpleNamespace
+
     cargas = list(cargas)
     avisos = ErrorValidacion.objects.filter(carga__in=cargas, tipo="aviso")
     observaciones = list(avisos.filter(estado_revision="observado")
                          .select_related("revisado_por", "carga").order_by("carga_id", "fila"))
-    claves = {(o.carga_id, o.fila) for o in observaciones}
+    por_clave = {(o.carga_id, o.fila): o for o in observaciones}
+    atipicas = (ResultadoTransaccion.objects
+                .filter(analisis__carga__in=cargas, atipica=True, revision="relevante")
+                .select_related("registro", "revisado_por", "analisis"))
+    atipicas_observadas = 0
+    for r in atipicas:
+        atipicas_observadas += 1
+        motivos = r.lista_motivos
+        texto = "Transacción atípica" + (f": {motivos[0]['texto'].rstrip('.')}" if motivos else "")
+        clave = (r.analisis.carga_id, r.registro.fila_origen)
+        if clave in por_clave:
+            aviso = por_clave[clave]
+            aviso.descripcion = f"{aviso.descripcion} {texto}."
+            if r.comentario_revision and r.comentario_revision not in (aviso.comentario_revision or ""):
+                aviso.comentario_revision = f"{aviso.comentario_revision} {r.comentario_revision}".strip()
+        else:
+            nueva = SimpleNamespace(id=None, carga_id=clave[0], fila=clave[1], descripcion=f"{texto}.",
+                                    comentario_revision=r.comentario_revision, revisado_por=r.revisado_por,
+                                    fecha_revision=r.fecha_revision)
+            por_clave[clave] = nueva
+            observaciones.append(nueva)
+    claves = set(por_clave)
     registros = {
         (r.carga_id, r.fila_origen): r
         for r in RegistroContable.objects.filter(
@@ -378,6 +395,8 @@ def reporte_observaciones(cargas):
         "avisos_validos": avisos.filter(estado_revision="valido").count(),
         "por_tipo": por_tipo,
         "importe_observado": importe,
+        "atipicas_observadas": atipicas_observadas,
+        "avisos_observados": avisos.filter(estado_revision="observado").count(),
     }
 
 
@@ -485,6 +504,11 @@ def comparativo_empresa(empresa):
         total_mov = movimiento["debe"] + movimiento["haber"]
         total_imp = importe["debe"] + importe["haber"]
         m = metricas_validacion(atipicas)
+        # Observaciones para firmar: avisos y atípicas observados, una vez por transacción.
+        avisos_obs = set(ErrorValidacion.objects.filter(
+            carga__in=incluidas, tipo="aviso", estado_revision="observado").values_list("carga_id", "fila"))
+        atipicas_obs = set(atipicas.filter(revision="relevante")
+                           .values_list("analisis__carga_id", "registro__fila_origen"))
         filas.append({
             "gestion": gestion,
             "cargas": len(incluidas),
@@ -499,8 +523,8 @@ def comparativo_empresa(empresa):
             "observadas": m["observadas"],
             "seguimiento": m["seguimiento"],
             "precision": m["precision"],
-            "observaciones": ErrorValidacion.objects.filter(
-                carga__in=incluidas, tipo="aviso", estado_revision="observado").count(),
+            "avisos_observados": len(avisos_obs),
+            "observaciones": len(avisos_obs | atipicas_obs),
         })
     anterior = None
     for fila in filas:
@@ -541,7 +565,7 @@ def registrar_emision(tipo, usuario, carga=None, empresa=None, gestion=None, fil
         filtros=filtros_texto, formato=formato, **cifras)
 
 
-# Panorama visual (actividad 16)
+# Panorama visual
 
 MESES = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"]
 MAXIMO_CUENTAS_GRAFICO = 10
@@ -595,6 +619,9 @@ def panorama(cargas, desde="", hasta="", cuenta="", nivel=""):
         qs = qs.filter(registro__fecha__lte=filtros["hasta"])
     if filtros["cuenta"]:
         qs = qs.filter(registro__cuenta_id=int(filtros["cuenta"]))
+    # El gráfico de niveles se calcula sin el filtro de nivel: así muestra el reparto completo
+    # y la página resalta el nivel elegido, en vez de un círculo de un solo color.
+    qs_sin_nivel = qs
     if filtros["nivel"]:
         qs = qs.filter(_filtro_nivel(filtros["nivel"]))
 
@@ -627,10 +654,11 @@ def panorama(cargas, desde="", hasta="", cuenta="", nivel=""):
         "importes": [round(numero(f["debe"]) + numero(f["haber"]), 2) for f in motivos],
     }
 
-    serie_nivel = {"etiquetas": [], "cantidades": []}
+    serie_nivel = {"etiquetas": [], "cantidades": [], "claves": [], "elegido": filtros["nivel"]}
     for codigo, etiqueta, _, _ in NIVELES:
         serie_nivel["etiquetas"].append(etiqueta)
-        serie_nivel["cantidades"].append(qs.filter(_filtro_nivel(codigo)).count())
+        serie_nivel["claves"].append(codigo)
+        serie_nivel["cantidades"].append(qs_sin_nivel.filter(_filtro_nivel(codigo)).count())
 
     cuentas = list(qs.order_by().values("registro__cuenta__codigo", "registro__cuenta__nombre").annotate(
         cantidad=Count("id"), debe=Sum("registro__debe"), haber=Sum("registro__haber"),

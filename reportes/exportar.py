@@ -1,9 +1,4 @@
-"""Exportación de reportes a Excel y PDF (actividad 17).
-
-Cada reporte se describe primero como un `Documento` neutro (título, datos de
-encabezado y secciones con tablas). El mismo documento se convierte a Excel o a PDF, así
-la pantalla, el Excel y el PDF dicen exactamente lo mismo.
-"""
+"""Exportación a Excel y PDF a partir de un mismo `Documento` (título, encabezado y secciones)."""
 import io
 import re
 from dataclasses import dataclass, field
@@ -237,8 +232,9 @@ def documento_observaciones(d):
     datos = _datos_comunes(d) + [
         ("Observaciones", str(len(d["filas_reporte"]))),
         ("Importe observado", importe(d["importe_observado"])),
-        ("Cobertura", f"{d['avisos_total']} avisos: {len(d['filas_reporte'])} observados, "
-                      f"{d['avisos_validos']} válidos, {d['avisos_pendientes']} pendientes"),
+        ("Cobertura", f"{d['avisos_total']} avisos: {d.get('avisos_observados', 0)} observados, "
+                      f"{d['avisos_validos']} válidos, {d['avisos_pendientes']} pendientes. "
+                      f"{d.get('atipicas_observadas', 0)} transacciones atípicas observadas"),
     ]
     secciones = []
     alcance = _seccion_alcance(d)
@@ -270,7 +266,7 @@ def documento_observaciones(d):
                              numericas=(columnas.index("Importe"),), hoja="Observaciones"))
     return Documento(
         tipo="observaciones", titulo="Reporte de transacciones observadas",
-        subtitulo="Hallazgos confirmados por el auditor sobre los avisos de las reglas de validación.",
+        subtitulo="Hallazgos confirmados por el auditor en los avisos de las reglas de validación y en las transacciones atípicas.",
         datos=datos, secciones=secciones, avisos=avisos, emision=d["emision"].id,
         nombre_archivo=_nombre_archivo("observaciones", d["empresa"], d["gestion"], d.get("carga")),
         contador=d["empresa"].contador_nombre,

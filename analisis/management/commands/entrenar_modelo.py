@@ -1,4 +1,4 @@
-"""Actividad 12: entrena One-Class SVM con las cargas oficiales y lo guarda.
+"""Entrena One-Class SVM con las cargas indicadas y lo guarda.
 
 Uso:
     python manage.py entrenar_modelo 45 44          # configuración elegida en configurar_modelo

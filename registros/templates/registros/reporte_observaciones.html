@@ -44,7 +44,7 @@
     {% endif %}
 
     <h1 class="reporte-titulo h3">Reporte de transacciones observadas</h1>
-    <p class="reporte-intro mb-4">Hallazgos confirmados por el auditor. No incluye los avisos descartados.</p>
+    <p class="reporte-intro mb-4">Hallazgos confirmados por el auditor en los avisos de las reglas y en las transacciones atípicas. No incluye los descartados.</p>
 
     <dl class="reporte-datos">
         <div><dt>Empresa auditada</dt><dd>{{ empresa }}{% if empresa.nit %}<br><span class="small">NIT {{ empresa.nit }}</span>{% endif %}</dd></div>
@@ -54,7 +54,7 @@
         <div><dt>Total de observaciones</dt><dd class="dato-destacado">{{ filas_reporte|length }}</dd><dd class="small">Importe observado: {{ importe_observado|floatformat:"2g" }}</dd></div>
         <div>
             <dt>Cobertura de la revisión</dt>
-            <dd>{{ avisos_total }} avisos generados: {{ filas_reporte|length }} observado{{ filas_reporte|length|pluralize }}, {{ avisos_validos }} descartado{{ avisos_validos|pluralize }} como válido{{ avisos_validos|pluralize }} y {{ avisos_pendientes }} pendiente{{ avisos_pendientes|pluralize }}.{% if carga %} Importación: {{ carga.estado_importacion_display|lower }}. Revisión: {{ carga.estado_revision_carga_display|lower }}.{% endif %}</dd>
+            <dd>{{ avisos_total }} avisos generados: {{ avisos_observados }} observado{{ avisos_observados|pluralize }}, {{ avisos_validos }} descartado{{ avisos_validos|pluralize }} como válido{{ avisos_validos|pluralize }} y {{ avisos_pendientes }} pendiente{{ avisos_pendientes|pluralize }}. Transacciones atípicas observadas: {{ atipicas_observadas }}.{% if carga %} Importación: {{ carga.estado_importacion_display|lower }}. Revisión: {{ carga.estado_revision_carga_display|lower }}.{% endif %}</dd>
         </div>
     </dl>
 

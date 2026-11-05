@@ -2532,3 +2532,59 @@ class FechasTests(TestCase):
         self.assertEqual(_parsear_fecha(datetime(2023, 1, 2)).date(), date(2023, 1, 2))
         self.assertTrue(_parsear_fecha("") is pd.NaT or str(_parsear_fecha("")) == "NaT")
         self.assertEqual(str(_parsear_fecha("no es fecha")), "NaT")
+
+
+class EmpresaDuplicadaTests(TestCase):
+    """RF-09: no se registran dos empresas con el mismo nombre o NIT."""
+
+    def _form(self, **datos):
+        from .forms import EmpresaAuditadaForm
+        base = {"nombre": "Nueva S.R.L.", "nit": "", "rubro": "", "categoria_cierre": "general"}
+        base.update(datos)
+        return EmpresaAuditadaForm(data=base)
+
+    def test_rechaza_nombre_repetido_sin_importar_mayusculas(self):
+        EmpresaAuditada.objects.create(nombre="Tad S.R.L.")
+        form = self._form(nombre="  TAD   s.r.l. ")
+        self.assertFalse(form.is_valid())
+        self.assertIn("nombre", form.errors)
+
+    def test_rechaza_nit_repetido_aunque_cambien_los_separadores(self):
+        EmpresaAuditada.objects.create(nombre="Otra", nit="1234567-01")
+        form = self._form(nit="123.456.701")
+        self.assertFalse(form.is_valid())
+        self.assertIn("nit", form.errors)
+
+    def test_editar_la_misma_empresa_conserva_su_nombre_y_nit(self):
+        from .forms import EmpresaAuditadaForm
+        empresa = EmpresaAuditada.objects.create(nombre="Tad S.R.L.", nit="1234567")
+        form = EmpresaAuditadaForm(data={"nombre": "Tad S.R.L.", "nit": "1234567", "rubro": "",
+                                         "categoria_cierre": "general"}, instance=empresa)
+        self.assertTrue(form.is_valid(), form.errors)
+
+    def test_correo_se_guarda_en_minusculas(self):
+        form = self._form(contacto_email="  Gerente@Empresa.COM ")
+        self.assertTrue(form.is_valid(), form.errors)
+        self.assertEqual(form.cleaned_data["contacto_email"], "gerente@empresa.com")
+
+
+class ObservacionesConAtipicasTests(TestCase):
+    """El reporte de observaciones incluye también las atípicas marcadas como observadas."""
+
+    def test_atipica_observada_aparece_en_el_reporte(self):
+        from analisis.models import AnalisisCarga, ResultadoTransaccion
+        from reportes.servicio import reporte_observaciones
+        usuario = User.objects.create_user("auditor_obs", password="Clave-Segura123")
+        empresa = EmpresaAuditada.objects.create(nombre="Empresa Obs")
+        gestion = Gestion.objects.create(anio=2024, fecha_inicio=date(2024, 1, 1), fecha_fin=date(2024, 12, 31))
+        carga = CargaArchivo.objects.create(usuario=usuario, empresa=empresa, gestion=gestion, estado="validada")
+        cuenta = CuentaContable.objects.create(empresa=empresa, codigo="5.1.1", nombre="Gastos", tipo="gasto")
+        registro = RegistroContable.objects.create(carga=carga, fila_origen=7, fecha=date(2024, 3, 1), cuenta=cuenta,
+                                                   numero_comprobante="C-7", glosa="Pago", debe=Decimal("900"), haber=Decimal("0"))
+        analisis = AnalisisCarga.objects.create(carga=carga, estado="completado")
+        ResultadoTransaccion.objects.create(analisis=analisis, registro=registro, puntaje=1, nivel=0.95, atipica=True,
+                                            revision="relevante", comentario_revision="Sin respaldo", revisado_por=usuario)
+        datos = reporte_observaciones([carga])
+        self.assertEqual(len(datos["filas_reporte"]), 1)
+        self.assertEqual(datos["atipicas_observadas"], 1)
+        self.assertIn("Transacción atípica", datos["filas_reporte"][0]["observacion"].descripcion)

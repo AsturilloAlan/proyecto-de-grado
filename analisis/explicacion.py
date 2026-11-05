@@ -1,16 +1,7 @@
-"""Por qué el modelo señala una transacción como atípica, en lenguaje de auditoría.
+"""Motivos de cada atípica, en lenguaje de auditoría.
 
-One-Class SVM con kernel RBF no entrega la importancia de cada variable. Se usa una
-explicación por perturbación: se parte de una transacción "habitual" (todas las
-características en su valor promedio del entrenamiento) y se le pone una característica
-a la vez con el valor real de la transacción. Lo que sube el puntaje de anomalía mide
-cuánto hace atípica a la transacción esa característica por sí sola. Así también las
-transacciones extremas reciben motivo (al quitar una sola característica seguirían
-siendo extremas, por eso no se mide quitando).
-
-Solo se muestran motivos con sentido para el auditor y en la dirección sospechosa
-(importe alto, no bajo; cuenta con pocos movimientos, no con muchos). El cierre de mes
-nunca se presenta como motivo: es normal en contabilidad.
+Se mide cuánto sube el puntaje al poner una variable a la vez con su valor real sobre una
+transacción promedio. El cierre de mes no se muestra como motivo.
 """
 import math
 

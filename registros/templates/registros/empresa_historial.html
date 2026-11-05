@@ -1,49 +1,99 @@
 {% extends "base.html" %}
+{% load static %}
+{% block extra_head %}<link rel="stylesheet" href="{% static 'css/empresas.css' %}">{% endblock %}
 {% block title %}Historial de {{ empresa.nombre }}{% endblock %}
 {% block content %}
-    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
-        <h1 class="text-guindo mb-0">Historial de cambios: {{ empresa.nombre }}</h1>
+<div class="empresas-pagina empresa-historial">
+    <div class="empresa-cabecera">
+        <span class="empresa-icono" aria-hidden="true"><i class="bi bi-clock-history"></i></span><div class="flex-grow-1">
+            <p class="empresa-contexto">Trazabilidad de la empresa</p><h1 class="text-guindo h4 mb-0">Historial de {{ empresa.nombre }}</h1>
+            <p class="text-secondary small mb-0">Registrada el {{ empresa.fecha_registro|date:"d/m/Y" }}. {{ cambios|length }} cambio{{ cambios|length|pluralize }} registrado{{ cambios|length|pluralize }}.</p>
+        </div>
         {% if es_administrador %}
-        <a class="btn btn-sm btn-outline-guindo" href="{% url 'registros:empresa_editar' empresa.id %}">
-            Editar empresa
-        </a>
+            <a class="btn btn-sm btn-outline-guindo" href="{% url 'registros:empresa_editar' empresa.id %}">
+                <i class="bi bi-pencil me-1" aria-hidden="true"></i>Editar empresa
+            </a>
         {% endif %}
     </div>
 
     {% if cambios %}
-        <div class="table-responsive">
-            <table class="table table-hover align-middle">
-                <thead>
-                    <tr>
-                        <th>Fecha</th>
-                        <th>Usuario</th>
-                        <th>Acción</th>
-                        <th>Campo</th>
-                        <th>Valor anterior</th>
-                        <th>Valor nuevo</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for cambio in cambios %}
-                    <tr>
-                        <td>{{ cambio.fecha|date:"d/m/Y H:i" }}</td>
-                        <td>{{ cambio.usuario.username }}</td>
-                        <td>
-                            {% if cambio.accion == "creacion" %}
-                                <span class="badge text-bg-success">Creación</span>
-                            {% else %}
-                                <span class="badge text-bg-warning">Edición</span>
-                            {% endif %}
-                        </td>
-                        <td>{{ cambio.campo|default:"—" }}</td>
-                        <td class="text-secondary">{{ cambio.valor_anterior|default:"—" }}</td>
-                        <td>{{ cambio.valor_nuevo|default:"—" }}</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+        <div class="empresa-panel">
+        <div class="filtros-historial">
+            <div><label for="buscar-cambio" class="form-label">Buscar en los cambios</label><input class="form-control" type="search" id="buscar-cambio" placeholder="Dato, valor o usuario"></div>
+            <div><label for="filtro-campo" class="form-label">Dato modificado</label><select id="filtro-campo" class="form-select"><option value="">Todos los datos</option>{% for clave, etiqueta in campos %}<option value="{{ clave }}">{{ etiqueta }}</option>{% endfor %}</select></div>
+            <div><label for="filtro-usuario" class="form-label">Responsable</label><select id="filtro-usuario" class="form-select"><option value="">Todos los usuarios</option>{% for u in usuarios_cambio %}<option value="{{ u }}">{{ u }}</option>{% endfor %}</select></div>
+            <button type="button" id="limpiar-historial" class="btn btn-outline-secondary" style="min-height:42px">Limpiar</button>
         </div>
+        <p id="conteo-historial" class="small text-secondary mb-0" aria-live="polite">{{ cambios|length }} registros</p>
+        <div class="linea-historial" id="linea-historial">
+            {% for c in cambios %}
+                {% ifchanged c.fecha|date:"Y-m-d" %}<h2 class="dia-historial" data-dia>{{ c.fecha|date:"d \d\e F \d\e Y" }}</h2>{% endifchanged %}
+                <div class="evento-historial{% if c.accion == 'creacion' %} creacion{% endif %}"
+                     data-campo="{{ c.campo }}" data-usuario="{{ c.por }}"
+                     data-texto="{{ c.etiqueta|lower }} {{ c.anterior|lower }} {{ c.nuevo|lower }} {{ c.por|lower }}">
+                    <span class="punto-historial" aria-hidden="true"></span>
+                    <div class="cuerpo-historial">
+                        <div class="titulo-historial">
+                            <strong>{{ c.etiqueta }}</strong>
+                            <span class="text-secondary small">{{ c.fecha|date:"H:i" }}, {{ c.por }}</span>
+                        </div>
+                        {% if c.accion == "creacion" %}
+                            <div class="small text-secondary">Se registró la empresa en el sistema.</div>
+                        {% else %}
+                            <div class="valores-historial">
+                                <span class="valor-historial valor-antes"><small>Valor anterior</small>{{ c.anterior|default:"vacío" }}</span>
+                                <i class="bi bi-arrow-right" aria-hidden="true"></i>
+                                <span class="valor-historial valor-despues"><small>Valor nuevo</small>{{ c.nuevo|default:"vacío" }}</span>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            {% endfor %}
+            <p id="historial-vacio" class="text-secondary text-center py-4 mb-0" hidden>Ningún cambio coincide con el filtro.</p>
+        </div></div>
     {% else %}
         <p class="text-secondary">Todavía no hay cambios registrados para esta empresa.</p>
     {% endif %}
+
+</div>
+    <script>
+    document.addEventListener("DOMContentLoaded", function () {
+        var eventos = Array.prototype.slice.call(document.querySelectorAll(".evento-historial"));
+        if (!eventos.length) return;
+        var buscar = document.getElementById("buscar-cambio");
+        var campo = document.getElementById("filtro-campo");
+        var usuario = document.getElementById("filtro-usuario");
+        var vacio = document.getElementById("historial-vacio");
+        function normalizar(valor) {
+            return valor.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+        }
+        function aplicar() {
+            var texto = normalizar(buscar.value.trim());
+            var visibles = 0;
+            eventos.forEach(function (e) {
+                var ok = (!campo.value || e.dataset.campo === campo.value)
+                    && (!usuario.value || e.dataset.usuario === usuario.value)
+                    && (!texto || normalizar(e.dataset.texto).indexOf(texto) !== -1);
+                e.hidden = !ok;
+                if (ok) visibles++;
+            });
+            // Oculta el título de un día si no le queda ningún cambio visible.
+            document.querySelectorAll("[data-dia]").forEach(function (dia) {
+                var sig = dia.nextElementSibling, hay = false;
+                while (sig && !sig.hasAttribute("data-dia") && sig.id !== "historial-vacio") {
+                    if (!sig.hidden) { hay = true; break; }
+                    sig = sig.nextElementSibling;
+                }
+                dia.hidden = !hay;
+            });
+            vacio.hidden = visibles > 0;
+            document.getElementById("conteo-historial").textContent = visibles + " de " + eventos.length + " registros";
+        }
+        document.getElementById("limpiar-historial").addEventListener("click", function () {
+            buscar.value = ""; campo.value = ""; usuario.value = ""; aplicar(); buscar.focus();
+        });
+        aplicar();
+        [buscar, campo, usuario].forEach(function (el) { el.addEventListener("input", aplicar); el.addEventListener("change", aplicar); });
+    });
+    </script>
 {% endblock %}

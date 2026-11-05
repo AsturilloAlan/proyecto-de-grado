@@ -1,12 +1,12 @@
 {% extends "base.html" %}
+{% load static %}
+{% block extra_head %}<link rel="stylesheet" href="{% static 'css/empresas.css' %}">{% endblock %}
 {% block title %}Empresas clientes{% endblock %}
 {% block content %}
-    <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-3">
-        <div class="d-flex align-items-center gap-3">
-            <div class="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0"
-                 style="width:52px;height:52px;background:linear-gradient(135deg, var(--guindo), var(--guindo-oscuro));">
-                <i class="bi bi-building text-white fs-4"></i>
-            </div>
+<div class="empresas-pagina">
+    <div class="empresa-cabecera">
+        <div class="d-flex align-items-center gap-3 flex-grow-1">
+            <span class="empresa-icono" aria-hidden="true"><i class="bi bi-building"></i></span>
             <h1 id="lista-empresas" class="text-guindo mb-0 h3">Empresas clientes de ST&amp;S</h1>
         </div>
         {% if es_administrador %}
@@ -16,8 +16,8 @@
         {% endif %}
     </div>
 
-    <form method="get" class="row g-2 mb-3">
-        <div class="col-sm-8 col-md-5">
+    <form method="get" class="empresa-busqueda">
+        <div>
             <label for="buscar-empresa" class="form-label">Nombre o NIT de la empresa</label>
             <div class="input-group">
                 <span class="input-group-text input-group-text-icono"><i class="bi bi-search"></i></span>
@@ -31,11 +31,12 @@
                 <button class="btn btn-outline-guindo" type="submit">Buscar</button>
             </div>
         </div>
+        <span class="small text-secondary">{{ empresas.paginator.count }} empresa{{ empresas.paginator.count|pluralize }}{% if busqueda %} encontrada{{ empresas.paginator.count|pluralize }}{% endif %}</span>
     </form>
 
     {% if empresas %}
         <div class="table-responsive">
-            <table class="table tabla-fichas table-hover align-middle">
+            <table class="table tabla-fichas table-hover align-middle empresa-tabla">
                 <thead>
                     <tr>
                         <th>Nombre</th>
@@ -43,7 +44,7 @@
                         <th>Rubro</th>
                         <th>Contactos</th>
                         <th>Registrada</th>
-                        <th></th>
+                        <th>Acciones</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -53,18 +54,18 @@
                         <td data-etiqueta="NIT">{{ empresa.nit|default:"—" }}</td>
                         <td data-etiqueta="Rubro">{{ empresa.rubro|default:"—" }}</td>
                         <td data-etiqueta="Contactos">
-                            {% if empresa.contacto_nombre %}
-                                <div>{{ empresa.contacto_nombre }} <small class="text-secondary">· Representante legal</small></div>
+                            {% if empresa.contacto_nombre or empresa.contacto_email or empresa.contacto_telefono %}
+                                <div>{{ empresa.contacto_nombre|default:"Representante legal" }}{% if empresa.contacto_nombre %} <small class="text-secondary">· Representante legal</small>{% endif %}</div>
                                 <small class="text-secondary">{{ empresa.contacto_email }}{% if empresa.contacto_email and empresa.contacto_telefono %} · {% endif %}{{ empresa.contacto_telefono }}</small>
                             {% endif %}
-                            {% if empresa.contador_nombre %}
-                                <div class="mt-1">{{ empresa.contador_nombre }} <small class="text-secondary">· Contador</small></div>
+                            {% if empresa.contador_nombre or empresa.contador_email or empresa.contador_telefono %}
+                                <div class="mt-1">{{ empresa.contador_nombre|default:"Contador" }}{% if empresa.contador_nombre %} <small class="text-secondary">· Contador</small>{% endif %}</div>
                                 <small class="text-secondary">{{ empresa.contador_email }}{% if empresa.contador_email and empresa.contador_telefono %} · {% endif %}{{ empresa.contador_telefono }}</small>
                             {% endif %}
-                            {% if not empresa.contacto_nombre and not empresa.contador_nombre %}—{% endif %}
+                            {% if not empresa.contacto_nombre and not empresa.contador_nombre and not empresa.contacto_email and not empresa.contacto_telefono and not empresa.contador_email and not empresa.contador_telefono %}<span class="text-secondary">Sin contactos</span>{% endif %}
                         </td>
                         <td data-etiqueta="Registrada">{{ empresa.fecha_registro|date:"d/m/Y" }}</td>
-                        <td data-etiqueta="Acciones">
+                        <td data-etiqueta="Acciones"><div class="empresa-botones">
                             {% if es_administrador %}
                             <a class="btn btn-sm btn-outline-guindo" href="{% url 'registros:empresa_editar' empresa.id %}">
                                 Editar
@@ -72,7 +73,7 @@
                             {% endif %}
                             <a class="btn btn-sm btn-outline-secondary" href="{% url 'registros:empresa_historial' empresa.id %}">
                                 Historial
-                            </a>
+                            </a></div>
                         </td>
                     </tr>
                     {% endfor %}
@@ -101,4 +102,5 @@
             {% endif %}
         </div>
     {% endif %}
+</div>
 {% endblock %}

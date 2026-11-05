@@ -481,8 +481,9 @@ def usuarios_lista(request):
     usuarios_qs = (
         User.objects.exclude(pk=request.user.pk)
         .exclude(is_superuser=True)
+        .select_related("perfil")
         .prefetch_related("groups")
-        .order_by("username")
+        .order_by("-is_active", "first_name", "username")
     )
     usuarios = [
         {"objeto": u, "rol": _rol_de(u)}
@@ -492,6 +493,8 @@ def usuarios_lista(request):
         "total": len(usuarios),
         "activos": sum(1 for u in usuarios if u["objeto"].is_active),
         "administradores": sum(1 for u in usuarios if u["rol"] == "Administrador"),
+        "auditores": sum(1 for u in usuarios if u["rol"] == "Auditor"),
+        "inactivos": sum(1 for u in usuarios if not u["objeto"].is_active),
     }
     return render(request, "usuarios/usuarios_lista.html", {"usuarios": usuarios, "resumen": resumen})
 
@@ -539,11 +542,11 @@ def usuario_editar(request, usuario_id):
 
     if request.method == "POST":
         valores_anteriores = {"first_name": usuario_obj.first_name, "last_name": usuario_obj.last_name,
-                              "email": usuario_obj.email, "is_active": usuario_obj.is_active}
+                              "is_active": usuario_obj.is_active}
         form = UsuarioEditarForm(request.POST, instance=usuario_obj)
         if form.is_valid():
             form.save()
-            registrar_edicion(usuario_obj, valores_anteriores, request.user, ["first_name", "last_name", "email", "is_active"])
+            registrar_edicion(usuario_obj, valores_anteriores, request.user, ["first_name", "last_name", "is_active"])
 
             nuevo_rol = form.cleaned_data["rol"]
             if nuevo_rol != rol_actual:
@@ -580,7 +583,7 @@ def usuario_editar(request, usuario_id):
                  "nuevo": {"True": "Sí", "False": "No"}.get(c.valor_nuevo, c.valor_nuevo),
                  "fecha": c.fecha, "por": c.usuario}
                 for c in HistorialCambio.objects.filter(modelo="User", objeto_id=usuario_obj.pk)
-                .select_related("usuario").order_by("-fecha")[:8]
+                .select_related("usuario").order_by("-fecha")[:100]
             ],
         },
     )

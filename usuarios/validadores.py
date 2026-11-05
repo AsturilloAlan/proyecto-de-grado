@@ -1,11 +1,4 @@
-"""Reglas de contraseña propias del sistema (además de las de Django).
-
-- ComplejidadValidator: al menos una mayúscula, una minúscula, un número y un símbolo.
-- HistorialValidator: no repetir ni hacer variantes simples de las últimas contraseñas
-  ("Clave2025" → "Clave2026" o "Clave20251"). Para comparar sin guardar contraseñas en
-  claro se guarda, cifrada como una contraseña, su "raíz": solo las letras, en minúsculas
-  y sin tildes. Dos contraseñas con la misma raíz se consideran parecidas.
-"""
+"""Reglas de contraseña: complejidad y no repetir variantes de las últimas (se compara la raíz cifrada)."""
 import unicodedata
 from difflib import SequenceMatcher
 

@@ -1,9 +1,4 @@
-"""Prueba de integración de punta a punta (actividad 19).
-
-Recorre el trabajo real de una auditora con todos los módulos unidos: inicio de sesión
-con verificación en dos pasos y JWT, registro de la empresa y su gestión, carga del libro,
-validación, análisis con el modelo, revisión de atípicas y avisos, reportes y descarga.
-"""
+"""Prueba de punta a punta: inicio de sesión, empresa, carga, análisis, revisión y reportes."""
 import json
 import tempfile
 from unittest.mock import patch

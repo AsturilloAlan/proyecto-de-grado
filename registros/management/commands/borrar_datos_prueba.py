@@ -1,8 +1,4 @@
-"""Vacía los datos de negocio cargados durante las pruebas, sin tocar usuarios ni roles.
-
-Borra cargas, registros, avisos, análisis del modelo y sus revisiones, cuentas, reportes
-emitidos y el historial de esos datos. No toca usuarios, roles, el modelo entrenado
-(modelos_ml) ni la bitácora de correos.
+"""Vacía los datos de negocio de prueba. No toca usuarios, roles, modelo ni correos.
 
     python manage.py borrar_datos_prueba                          # solo muestra conteos
     python manage.py borrar_datos_prueba --confirmar               # borra todo

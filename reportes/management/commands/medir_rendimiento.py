@@ -1,18 +1,11 @@
-"""Prueba de rendimiento (actividad 20, RNF-02).
-
-Genera un libro sintético del tamaño indicado (por defecto 24.000 filas, el libro más
-grande de la firma), lo procesa con el flujo real y mide cuánto tarda cada etapa. Todo se
-hace dentro de una transacción que al final se deshace y con archivos en una carpeta
-temporal: no queda ningún dato en la base ni en media/.
+"""Prueba de rendimiento (RNF-02): mide cada etapa del flujo y deshace todo al terminar.
 
 Uso:
     python manage.py medir_rendimiento
     python manage.py medir_rendimiento --filas 24000 --repeticiones 3 --csv rendimiento.csv
     python manage.py medir_rendimiento --carga 49 --repeticiones 3 --csv rendimiento.csv
 
-Con --carga se mide con el archivo real de esa carga (recomendado para la tesis): el libro
-sintético tiene cuentas y glosas que el modelo no conoce, así que casi todo sale atípico y
-el PDF resulta de cientos de páginas, algo que no ocurre con un libro real.
+Con --carga se usa el archivo real de esa carga en lugar de un libro sintético.
 """
 import csv
 import random

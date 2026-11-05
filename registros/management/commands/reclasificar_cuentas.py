@@ -3,9 +3,6 @@
 Uso:
     python manage.py reclasificar_cuentas                                   # solo muestra
     python manage.py reclasificar_cuentas --confirmar --usuario SOCIO_PRINCIPAL
-
-Cada cambio queda en el historial de cambios a nombre del usuario indicado. Los avisos de
-naturaleza de cuenta de cargas ya procesadas no se recalculan: hay que volver a subirlas.
 """
 from collections import Counter
 

@@ -1,10 +1,4 @@
-"""Reportes (RF-05, RF-08): constancia de cada reporte emitido.
-
-Cada vez que alguien abre un reporte queda registrado quién lo emitió, cuándo, de qué
-empresa y gestión (y de qué carga, si fue de una sola), con qué filtros y con qué cifras.
-Así se puede demostrar qué información tenía el auditor en el momento en que la usó,
-aunque después la revisión avance y el reporte cambie.
-"""
+"""Registro de cada reporte emitido: quién, cuándo, de qué gestión, con qué filtros y cifras."""
 from django.conf import settings
 from django.db import models
 

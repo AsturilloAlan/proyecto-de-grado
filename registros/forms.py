@@ -80,8 +80,34 @@ class EmpresaAuditadaForm(forms.ModelForm):
             "contador_telefono": forms.TextInput(attrs={"class": "form-control"}),
         }
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.instance.pk:
+            self.fields.pop("anio_gestion_inicial")
+        else:
+            self.fields["anio_gestion_inicial"].widget.attrs["max"] = date.today().year + 1
+        for nombre in ("contacto_telefono", "contador_telefono"):
+            self.fields[nombre].widget.attrs.update({"type": "tel", "maxlength": 20})
+        self.fields["nit"].help_text = "De 5 a 15 dígitos; admite puntos, espacios o guiones."
+        self.fields["contador_nombre"].help_text = ""
+        self.fields["rubro"].help_text = "Actividad principal de la empresa."
+        self.fields["categoria_cierre"].label = "Cierre de gestión (SIN)"
+        self.fields["categoria_cierre"].help_text = "Sugiere fechas para nuevas gestiones; no modifica las existentes."
+        for nombre, campo in self.fields.items():
+            campo.widget.attrs["aria-describedby"] = f"{self[nombre].auto_id}_ayuda {self[nombre].auto_id}_errores"
+
+    def full_clean(self):
+        super().full_clean()
+        for nombre, campo in self.fields.items():
+            if nombre in self.errors:
+                campo.widget.attrs["class"] += " is-invalid"
+                campo.widget.attrs["aria-invalid"] = "true"
+
+    def _otras_empresas(self):
+        return EmpresaAuditada.objects.exclude(pk=self.instance.pk) if self.instance.pk else EmpresaAuditada.objects.all()
+
     def clean_nombre(self):
-        nombre = _texto_visible(self.cleaned_data["nombre"].strip())
+        nombre = " ".join(_texto_visible(self.cleaned_data["nombre"]).split())
         if not nombre:
             raise forms.ValidationError("El nombre de la empresa es obligatorio.")
         if not PATRON_TIENE_LETRA.search(nombre):
@@ -89,10 +115,25 @@ class EmpresaAuditadaForm(forms.ModelForm):
                 "El nombre de la empresa debe incluir al menos una letra; no "
                 "puede ser solo números o símbolos."
             )
+        if self._otras_empresas().filter(nombre__iexact=nombre).exists():
+            raise forms.ValidationError("Ya hay una empresa registrada con este nombre.")
         return nombre
 
     def clean_rubro(self):
-        return _texto_visible(self.cleaned_data.get("rubro", ""))
+        rubro = " ".join(_texto_visible(self.cleaned_data.get("rubro", "")).split())
+        if rubro and not PATRON_TIENE_LETRA.search(rubro):
+            raise forms.ValidationError("El rubro debe contener letras.")
+        return rubro
+
+    def _correo(self, campo):
+        correo = _texto_visible(self.cleaned_data.get(campo, "").strip()).lower()
+        return correo
+
+    def clean_contacto_email(self):
+        return self._correo("contacto_email")
+
+    def clean_contador_email(self):
+        return self._correo("contador_email")
 
     def clean_anio_gestion_inicial(self):
         anio = self.cleaned_data.get("anio_gestion_inicial")
@@ -101,7 +142,7 @@ class EmpresaAuditadaForm(forms.ModelForm):
         return anio
 
     def clean_contacto_nombre(self):
-        contacto_nombre = unicodedata.normalize("NFC", self.cleaned_data.get("contacto_nombre", "").strip())
+        contacto_nombre = " ".join(_texto_visible(self.cleaned_data.get("contacto_nombre") or "").split())
         if contacto_nombre and (
             not PATRON_TIENE_LETRA.search(contacto_nombre)
             or any(not (c.isalpha() or c in " .'-’") for c in contacto_nombre)
@@ -112,7 +153,7 @@ class EmpresaAuditadaForm(forms.ModelForm):
         return contacto_nombre
 
     def clean_contador_nombre(self):
-        nombre = unicodedata.normalize("NFC", " ".join((self.cleaned_data.get("contador_nombre") or "").split()))
+        nombre = " ".join(_texto_visible(self.cleaned_data.get("contador_nombre") or "").split())
         if nombre and (not PATRON_TIENE_LETRA.search(nombre)
                        or any(not (c.isalpha() or c in " .'-’") for c in nombre)):
             raise forms.ValidationError(
@@ -131,6 +172,10 @@ class EmpresaAuditadaForm(forms.ModelForm):
                 f"NIT no válido: de {NIT_MINIMO_DIGITOS} a {NIT_MAXIMO_DIGITOS} dígitos, "
                 "con puntos o guiones opcionales."
             )
+        solo_digitos = re.sub(r"\D", "", nit)
+        for otro in self._otras_empresas().exclude(nit="").values_list("nit", flat=True):
+            if re.sub(r"\D", "", otro) == solo_digitos:
+                raise forms.ValidationError("Ya hay una empresa registrada con este NIT.")
         return nit
 
     def clean_contacto_telefono(self):

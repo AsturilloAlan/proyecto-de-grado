@@ -1,8 +1,4 @@
-"""Archivos en media/cargas que no pertenecen a ninguna carga del sistema.
-
-Suelen quedar por pruebas antiguas o por cargas interrumpidas. Nunca se borran: con
---confirmar se mueven a una carpeta de cuarentena dentro de media/, para revisarlos y
-eliminarlos a mano si corresponde.
+"""Archivos de media/cargas sin carga asociada. Con --confirmar se mueven a cuarentena.
 
 Uso:
     python manage.py archivos_huerfanos             # solo muestra cuáles son

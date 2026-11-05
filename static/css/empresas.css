@@ -1,0 +1,68 @@
+.empresas-pagina { min-width: 0; }
+.empresas-pagina .cierre-empresa { min-width: 0; width: 100%; }
+.empresas-pagina .cierre-empresa .selector-texto,
+.empresas-pagina .cierre-empresa .selector-opcion { white-space: normal; overflow-wrap: anywhere; text-overflow: clip; line-height: 1.45; }
+.empresas-pagina .cierre-empresa .selector-boton { height: auto; min-height: 44px; padding-block: .6rem; }
+.empresas-pagina .cierre-empresa .selector-opcion { min-height: 44px; display: flex; align-items: center; }
+.empresas-pagina .cierre-empresa .selector-lista { max-height: min(20rem, 50dvh); overscroll-behavior: contain; }
+.empresa-volver { display: inline-flex; align-items: center; gap: .45rem; font-size: .85rem; margin-bottom: 1rem; text-decoration: none; }
+.empresa-cabecera { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.5rem; }
+.empresa-cabecera > div { min-width: 0; }
+.empresa-cabecera h1 { font-size: clamp(1.35rem, 2.2vw, 1.85rem); margin: 0 0 .3rem; color: var(--guindo); overflow-wrap: anywhere; }
+.empresa-contexto { font-size: .72rem; letter-spacing: .09em; text-transform: uppercase; font-weight: 700; color: var(--bs-secondary-color); margin: 0 0 .3rem; }
+.empresa-icono { width: 48px; height: 48px; flex-shrink: 0; display: grid; place-items: center; background: var(--guindo); color: white; border-radius: 14px; font-size: 1.3rem; }
+.empresa-panel { border: 1px solid var(--bs-border-color); border-radius: 14px; padding: 1.2rem; background: var(--bs-body-bg); }
+.empresa-panel-titulo { display: flex; align-items: center; justify-content: space-between; gap: .5rem 1rem; flex-wrap: wrap; margin-bottom: 1rem; }
+.empresa-panel-titulo h2 { font-family: inherit; font-size: 1rem; font-weight: 700; margin: 0; }
+.empresa-panel-titulo h2 i { color: var(--guindo); margin-right: .4rem; }
+.empresas-pagina .form-label { font-size: .85rem; font-weight: 600; margin-bottom: .4rem; }
+.empresas-pagina .form-control, .empresas-pagina .form-select { min-height: 42px; }
+.empresas-pagina .form-text { font-size: .76rem; }
+.empresas-pagina .form-text:empty, .empresas-pagina .invalid-feedback:empty { display: none !important; }
+.empresa-acciones { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; padding: 1rem 0 .25rem; }
+.empresa-recientes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; }
+.empresa-recientes article { padding-left: .8rem; border-left: 2px solid var(--bs-border-color); overflow-wrap: anywhere; }
+.empresa-recientes strong { display: block; font-size: .85rem; margin-bottom: .35rem; }
+.empresa-busqueda { display: flex; align-items: end; justify-content: space-between; gap: 1rem; flex-wrap: wrap; background: var(--bs-tertiary-bg); border-radius: 12px; padding: 1rem; margin-bottom: 1rem; }
+.empresa-busqueda > div { flex: 1 1 320px; max-width: 620px; }
+.empresa-tabla td { vertical-align: middle; font-size: .85rem; overflow-wrap: anywhere; }
+.empresa-tabla td:first-child { font-weight: 600; min-width: 170px; }
+.empresa-tabla th { font-size: .75rem; color: var(--bs-secondary-color); }
+.empresa-tabla .empresa-contacto { margin-bottom: .5rem; }
+.empresa-tabla .empresa-contacto:last-child { margin-bottom: 0; }
+.empresa-tabla .empresa-botones { display: flex; gap: .4rem; flex-wrap: wrap; }
+.empresa-tabla .empresa-botones .btn { white-space: nowrap; }
+.empresa-historial [hidden] { display: none !important; }
+.empresa-historial .filtros-historial { display: grid; grid-template-columns: minmax(200px, 2fr) repeat(2, minmax(160px, 1fr)) auto; gap: .8rem; align-items: end; margin-bottom: 1rem; }
+.empresa-historial .evento-historial { border-bottom: 1px solid var(--bs-border-color); padding: 1rem 0; }
+.empresa-historial .evento-historial:last-of-type { border-bottom: 0; }
+.empresa-historial .titulo-historial { display: flex; justify-content: space-between; flex-wrap: wrap; gap: .5rem; margin-bottom: .6rem; font-size: .9rem; }
+.empresa-historial .valores-historial { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); gap: .8rem; align-items: center; }
+.empresa-historial .valor-historial { background: var(--bs-tertiary-bg); border-radius: 8px; padding: .65rem .8rem; overflow-wrap: anywhere; font-size: .87rem; min-width: 0; }
+.empresa-historial .valor-historial small { display: block; font-size: .7rem; color: var(--bs-secondary-color); margin-bottom: .3rem; }
+.empresa-historial .valor-despues { border-left: 3px solid var(--guindo); }
+.empresa-historial .dia-historial { font-family: inherit; font-size: .8rem; font-weight: 700; color: var(--guindo); padding: .65rem .8rem; background: var(--bs-tertiary-bg); border-radius: 8px; margin: 1rem 0 0; }
+[data-bs-theme="dark"] .empresa-cabecera h1,
+[data-bs-theme="dark"] .empresa-panel-titulo h2 i,
+[data-bs-theme="dark"] .empresa-historial .dia-historial { color: #e7b8cd; }
+[data-bs-theme="dark"] .empresa-historial .valor-despues { border-left-color: #e7b8cd; }
+@media (max-width: 767.98px) {
+    .empresas-pagina .cierre-empresa .selector-lista { position: static; margin-top: .4rem; width: 100%; }
+    .empresas-pagina .form-control, .empresas-pagina .form-select { font-size: 16px; }
+    .empresas-pagina .btn { min-height: 44px; }
+    .empresa-cabecera > .flex-grow-1 { flex-basis: calc(100% - 64px); overflow-wrap: anywhere; }
+    .empresa-busqueda > div { min-width: 0; }
+    .empresa-recientes { grid-template-columns: 1fr; }
+    .empresa-panel { padding: 1rem; }
+    .empresa-historial .filtros-historial { grid-template-columns: 1fr 1fr; }
+    .empresa-historial .filtros-historial > div:first-child { grid-column: 1 / -1; }
+    .empresa-historial .valores-historial { grid-template-columns: 1fr; gap: .4rem; }
+    .empresa-historial .valores-historial > i { display: none; }
+    .empresa-acciones > div { width: 100%; }
+    .empresa-acciones .btn { flex: 1; }
+}
+@media (max-width: 399.98px) { .empresa-historial .filtros-historial { grid-template-columns: 1fr; } }
+@media (max-width: 359.98px) {
+    .empresa-acciones > div { flex-direction: column; }
+    .empresa-acciones .btn { width: 100%; }
+}

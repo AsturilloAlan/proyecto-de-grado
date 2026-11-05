@@ -1,13 +1,4 @@
-"""Respaldo del dataset definitivo: registros, variables del modelo, resultado y revisión.
-
-Genera una carpeta con:
-    dataset_definitivo.csv   una fila por registro de cada carga, con su uso
-                             (entrenamiento o aplicación), las 12 variables del modelo,
-                             el puntaje, si es atípica, sus motivos y la revisión del auditor.
-    ficha_dataset.md         resumen: cargas, registros por gestión, modelo, métricas de prueba
-                             y diccionario de columnas.
-    muestra_dataset.csv      muestra corta para presentar (10 normales y 10 atípicas por carga).
-    one_class_svm.json       copia de los metadatos del modelo entrenado.
+"""Exporta el dataset (CSV), su ficha, una muestra y los metadatos del modelo.
 
 Uso:
     python manage.py exportar_dataset_definitivo              # todas las cargas válidas

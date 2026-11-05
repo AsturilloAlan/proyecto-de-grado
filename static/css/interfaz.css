@@ -84,6 +84,14 @@ h1 { font-size: clamp(1.6rem, 2.6vw, 2.2rem); }
 }
 .btn:focus-visible { box-shadow: 0 0 0 .2rem var(--superficie), 0 0 0 .4rem var(--acento-interfaz); }
 #boton-tema { min-width: 40px; min-height: 40px; border-radius: 12px; }
+@media (max-width: 399.98px) {
+    .navbar-guindo .navbar-brand { margin-right: .35rem; }
+    .navbar-guindo .logo-navbar-caja { width: 100px; }
+    .navbar-guindo .logo-navbar-caja img { max-width: 100px; }
+    .navbar-guindo .acciones-navbar { gap: .25rem !important; }
+    .navbar-guindo #menuUsuario { padding-inline: .3rem; }
+    .navbar-guindo .navbar-toggler { width: 44px; min-height: 44px; padding: .25rem; margin-left: .35rem !important; }
+}
 .logo-navbar-caja:hover img { transform: none; }
 /* El menú conserva su espacio incluso con nombres de usuario largos. */
 @media (min-width: 768px) {

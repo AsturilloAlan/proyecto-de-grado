@@ -1,0 +1,15 @@
+<label for="{{ campo.id_for_label }}" class="form-label">{{ campo.label }}</label>
+{% if campo.name == "categoria_cierre" %}
+<div class="selector-personalizado cierre-empresa">
+    <div class="select-oculto">{{ campo }}</div>
+    <button type="button" class="form-control selector-boton{% if campo.errors %} is-invalid{% endif %}" aria-describedby="{{ campo.auto_id }}_ayuda {{ campo.auto_id }}_errores"{% if campo.errors %} aria-invalid="true"{% endif %}>
+        <span class="selector-texto"></span><i class="bi bi-chevron-down" aria-hidden="true"></i>
+    </button>
+    <ul class="selector-lista d-none" role="listbox">
+        {% for valor, etiqueta in campo.field.choices %}<li class="selector-opcion" data-valor="{{ valor }}" role="option">{{ etiqueta }}</li>{% endfor %}
+    </ul>
+</div>
+<noscript><style>.cierre-empresa .select-oculto { position: static; width: auto; height: auto; margin: 0; overflow: visible; clip: auto; white-space: normal; } .cierre-empresa .selector-boton { display: none; }</style></noscript>
+{% else %}{{ campo }}{% endif %}
+<div id="{{ campo.auto_id }}_ayuda" class="form-text">{{ campo.help_text }}</div>
+<div id="{{ campo.auto_id }}_errores" class="invalid-feedback d-block">{% for error in campo.errors %}<div>{{ error }}</div>{% endfor %}</div>

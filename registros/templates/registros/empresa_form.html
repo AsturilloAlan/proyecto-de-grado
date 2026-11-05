@@ -1,142 +1,59 @@
 {% extends "base.html" %}
+{% load static %}
 {% block title %}{{ titulo }}{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{% static 'css/empresas.css' %}">{% endblock %}
 {% block content %}
-    <div class="d-flex align-items-start flex-wrap gap-3 mb-4">
-        <div class="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0"
-             style="width:56px;height:56px;background:linear-gradient(135deg, var(--guindo), var(--guindo-oscuro));">
-            <i class="bi bi-building text-white fs-4"></i>
-        </div>
-        <div class="flex-grow-1" style="min-width: 220px;">
-            <h1 class="text-guindo mb-1 h3">{{ titulo }}</h1>
-            <p class="text-secondary mb-0">
-                {% if empresa %}
-                    Actualiza los datos generales y de contacto de esta empresa auditada.
-                {% else %}
-                    Completa los datos generales y de contacto para registrar una nueva empresa cliente.
-                {% endif %}
-            </p>
-        </div>
-        {% if empresa %}
-            <a class="btn btn-sm btn-outline-guindo align-self-center" href="{% url 'registros:empresa_historial' empresa.id %}">
-                Ver historial de cambios
-            </a>
-        {% endif %}
-    </div>
-    <hr class="mb-4">
-    <form method="post" class="mx-auto" style="max-width: 1120px;">
-        {% csrf_token %}
-        {{ form.non_field_errors }}
-
-        <div class="row g-3 align-items-start">
-        <div class="col-lg-6 d-flex flex-column gap-3">
-        <div class="p-3 rounded border">
-            <h2 class="h6 text-guindo text-uppercase mb-3">
-                Datos generales
-            </h2>
-            <div class="row g-3">
-                <div class="col-md-8">
-                    <label for="{{ form.nombre.id_for_label }}" class="form-label">{{ form.nombre.label }}</label>
-                    {{ form.nombre }}
-                    {% for error in form.nombre.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
-                </div>
-                <div class="col-md-4">
-                    <label for="{{ form.nit.id_for_label }}" class="form-label">{{ form.nit.label }}</label>
-                    {{ form.nit }}
-                    {% for error in form.nit.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
-                </div>
-                <div class="col-md-6">
-                    <label for="{{ form.rubro.id_for_label }}" class="form-label">{{ form.rubro.label }}</label>
-                    {{ form.rubro }}
-                    <div class="form-text">Ayuda a interpretar el análisis según el giro.</div>
-                    {% for error in form.rubro.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
-                </div>
-                <div class="col-md-6">
-                    <label for="{{ form.categoria_cierre.id_for_label }}" class="form-label">Cierre de gestión (SIN)</label>
-                    <div class="input-group selector-personalizado">
-                        <span class="input-group-text input-group-text-icono"><i class="bi bi-calendar-check"></i></span>
-                        <div class="select-oculto">{{ form.categoria_cierre }}</div>
-                        <button type="button" class="form-control selector-boton">
-                            <span class="selector-texto"></span>
-                            <i class="bi bi-chevron-down"></i>
-                        </button>
-                        <ul class="selector-lista d-none" role="listbox">
-                            {% for valor, etiqueta in form.categoria_cierre.field.choices %}
-                                <li class="selector-opcion" data-valor="{{ valor }}" role="option">{{ etiqueta }}</li>
-                            {% endfor %}
-                        </ul>
-                    </div>
-                    <div class="form-text" title="{{ form.categoria_cierre.help_text }}">Sugiere las fechas de cada gestión.</div>
-                    {% for error in form.categoria_cierre.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
-                </div>
-            </div>
-        </div>
-
-        {% if not empresa %}
-            <div class="p-3 rounded border">
-                <h2 class="h6 text-guindo text-uppercase mb-3">
-                    Gestión a auditar
-                </h2>
-                <label for="{{ form.anio_gestion_inicial.id_for_label }}" class="form-label">{{ form.anio_gestion_inicial.label }}</label>
-                {{ form.anio_gestion_inicial }}
-                {% if form.anio_gestion_inicial.help_text %}<div class="form-text">{{ form.anio_gestion_inicial.help_text }}</div>{% endif %}
-                {% for error in form.anio_gestion_inicial.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
-            </div>
-        {% endif %}
-        </div>
-        <div class="col-lg-6 d-flex flex-column gap-3">
-        <div class="p-3 rounded border">
-            <h2 class="h6 text-guindo text-uppercase mb-1">Representante legal</h2>
-            <p class="small text-secondary mb-3">Recibe y firma el reporte de observaciones.</p>
-            <div class="row g-3">
-                <div class="col-12">
-                    <label for="{{ form.contacto_nombre.id_for_label }}" class="form-label">{{ form.contacto_nombre.label }}</label>
-                    {{ form.contacto_nombre }}
-                    {% for error in form.contacto_nombre.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
-                </div>
-                <div class="col-sm-7">
-                    <label for="{{ form.contacto_email.id_for_label }}" class="form-label">{{ form.contacto_email.label }}</label>
-                    {{ form.contacto_email }}
-                    {% for error in form.contacto_email.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
-                </div>
-                <div class="col-sm-5">
-                    <label for="{{ form.contacto_telefono.id_for_label }}" class="form-label">{{ form.contacto_telefono.label }}</label>
-                    {{ form.contacto_telefono }}
-                    {% for error in form.contacto_telefono.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
-                </div>
-            </div>
-        </div>
-
-        <div class="p-3 rounded border">
-            <h2 class="h6 text-guindo text-uppercase mb-1">Contador</h2>
-            <p class="small text-secondary mb-3">Justifica las observaciones y firma su respuesta en el reporte.</p>
-            <div class="row g-3">
-                <div class="col-12">
-                    <label for="{{ form.contador_nombre.id_for_label }}" class="form-label">{{ form.contador_nombre.label }}</label>
-                    {{ form.contador_nombre }}
-                    {% for error in form.contador_nombre.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
-                </div>
-                <div class="col-sm-7">
-                    <label for="{{ form.contador_email.id_for_label }}" class="form-label">{{ form.contador_email.label }}</label>
-                    {{ form.contador_email }}
-                    {% for error in form.contador_email.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
-                </div>
-                <div class="col-sm-5">
-                    <label for="{{ form.contador_telefono.id_for_label }}" class="form-label">{{ form.contador_telefono.label }}</label>
-                    {{ form.contador_telefono }}
-                    {% for error in form.contador_telefono.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
-                </div>
-            </div>
-        </div>
-
-
-        </div>
-        </div>
-
-        <div class="d-flex gap-2 justify-content-end border-top pt-3 mt-3">
-            <a class="btn btn-outline-guindo" href="{% url 'registros:empresas_lista' %}">Cancelar</a>
-            <button class="btn btn-guindo" type="submit">
-                Guardar
-            </button>
-        </div>
-    </form>
+<div class="empresas-pagina">
+<header class="empresa-cabecera">
+<span class="empresa-icono" aria-hidden="true"><i class="bi bi-building"></i></span>
+<div class="flex-grow-1"><p class="empresa-contexto">{% if empresa %}Editar empresa{% else %}Nuevo registro{% endif %}</p>
+<h1>{% if empresa %}{{ empresa.nombre }}{% else %}Registrar empresa cliente{% endif %}</h1>
+<p class="small text-secondary mb-0">{% if empresa %}Registrada el {{ empresa.fecha_registro|date:"d/m/Y" }}{% if empresa.nit %} · NIT {{ empresa.nit }}{% endif %}{% else %}Datos generales y contactos para los reportes de auditoría.{% endif %}</p></div>
+{% if empresa %}<a class="btn btn-outline-guindo" href="{% url 'registros:empresa_historial' empresa.id %}"><i class="bi bi-clock-history me-1" aria-hidden="true"></i> Ver historial</a>{% endif %}
+</header>
+<form method="post" novalidate id="form-empresa">
+{% csrf_token %}
+{% if form.errors %}<div class="alert alert-danger" role="alert" tabindex="-1" id="errores-empresa"><strong>No se guardaron los cambios.</strong> Revisar los campos indicados.{% for error in form.non_field_errors %}<div>{{ error }}</div>{% endfor %}</div>{% endif %}
+<section class="empresa-panel mb-3" aria-labelledby="datos-empresa">
+<div class="empresa-panel-titulo"><h2 id="datos-empresa"><i class="bi bi-building" aria-hidden="true"></i> Datos generales</h2><span class="small text-secondary">* Obligatorio</span></div>
+<div class="row g-3">
+<div class="col-md-8">{% include "registros/_campo_empresa.html" with campo=form.nombre %}</div>
+<div class="col-md-4">{% include "registros/_campo_empresa.html" with campo=form.nit %}</div>
+<div class="col-md-5">{% include "registros/_campo_empresa.html" with campo=form.rubro %}</div>
+<div class="col-md-7">{% include "registros/_campo_empresa.html" with campo=form.categoria_cierre %}</div>
+{% if not empresa %}<div class="col-md-5">{% include "registros/_campo_empresa.html" with campo=form.anio_gestion_inicial %}</div>{% endif %}
+</div></section>
+<div class="row g-3">
+<div class="col-lg-6"><section class="empresa-panel h-100" aria-labelledby="contacto-empresa">
+<div class="empresa-panel-titulo"><h2 id="contacto-empresa"><i class="bi bi-person-badge" aria-hidden="true"></i> Representante legal</h2><span class="small text-secondary">Opcional</span></div>
+<p class="small text-secondary">Recibe y firma el reporte de observaciones.</p><div class="row g-3">
+<div class="col-12">{% include "registros/_campo_empresa.html" with campo=form.contacto_nombre %}</div>
+<div class="col-sm-7">{% include "registros/_campo_empresa.html" with campo=form.contacto_email %}</div>
+<div class="col-sm-5">{% include "registros/_campo_empresa.html" with campo=form.contacto_telefono %}</div>
+</div></section></div>
+<div class="col-lg-6"><section class="empresa-panel h-100" aria-labelledby="contador-empresa">
+<div class="empresa-panel-titulo"><h2 id="contador-empresa"><i class="bi bi-person-badge" aria-hidden="true"></i> Contador</h2><span class="small text-secondary">Opcional</span></div>
+<p class="small text-secondary">Justifica las observaciones y firma su respuesta.</p><div class="row g-3">
+<div class="col-12">{% include "registros/_campo_empresa.html" with campo=form.contador_nombre %}</div>
+<div class="col-sm-7">{% include "registros/_campo_empresa.html" with campo=form.contador_email %}</div>
+<div class="col-sm-5">{% include "registros/_campo_empresa.html" with campo=form.contador_telefono %}</div>
+</div></section></div>
+</div>
+<div class="empresa-acciones"><span class="text-secondary small"><i class="bi bi-clock-history me-1" aria-hidden="true"></i> Los cambios quedan registrados en el historial.</span>
+<div class="d-flex gap-2"><a class="btn btn-outline-secondary" href="{% url 'registros:empresas_lista' %}">Cancelar</a><button class="btn btn-guindo" type="submit">{% if empresa %}Guardar cambios{% else %}Registrar empresa{% endif %}</button></div></div>
+</form>
+{% if empresa %}
+<section class="empresa-panel mt-3" aria-labelledby="cambios-recientes">
+<div class="empresa-panel-titulo"><h2 id="cambios-recientes">Últimos cambios</h2><a class="small" href="{% url 'registros:empresa_historial' empresa.id %}">Ver historial completo →</a></div>
+<div class="empresa-recientes">{% for c in cambios|slice:":3" %}
+<article><strong>{{ c.etiqueta }}</strong><p class="small mb-1">{% if c.accion == 'creacion' %}Empresa registrada en el sistema.{% else %}{{ c.anterior|default:"Sin dato"|truncatechars:45 }} → {{ c.nuevo|default:"Sin dato"|truncatechars:45 }}{% endif %}</p><span class="small text-secondary">{{ c.fecha|date:"d/m/Y H:i" }} · {{ c.por }}</span></article>
+{% empty %}<p class="small text-secondary mb-0">Sin cambios registrados.</p>{% endfor %}</div></section>
+{% endif %}
+</div>
 {% endblock %}
+{% block extra_js %}<script>
+document.addEventListener("DOMContentLoaded", function () {
+    var aviso = document.getElementById("errores-empresa");
+    if (aviso) aviso.focus();
+});
+</script>{% endblock %}

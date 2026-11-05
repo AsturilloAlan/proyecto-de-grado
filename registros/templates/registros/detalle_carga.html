@@ -251,7 +251,7 @@
     {% endif %}
 
     {% if carga.estado == 'anulada' %}
-        <div class="alert alert-dark">
+        <div class="alert alert-dark mt-3">
             Carga anulada, no cuenta como información válida.
             <a href="{% url 'registros:cargar' %}">Subir de nuevo</a>.
         </div>
@@ -461,9 +461,9 @@
                                 {% csrf_token %}
                                 <p id="atipica-glosa" class="mb-3 text-secondary small"></p>
                                 <div class="selector-decision selector-tres mb-3" role="group" aria-label="Decisión">
-                                    <button type="button" class="opcion-decision" data-estado="relevante"><i class="bi bi-flag"></i> Observada</button>
-                                    <button type="button" class="opcion-decision" data-estado="seguimiento"><i class="bi bi-hourglass-split"></i> En seguimiento</button>
                                     <button type="button" class="opcion-decision" data-estado="no_relevante"><i class="bi bi-check2-circle"></i> Válida</button>
+                                    <button type="button" class="opcion-decision" data-estado="seguimiento"><i class="bi bi-hourglass-split"></i> En seguimiento</button>
+                                    <button type="button" class="opcion-decision" data-estado="relevante"><i class="bi bi-flag"></i> Observada</button>
                                 </div>
                                 <div id="frases-atipica" class="frases-rapidas mb-2 d-none" aria-label="Justificaciones frecuentes">
                                     {% for estado, lista in frases_atipicas.items %}
@@ -475,7 +475,7 @@
                                 <label for="atipica-comentario" class="form-label small mb-1">Justificación (obligatoria)</label>
                                 <textarea id="atipica-comentario" class="form-control" rows="3" maxlength="300"></textarea>
                                 <div id="atipica-error" class="text-danger small mt-1 d-none" role="alert"></div>
-                                <p class="small text-secondary mt-2 mb-0">Observada: es un hallazgo. En seguimiento: falta revisarla con otros documentos o cuentas. Válida: revisada, sin observación.</p>
+                                <p class="small text-secondary mt-2 mb-0">Válida: revisada, sin observación. En seguimiento: falta revisarla con otros documentos o cuentas. Observada: es un hallazgo.</p>
                             </div>
                             <div class="modal-footer justify-content-between">
                                 <div class="form-check form-switch small mb-0">
@@ -616,12 +616,20 @@
                                     });
                                 }
                                 var siguiente = continuar.checked ? siguientePendiente(fila) : null;
+                                // El asiento desplegado de la fila revisada se cierra junto con ella.
+                                var asiento = document.getElementById(fila.id.replace("atipica-", "asiento-"));
+                                if (asiento) {
+                                    asiento.hidden = true;
+                                    var botonAsiento = fila.querySelector(".boton-asiento");
+                                    if (botonAsiento) botonAsiento.setAttribute("aria-expanded", "false");
+                                }
                                 // Retirar la fila si su nuevo estado no corresponde a la pestaña activa.
                                 var sale = decision !== FILTRO_ATIPICAS;
                                 if (sale) {
                                     fila.style.transition = "opacity .25s ease";
                                     fila.style.opacity = "0";
                                     setTimeout(function () {
+                                        if (asiento) asiento.remove();
                                         fila.remove();
                                         if (!tabla.querySelector("tbody tr")) window.location.reload();
                                     }, 250);

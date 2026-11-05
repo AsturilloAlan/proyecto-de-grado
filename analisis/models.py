@@ -7,11 +7,8 @@ from django.db import models
 from registros.models import CargaArchivo, RegistroContable
 
 
-# Revisión del auditor sobre una atípica:
-# - Observada ("relevante"): es un hallazgo; pasa al papel de trabajo.
-# - En seguimiento: la señal fue útil pero requiere revisar otros documentos o cuentas.
-# - Válida ("no_relevante"): revisada, sin observación.
-# Para medir el modelo, una señal es útil si quedó observada o en seguimiento.
+# Revisión de una atípica: observada (hallazgo), en seguimiento o válida.
+# Para medir el modelo, observada y en seguimiento cuentan como útiles.
 REVISIONES_UTILES = ("relevante", "seguimiento")
 
 
@@ -107,7 +104,7 @@ class ResultadoTransaccion(models.Model):
     # Tipo del motivo principal (clave de analisis.explicacion.ETIQUETAS), para filtrar.
     motivo_principal = models.CharField(max_length=30, blank=True, db_index=True)
 
-    # Validación preliminar del auditor sobre lo que señaló el modelo (actividad 13).
+    # Validación del auditor sobre lo que señaló el modelo.
     REVISION_CHOICES = [
         ("pendiente", "Pendiente"),
         # Claves internas conservadas para no perder las revisiones ya hechas.

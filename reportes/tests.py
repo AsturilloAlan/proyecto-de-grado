@@ -482,6 +482,9 @@ class PanoramaTests(TestCase):
         self.assertEqual(len(datos["opciones_cuenta"]), 2)  # el selector conserva todas las cuentas
         datos = self.client.get(self.datos_url, {"nivel": "muy_alto"}).json()
         self.assertEqual(datos["resumen"]["atipicas"], 0)
+        # El gráfico de niveles conserva el reparto completo y marca el nivel elegido.
+        self.assertEqual(sum(datos["por_nivel"]["cantidades"]), 2)
+        self.assertEqual(datos["por_nivel"]["elegido"], "muy_alto")
 
     def test_filtros_invalidos_se_ignoran(self):
         datos = self.client.get(self.datos_url, {"desde": "no-fecha", "cuenta": "1 OR 1=1",

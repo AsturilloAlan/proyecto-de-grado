@@ -1,9 +1,4 @@
-"""Vistas de reportes (actividad 15).
-
-Organización pensada para el trabajo real de la firma: cada empresa auditada tiene sus
-gestiones (2022, 2023, 2024...) y cada gestión, sus cargas. Los reportes se emiten por
-gestión consolidando las cargas válidas, o para una sola carga.
-"""
+"""Vistas de reportes: por gestión (cargas válidas consolidadas) o por una sola carga."""
 from django.contrib import messages
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
@@ -284,7 +279,7 @@ def comparativo_empresa(request, empresa_id):
     return respuesta
 
 
-# Panorama visual (actividad 16)
+# Panorama visual
 
 MESES = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto",
          "septiembre", "octubre", "noviembre", "diciembre"]

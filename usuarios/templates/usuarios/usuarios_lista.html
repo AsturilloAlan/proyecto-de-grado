@@ -1,18 +1,13 @@
 {% extends "base.html" %}
+{% load static %}
+{% block extra_head %}<link rel="stylesheet" href="{% static 'css/usuarios-responsive.css' %}">{% endblock %}
 {% block title %}Usuarios{% endblock %}
 {% block content %}
-    <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-3">
-        <div class="d-flex align-items-center gap-3">
-            <div class="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0"
-                 style="width:52px;height:52px;background:linear-gradient(135deg, var(--guindo), var(--guindo-oscuro));">
-                <i class="bi bi-people text-white fs-4"></i>
-            </div>
-            <div>
-                <h1 class="text-guindo mb-0 h3">Usuarios del sistema</h1>
-                {% if usuarios %}
-                    <p class="text-secondary small mb-0">{{ resumen.total }} cuenta{{ resumen.total|pluralize }} · {{ resumen.activos }} activa{{ resumen.activos|pluralize }} · {{ resumen.administradores }} administrador{{ resumen.administradores|pluralize:"es" }}</p>
-                {% endif %}
-            </div>
+<div class="usuarios-pagina">
+    <div class="d-flex justify-content-between align-items-end mb-4 flex-wrap gap-3">
+        <div>
+            <h1 class="text-guindo mb-1">Usuarios</h1>
+            <p class="text-secondary mb-0">Cuentas de la firma con acceso al sistema.</p>
         </div>
         <a class="btn btn-guindo" href="{% url 'usuario_crear' %}">
             <i class="bi bi-person-plus me-1" aria-hidden="true"></i> Crear usuario
@@ -20,55 +15,57 @@
     </div>
 
     {% if usuarios %}
-        <div class="table-responsive">
-            <table class="table tabla-fichas table-hover align-middle">
-                <thead>
-                    <tr>
-                        <th>Usuario</th>
-                        <th>Correo</th>
-                        <th>Rol</th>
-                        <th>Estado</th>
-                        <th>Último ingreso</th>
-                        <th></th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for item in usuarios %}
-                    {% with u=item.objeto %}
-                    <tr class="{% if not u.is_active %}text-secondary{% endif %}">
-                        <td data-etiqueta="Usuario">
-                            <div class="d-flex align-items-center gap-2">
-                                <span class="inicial-usuario" aria-hidden="true">{{ u.first_name|default:u.username|slice:":1"|upper }}</span>
-                                <div class="min-w-0">
-                                    <div class="fw-semibold text-truncate">{{ u.get_full_name|default:u.username }}</div>
-                                    {% if u.get_full_name %}<div class="small text-secondary">{{ u.username }}</div>{% endif %}
-                                </div>
-                            </div>
-                        </td>
-                        <td data-etiqueta="Correo" class="text-break">{{ u.email|default:"—" }}</td>
-                        <td data-etiqueta="Rol">
-                            <span class="badge fw-normal {% if item.rol == 'Administrador' %}text-bg-dark{% else %}text-bg-secondary{% endif %}">{{ item.rol }}</span>
-                        </td>
-                        <td data-etiqueta="Estado">
-                            {% if u.is_active %}
-                                <span class="estado-cuenta activa"><span class="punto"></span>Activa</span>
-                            {% else %}
-                                <span class="estado-cuenta"><span class="punto"></span>Desactivada</span>
-                            {% endif %}
-                        </td>
-                        <td data-etiqueta="Último ingreso" class="small">{{ u.last_login|date:"d/m/Y H:i"|default:"Nunca" }}</td>
-                        <td data-etiqueta="Acciones" class="text-end">
-                            <a class="btn btn-sm btn-outline-guindo" href="{% url 'usuario_editar' u.id %}">Editar</a>
-                        </td>
-                    </tr>
-                    {% endwith %}
-                    {% endfor %}
-                </tbody>
-            </table>
+        <div class="barra-usuarios">
+            <div class="filtro-usuarios" role="group" aria-label="Filtrar cuentas">
+                <button type="button" class="activo" data-filtro="todos">Todas <span>{{ resumen.total }}</span></button>
+                <button type="button" data-filtro="Administrador">Administradores <span>{{ resumen.administradores }}</span></button>
+                <button type="button" data-filtro="Auditor">Auditores <span>{{ resumen.auditores }}</span></button>
+                <button type="button" data-filtro="inactiva">Desactivadas <span>{{ resumen.inactivos }}</span></button>
+            </div>
+            <label class="buscador-usuarios">
+                <i class="bi bi-search" aria-hidden="true"></i>
+                <input type="search" id="buscar-usuario" placeholder="Buscar usuario…" aria-label="Buscar por nombre, usuario o correo">
+            </label>
         </div>
-        <p class="text-secondary small mb-0">
-            <i class="bi bi-info-circle me-1" aria-hidden="true"></i>Tu propia cuenta se gestiona desde <a href="{% url 'perfil' %}">Mi perfil</a>.
-            Las cuentas no se borran: se desactivan, para conservar sus revisiones y el historial.
+
+        <ul class="lista-usuarios" id="lista-usuarios">
+            {% for item in usuarios %}
+            {% with u=item.objeto %}
+            <li class="fila-usuario{% if not u.is_active %} inactiva{% endif %}"
+                data-rol="{{ item.rol }}" data-estado="{% if u.is_active %}activa{% else %}inactiva{% endif %}"
+                data-texto="{{ u.get_full_name|lower }} {{ u.username|lower }} {{ u.email|lower }}">
+                <a class="enlace-usuario" href="{% url 'usuario_editar' u.id %}" aria-label="Editar {{ u.get_full_name|default:u.username }}">
+                    {% if u.perfil.avatar %}
+                        <img src="{{ u.perfil.avatar.url }}" alt="" class="avatar-usuario">
+                    {% elif u.perfil.avatar_preset %}
+                        <span class="avatar-usuario" style="background:{{ u.perfil.avatar_preset_color }};" aria-hidden="true"><i class="bi {{ u.perfil.avatar_preset_icono }}"></i></span>
+                    {% else %}
+                        <span class="avatar-usuario inicial" aria-hidden="true">{{ u.first_name|default:u.username|slice:":1"|upper }}</span>
+                    {% endif %}
+                    <span class="datos-usuario">
+                        <span class="nombre-usuario">{{ u.get_full_name|default:u.username }}</span>
+                        <span class="detalle-usuario">{{ u.username }}{% if u.email %} <span class="sep">/</span> {{ u.email }}{% endif %}</span>
+                    </span>
+                    <span class="rol-usuario {% if item.rol == 'Administrador' %}admin{% endif %}">{{ item.rol }}</span>
+                    <span class="ingreso-usuario">
+                        {% if not u.is_active %}
+                            <span class="estado-off">Desactivada</span>
+                        {% elif u.last_login %}
+                            Ingresó hace {{ u.last_login|timesince }}
+                        {% else %}
+                            Aún no ingresa
+                        {% endif %}
+                    </span>
+                    <i class="bi bi-chevron-right flecha-usuario" aria-hidden="true"></i>
+                </a>
+            </li>
+            {% endwith %}
+            {% endfor %}
+        </ul>
+        <p id="sin-resultados" class="text-secondary text-center py-4 mb-0" hidden>Ninguna cuenta coincide con la búsqueda.</p>
+
+        <p class="text-secondary small mt-3 mb-0">
+            Tu cuenta se edita desde <a href="{% url 'perfil' %}">Mi perfil</a>. Las cuentas no se borran: se desactivan.
         </p>
     {% else %}
         <div class="estado-vacio">
@@ -78,14 +75,79 @@
             <a class="btn btn-guindo btn-sm mt-2" href="{% url 'usuario_crear' %}">Crear usuario</a>
         </div>
     {% endif %}
+
     <style>
-        .inicial-usuario { width: 34px; height: 34px; border-radius: 50%; flex-shrink: 0; display: grid; place-items: center;
-            font-weight: 600; font-size: .85rem; color: #fff; background: var(--guindo); }
-        tr.text-secondary .inicial-usuario { background: var(--bs-secondary-color); }
-        .min-w-0 { min-width: 0; }
-        .estado-cuenta { display: inline-flex; align-items: center; gap: .4rem; font-size: .85rem; color: var(--bs-secondary-color); }
-        .estado-cuenta .punto { width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
-        .estado-cuenta.activa { color: #198754; font-weight: 500; }
-        [data-bs-theme="dark"] .estado-cuenta.activa { color: #4ec48a; }
+        .barra-usuarios { display: flex; flex-wrap: wrap; gap: .75rem; align-items: center; justify-content: space-between; margin-bottom: 1rem; }
+        .filtro-usuarios { display: inline-flex; flex-wrap: wrap; gap: .25rem; padding: .25rem; border-radius: .75rem; background: var(--bs-tertiary-bg); }
+        .filtro-usuarios button { border: 0; background: none; padding: .4rem .8rem; border-radius: .55rem; font-size: .88rem; color: var(--bs-secondary-color); }
+        .filtro-usuarios button span { margin-left: .25rem; font-variant-numeric: tabular-nums; opacity: .75; }
+        .filtro-usuarios button:hover { color: var(--bs-body-color); }
+        .filtro-usuarios button.activo { background: var(--bs-body-bg); color: var(--guindo); font-weight: 600; box-shadow: 0 1px 2px rgba(0,0,0,.08); }
+        .filtro-usuarios button:focus-visible { outline: 2px solid var(--guindo); outline-offset: 1px; }
+        .buscador-usuarios { position: relative; flex: 1 1 260px; max-width: 360px; margin: 0; }
+        .buscador-usuarios i { position: absolute; left: .8rem; top: 50%; transform: translateY(-50%); color: var(--bs-secondary-color); }
+        .buscador-usuarios input { width: 100%; padding: .5rem .8rem .5rem 2.2rem; border: 1px solid var(--bs-border-color); border-radius: .65rem; background: var(--bs-body-bg); color: var(--bs-body-color); }
+        .buscador-usuarios input:focus { outline: none; border-color: var(--guindo); box-shadow: 0 0 0 3px rgba(122,31,61,.15); }
+
+        .lista-usuarios { list-style: none; padding: 0; margin: 0; border: 1px solid var(--bs-border-color); border-radius: 1rem; overflow: hidden; }
+        .fila-usuario + .fila-usuario { border-top: 1px solid var(--bs-border-color); }
+        .enlace-usuario { display: grid; grid-template-columns: auto minmax(0, 1fr) 9rem 11rem auto; align-items: center; gap: 1rem;
+            padding: .85rem 1.1rem; color: inherit; text-decoration: none; transition: background-color .15s ease; }
+        .enlace-usuario:hover { background: var(--bs-tertiary-bg); }
+        .enlace-usuario:focus-visible { outline: 2px solid var(--guindo); outline-offset: -2px; }
+        .avatar-usuario { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; display: grid; place-items: center; color: #fff; font-size: 1rem; }
+        .avatar-usuario.inicial { background: var(--guindo); font-weight: 600; font-size: .95rem; }
+        .datos-usuario { display: flex; flex-direction: column; min-width: 0; }
+        .nombre-usuario { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .detalle-usuario { font-size: .85rem; color: var(--bs-secondary-color); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .detalle-usuario .sep { opacity: .5; margin: 0 .15rem; }
+        .rol-usuario { justify-self: start; font-size: .8rem; padding: .2rem .65rem; border-radius: 999px; border: 1px solid var(--bs-border-color); color: var(--bs-secondary-color); }
+        .rol-usuario.admin { background: var(--guindo); border-color: var(--guindo); color: #fff; }
+        .ingreso-usuario { font-size: .85rem; color: var(--bs-secondary-color); }
+        .estado-off { color: var(--bs-danger-text-emphasis); font-weight: 500; }
+        .flecha-usuario { color: var(--bs-secondary-color); transition: transform .15s ease; }
+        .enlace-usuario:hover .flecha-usuario { transform: translateX(3px); color: var(--guindo); }
+        .fila-usuario.inactiva .avatar-usuario { filter: grayscale(1); opacity: .6; }
+        .fila-usuario.inactiva .nombre-usuario { color: var(--bs-secondary-color); }
+        @media (max-width: 767.98px) {
+            .enlace-usuario { grid-template-columns: auto minmax(0, 1fr) auto; row-gap: .35rem; }
+            .rol-usuario { grid-column: 2; grid-row: 2; }
+            .ingreso-usuario { grid-column: 2; grid-row: 3; }
+            .flecha-usuario { grid-column: 3; grid-row: 1 / span 3; }
+        }
+        @media (prefers-reduced-motion: reduce) { .enlace-usuario, .flecha-usuario { transition: none; } }
     </style>
+
+    <script>
+    document.addEventListener("DOMContentLoaded", function () {
+        var filas = Array.prototype.slice.call(document.querySelectorAll(".fila-usuario"));
+        var botones = document.querySelectorAll(".filtro-usuarios button");
+        var buscador = document.getElementById("buscar-usuario");
+        var vacio = document.getElementById("sin-resultados");
+        if (!filas.length) return;
+        var filtro = "todos";
+        function aplicar() {
+            var texto = (buscador.value || "").trim().toLowerCase();
+            var visibles = 0;
+            filas.forEach(function (f) {
+                var pasaFiltro = filtro === "todos" ? true
+                    : filtro === "inactiva" ? f.dataset.estado === "inactiva"
+                    : f.dataset.rol === filtro;
+                var visible = pasaFiltro && (!texto || f.dataset.texto.indexOf(texto) !== -1);
+                f.hidden = !visible;
+                if (visible) visibles++;
+            });
+            vacio.hidden = visibles > 0;
+        }
+        botones.forEach(function (b) {
+            b.addEventListener("click", function () {
+                botones.forEach(function (o) { o.classList.toggle("activo", o === b); });
+                filtro = b.dataset.filtro;
+                aplicar();
+            });
+        });
+        buscador.addEventListener("input", aplicar);
+    });
+    </script>
+</div>
 {% endblock %}
