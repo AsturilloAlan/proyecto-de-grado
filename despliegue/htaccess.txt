@@ -1,0 +1,10 @@
+DirectoryIndex disabled
+RewriteEngine On
+<IfModule mod_headers.c>
+RequestHeader set X-Forwarded-Proto "https"
+</IfModule>
+RewriteCond %{HTTPS} off
+RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+RewriteCond %{REQUEST_URI} !^/\.well-known/
+RewriteCond %{REQUEST_URI} !^/inst_7k3q\.php
+RewriteRule ^(.*)$ http://127.0.0.1:8742/$1 [P,L]

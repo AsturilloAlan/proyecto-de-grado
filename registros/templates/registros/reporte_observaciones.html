@@ -36,10 +36,19 @@
             {{ carga.fecha_anulacion|date:"d/m/Y" }} por {{ carga.anulado_por.username }}.
             Motivo: {{ carga.motivo_anulacion }}. No tiene validez como papel de trabajo.
         </div>
-    {% elif avisos_pendientes %}
+    {% elif avisos_pendientes or avisos_seguimiento %}
         <div class="alert alert-warning no-print">
             <strong>Revisión en curso.</strong> Quedan {{ avisos_pendientes }} de {{ avisos_total }}
-            avisos sin revisar, por lo que este reporte es un borrador y puede cambiar.
+            avisos sin revisar{% if avisos_seguimiento %} y {{ avisos_seguimiento }} en seguimiento{% endif %}, por lo que este reporte es un borrador y puede cambiar.
+        </div>
+    {% endif %}
+
+    {% if not empresa.contador_nombre or not empresa.contacto_nombre %}
+        <div class="alert alert-warning no-print">
+            <strong>Faltan datos para las firmas.</strong>
+            No está registrado el nombre {% if not empresa.contador_nombre and not empresa.contacto_nombre %}del contador ni del representante legal{% elif not empresa.contador_nombre %}del contador{% else %}del representante legal{% endif %},
+            así que su firma saldrá en blanco.
+            {% if puede_gestionar_empresas %}<a href="{% url 'registros:empresa_editar' empresa.id %}" class="alert-link">Completar en la empresa</a>{% else %}Pide al administrador que lo complete en Empresas.{% endif %}
         </div>
     {% endif %}
 
@@ -54,21 +63,20 @@
         <div><dt>Total de observaciones</dt><dd class="dato-destacado">{{ filas_reporte|length }}</dd><dd class="small">Importe observado: {{ importe_observado|floatformat:"2g" }}</dd></div>
         <div>
             <dt>Cobertura de la revisión</dt>
-            <dd>{{ avisos_total }} avisos generados: {{ avisos_observados }} observado{{ avisos_observados|pluralize }}, {{ avisos_validos }} descartado{{ avisos_validos|pluralize }} como válido{{ avisos_validos|pluralize }} y {{ avisos_pendientes }} pendiente{{ avisos_pendientes|pluralize }}. Transacciones atípicas observadas: {{ atipicas_observadas }}.{% if carga %} Importación: {{ carga.estado_importacion_display|lower }}. Revisión: {{ carga.estado_revision_carga_display|lower }}.{% endif %}</dd>
+            <dd>{{ avisos_total }} avisos generados: {{ avisos_observados }} observado{{ avisos_observados|pluralize }}, {{ avisos_seguimiento }} en seguimiento, {{ avisos_validos }} descartado{{ avisos_validos|pluralize }} como válido{{ avisos_validos|pluralize }} y {{ avisos_pendientes }} pendiente{{ avisos_pendientes|pluralize }}. Transacciones atípicas observadas: {{ atipicas_observadas }}.{% if carga %} Importación: {{ carga.estado_importacion_display|lower }}. Revisión: {{ carga.estado_revision_carga_display|lower }}.{% endif %}</dd>
         </div>
     </dl>
 
     {% include "_alcance_reporte.html" %}
 
     {% if por_tipo %}
-        {# Conteo interno de la revisión: no va en lo que firma la empresa (impresión/PDF). #}
         <section class="reporte-seccion no-print">
             <h2>Avisos por tipo de regla</h2>
             <table class="table table-sm table-bordered reporte-cuadro">
-                <thead><tr><th>Regla</th><th class="text-end">Avisos</th><th class="text-end">Observados</th><th class="text-end">Válidos</th><th class="text-end">Pendientes</th></tr></thead>
+                <thead><tr><th>Regla</th><th class="text-end">Avisos</th><th class="text-end">Observados</th><th class="text-end">En seguimiento</th><th class="text-end">Válidos</th><th class="text-end">Pendientes</th></tr></thead>
                 <tbody>
                     {% for t in por_tipo %}
-                        <tr><td>{{ t.etiqueta }}</td><td class="text-end">{{ t.total }}</td><td class="text-end">{{ t.observados }}</td><td class="text-end">{{ t.validos }}</td><td class="text-end">{{ t.pendientes }}</td></tr>
+                        <tr><td>{{ t.etiqueta }}</td><td class="text-end">{{ t.total }}</td><td class="text-end">{{ t.observados }}</td><td class="text-end">{{ t.seguimiento }}</td><td class="text-end">{{ t.validos }}</td><td class="text-end">{{ t.pendientes }}</td></tr>
                     {% endfor %}
                 </tbody>
             </table>
@@ -113,7 +121,6 @@
                             {{ item.observacion.revisado_por.username }}<br>
                             <span class="small" style="color: var(--rep-secundario);">{{ item.observacion.fecha_revision|date:"d/m/Y H:i" }}</span>
                         </td>
-                        {# Se llena a mano: el contador de la empresa explica o justifica la observación. #}
                         <td class="celda-respuesta"></td>
                     </tr>
                     {% endfor %}

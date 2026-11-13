@@ -81,8 +81,6 @@ class LoginTests(TestCase):
         respuesta = self.client.post(
             reverse("verificar_codigo"), {"codigo": codigo_original}
         )
-        # El código original ya fue invalidado por `generar_para`, así
-        # que no debe autenticar aunque sea el que se guardó primero.
         self.assertFalse(respuesta.wsgi_request.user.is_authenticated)
 
     def test_usuario_sin_correo_no_puede_completar_login(self):
@@ -173,8 +171,6 @@ class BloqueoPorIntentosTests(TestCase):
         self.client.post(
             reverse("login"), {"username": "auditor4", "password": "Clave-Segura123"}
         )
-        # El intento fallido anterior no debe acumularse tras un login
-        # correcto: tres fallidos más no deberían alcanzar el límite de 5.
         for _ in range(3):
             respuesta = self.client.post(
                 reverse("login"), {"username": "auditor4", "password": "incorrecta"}
@@ -403,8 +399,6 @@ class PerfilTests(TestCase):
         self.assertNotIn("Clave-Segura123", entrada.valor_anterior)
 
     def test_cambiar_clave_sin_correo_no_falla_aunque_no_se_pueda_avisar(self):
-        # self.usuario no tiene email (ver setUp): el cambio debe seguir
-        # funcionando igual, solo sin enviar el correo de aviso.
         respuesta = self.client.post(
             reverse("cambiar_clave"),
             {

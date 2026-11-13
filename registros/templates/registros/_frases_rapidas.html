@@ -5,6 +5,11 @@
             <button type="button" class="frase-rapida" data-frase="{{ frase }}">{{ etiqueta }}</button>
         {% endfor %}
     </div>
+    <div class="grupo-frases" data-estado="seguimiento">
+        {% for etiqueta, frase in frases_rapidas.seguimiento %}
+            <button type="button" class="frase-rapida" data-frase="{{ frase }}">{{ etiqueta }}</button>
+        {% endfor %}
+    </div>
     <div class="grupo-frases" data-estado="observado">
         {% for etiqueta, frase in frases_rapidas.observado %}
             <button type="button" class="frase-rapida" data-frase="{{ frase }}">{{ etiqueta }}</button>

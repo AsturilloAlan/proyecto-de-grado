@@ -63,7 +63,6 @@ def _escalar(X):
     return StandardScaler().fit_transform(X)
 
 
-# Configuración
 
 def _candidatas():
     return [{"kernel": "rbf", "nu": nu, "gamma": gamma}
@@ -143,7 +142,6 @@ def leer_configuracion(carpeta=None):
     return json.loads(ruta.read_text(encoding="utf-8"))["configuracion"], True
 
 
-# Entrenamiento y uso
 
 def _particion(n, proporcion_prueba, semilla):
     """Índices de entrenamiento y de prueba al azar (reproducible con la semilla)."""

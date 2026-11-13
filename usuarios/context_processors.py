@@ -33,7 +33,6 @@ def navegacion(request):
             name="Auditor"
         ).exists()
         contexto["puede_confirmar_carga"] = contexto["es_administrador"] or contexto["es_auditor"]
-        # Gestiones: ambos roles. Empresas (datos del cliente): solo el Administrador (RF-09).
         contexto["puede_gestionar_gestiones"] = contexto["es_administrador"] or contexto["es_auditor"]
         contexto["puede_gestionar_empresas"] = contexto["es_administrador"]
 

@@ -161,7 +161,7 @@
                                 <td class="text-end">{% if r.debe %}{{ r.debe|floatformat:"2g" }} D{% else %}{{ r.haber|floatformat:"2g" }} H{% endif %}</td>
                                 <td>
                                     {% with principal=item.motivos.0 %}
-                                        {% if principal %}<div class="motivo-principal">{{ principal.texto }}</div>{% else %}Sin motivo registrado{% endif %}
+                                        {% if principal %}<div class="motivo-principal">{{ principal.texto|capfirst }}</div>{% else %}Sin motivo registrado{% endif %}
                                     {% endwith %}
                                     {% if item.motivos|length > 1 %}
                                         <details class="small d-print-none"><summary style="color: var(--rep-secundario);">{{ item.motivos|length|add:"-1" }} motivo{{ item.motivos|length|add:"-1"|pluralize }} más</summary>

@@ -18,7 +18,6 @@ from registros.models import CargaArchivo, ErrorValidacion, RegistroContable
 from .models import ReporteGenerado
 
 CERO = Decimal("0")
-# (clave, etiqueta, nivel mínimo, nivel máximo): mismos cortes que ResultadoTransaccion.nivel_texto.
 NIVELES = [
     ("muy_alto", "Muy alto", 0.9, None),
     ("alto", "Alto", 0.7, 0.9),
@@ -38,7 +37,6 @@ PRIMERAS = 20
 MINUTOS_SIN_REPETIR_REGISTRO = 10
 
 
-# Cargas que entran en un reporte
 
 def cargas_de_gestion(empresa, gestion):
     """Cargas de un encargo, separadas según si cuentan para los reportes."""
@@ -69,7 +67,6 @@ def posibles_duplicadas(cargas):
     return pares
 
 
-# Utilidades
 
 def _filtro_nivel(clave):
     for codigo, _, minimo, maximo in NIVELES:
@@ -92,8 +89,6 @@ def _porcentaje(parte, total):
     return float(parte) * 100 / float(total) if total else 0.0
 
 
-# Cuentas tributarias (IVA, IT, RC-IVA, IUE, retenciones, impuestos): en la entrevista el
-# socio de la firma señaló la verificación tributaria como lo más crítico de la revisión.
 PATRON_TRIBUTARIA = re.compile(
     r"\b(IVA|I\.?\s?T\.?|RC[\s-]?IVA|IUE|ICE|IMPUESTOS?|TRIBUT\w*|RETENCION\w*|"
     r"DEBITO\s+FISCAL|CREDITO\s+FISCAL|FISCO)\b"
@@ -160,7 +155,6 @@ def metricas_validacion(atipicas, primeras=PRIMERAS):
     }
 
 
-# Reporte de transacciones atípicas
 
 def reporte_atipicas(cargas, nivel="", motivo="", validacion="", tributarias=""):
     """Datos del reporte de atípicas de una o varias cargas (las de un encargo).
@@ -322,7 +316,6 @@ def reporte_atipicas(cargas, nivel="", motivo="", validacion="", tributarias="")
     }
 
 
-# Reporte de transacciones observadas
 
 def reporte_observaciones(cargas):
     """Hallazgos confirmados por el auditor: avisos de las reglas y transacciones atípicas
@@ -374,13 +367,34 @@ def reporte_observaciones(cargas):
         })
     filas.sort(key=lambda item: item["orden"])
 
+    patron = re.compile(r"de la fila (\d+)")
+    relacionadas = {(f["carga_id"], int(m)) for f in filas for m in patron.findall(f["observacion"].descripcion)}
+    otros = {
+        (r.carga_id, r.fila_origen): r
+        for r in RegistroContable.objects.filter(
+            carga__in=cargas, fila_origen__in={fila for _, fila in relacionadas})
+        if (r.carga_id, r.fila_origen) in relacionadas
+    }
+
+    def _sin_filas(item):
+        def cambiar(m):
+            otro = otros.get((item["carga_id"], int(m.group(1))))
+            if otro is None:
+                return "de otro registro del libro"
+            return f"del registro del {otro.fecha:%d/%m/%Y}, comprobante {otro.numero_comprobante or 's/n'}"
+        return patron.sub(cambiar, item["observacion"].descripcion)
+
+    for item in filas:
+        item["texto"] = _sin_filas(item)
+
     por_tipo = [
         {"campo": f["campo"], "etiqueta": ETIQUETAS_REGLA.get(f["campo"], f["campo"].capitalize()),
-         "total": f["total"], "observados": f["observados"],
+         "total": f["total"], "observados": f["observados"], "seguimiento": f["seguimiento"],
          "validos": f["validos"], "pendientes": f["pendientes"]}
         for f in avisos.order_by().values("campo").annotate(
             total=Count("id"),
             observados=Count("id", filter=Q(estado_revision="observado")),
+            seguimiento=Count("id", filter=Q(estado_revision="seguimiento")),
             validos=Count("id", filter=Q(estado_revision="valido")),
             pendientes=Count("id", filter=Q(revisado=False)),
         ).order_by("-total")
@@ -393,6 +407,7 @@ def reporte_observaciones(cargas):
         "avisos_total": avisos.count(),
         "avisos_pendientes": avisos.filter(revisado=False).count(),
         "avisos_validos": avisos.filter(estado_revision="valido").count(),
+        "avisos_seguimiento": avisos.filter(estado_revision="seguimiento").count(),
         "por_tipo": por_tipo,
         "importe_observado": importe,
         "atipicas_observadas": atipicas_observadas,
@@ -400,7 +415,6 @@ def reporte_observaciones(cargas):
     }
 
 
-# Reporte de hallazgos
 
 def reporte_hallazgos(cargas):
     """Hallazgos confirmados por el auditor, sin importar de dónde salieron: atípicas del
@@ -459,12 +473,14 @@ def reporte_hallazgos(cargas):
     pendientes_reglas = ErrorValidacion.objects.filter(
         carga__in=cargas, tipo="aviso", revisado=False).count()
     tributarios = [h for h in lista if h["tributaria"]]
-    # En seguimiento: pendiente de respaldo, sin confirmar ni descartar como hallazgo.
+    # En seguimiento: atípicas y avisos por cotejar, sin confirmar ni descartar como hallazgo.
     en_seguimiento = list(
         ResultadoTransaccion.objects
         .filter(analisis__carga__in=cargas, atipica=True, revision="seguimiento")
         .select_related("registro", "registro__cuenta", "revisado_por", "analisis")
         .order_by("-nivel", "analisis__carga_id", "registro__fila_origen"))
+    en_seguimiento += _avisos_en_seguimiento(cargas, {
+        (s.analisis.carga_id, s.registro.fila_origen) for s in en_seguimiento})
     return {
         "cargas": cargas,
         "varias_cargas": len(cargas) > 1,
@@ -486,7 +502,31 @@ def reporte_hallazgos(cargas):
     }
 
 
-# Comparativo entre gestiones de una empresa
+def _avisos_en_seguimiento(cargas, ya_incluidas):
+    """Avisos en seguimiento con la misma forma que una atípica (analisis.carga_id, registro)."""
+    from types import SimpleNamespace
+
+    avisos = list(ErrorValidacion.objects
+                  .filter(carga__in=cargas, tipo="aviso", estado_revision="seguimiento")
+                  .select_related("revisado_por").order_by("carga_id", "fila"))
+    registros = {
+        (r.carga_id, r.fila_origen): r
+        for r in RegistroContable.objects.filter(
+            carga__in=cargas, fila_origen__in={a.fila for a in avisos}).select_related("cuenta")
+    }
+    salida = []
+    for a in avisos:
+        clave = (a.carga_id, a.fila)
+        if clave in ya_incluidas or clave not in registros:
+            continue
+        ya_incluidas.add(clave)
+        salida.append(SimpleNamespace(
+            id=None, analisis=SimpleNamespace(carga_id=a.carga_id), registro=registros[clave],
+            comentario_revision=a.comentario_revision, revisado_por=a.revisado_por,
+            fecha_revision=a.fecha_revision))
+    return salida
+
+
 
 def comparativo_empresa(empresa):
     """Una fila por gestión de la empresa, con las cargas válidas consolidadas."""
@@ -543,7 +583,6 @@ def _variacion(actual, previo):
     return (float(actual) - float(previo)) * 100 / float(previo)
 
 
-# Constancia de emisión
 
 def registrar_emision(tipo, usuario, carga=None, empresa=None, gestion=None, filtros_texto="",
                       cifras=None, formato="pantalla"):
@@ -565,7 +604,6 @@ def registrar_emision(tipo, usuario, carga=None, empresa=None, gestion=None, fil
         filtros=filtros_texto, formato=formato, **cifras)
 
 
-# Panorama visual
 
 MESES = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"]
 MAXIMO_CUENTAS_GRAFICO = 10
@@ -619,8 +657,6 @@ def panorama(cargas, desde="", hasta="", cuenta="", nivel=""):
         qs = qs.filter(registro__fecha__lte=filtros["hasta"])
     if filtros["cuenta"]:
         qs = qs.filter(registro__cuenta_id=int(filtros["cuenta"]))
-    # El gráfico de niveles se calcula sin el filtro de nivel: así muestra el reparto completo
-    # y la página resalta el nivel elegido, en vez de un círculo de un solo color.
     qs_sin_nivel = qs
     if filtros["nivel"]:
         qs = qs.filter(_filtro_nivel(filtros["nivel"]))

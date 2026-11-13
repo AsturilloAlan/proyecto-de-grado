@@ -8,8 +8,6 @@ from django.db import models
 class EmpresaAuditada(models.Model):
     """Empresa cuyos registros contables se analizan."""
 
-    # Categoría de cierre de gestión según el SIN: el año fiscal no siempre cierra el 31
-    # de diciembre.
     CATEGORIA_CIERRE_CHOICES = [
         ("general", "Comercio, servicios, bancos y seguros (cierre 31 de diciembre)"),
         ("industrial", "Industrial o petrolera (cierre 31 de marzo)"),
@@ -127,12 +125,8 @@ class CargaArchivo(models.Model):
     ESTADO_CHOICES = [
         ("pendiente", "Pendiente"),
         ("validado", "Validado"),
-        # Cargado con pendientes: se guardaron filas, pero hay rechazos o avisos por
-        # revisar.
         ("con_observaciones", "Cargado con pendientes"),
         ("con_errores", "Con errores"),
-        # Anulada: la carga no se edita ni se borra; se anula con motivo y se vuelve a
-        # subir.
         ("anulada", "Anulada"),
     ]
 
@@ -197,8 +191,6 @@ class CargaArchivo(models.Model):
     def __str__(self):
         return f"Carga #{self.pk} - {self.empresa} ({self.gestion})"
 
-    # Dos lecturas del estado, calculadas a partir de `estado` y los contadores:
-    # si el archivo entró completo (importación) y en qué punto va el auditor (revisión).
     ETIQUETAS_IMPORTACION = {
         "procesando": "Procesando",
         "completa": "Completa",
@@ -336,15 +328,15 @@ class ErrorValidacion(models.Model):
         ("aviso", "Aviso"),
     ]
 
-    # Decisión del auditor sobre un aviso: válido (falso positivo) u observado
-    # (hallazgo).
+    # Decisión del auditor: válido, en seguimiento (por cotejar) u observado (hallazgo).
     ESTADO_REVISION_CHOICES = [
         ("pendiente", "Pendiente"),
         ("valido", "Válido (falso positivo)"),
+        ("seguimiento", "En seguimiento (por cotejar)"),
         ("observado", "Observado (hallazgo confirmado)"),
     ]
     estado_revision = models.CharField(
-        max_length=10, choices=ESTADO_REVISION_CHOICES, default="pendiente"
+        max_length=12, choices=ESTADO_REVISION_CHOICES, default="pendiente"
     )
 
     carga = models.ForeignKey(

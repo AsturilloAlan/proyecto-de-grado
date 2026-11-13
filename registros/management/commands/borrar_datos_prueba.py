@@ -61,9 +61,6 @@ class Command(BaseCommand):
 
         archivos = [c.archivo for c in CargaArchivo.objects.all()] if options["archivos"] else []
         with transaction.atomic():
-            # Los reportes emitidos protegen empresas y gestiones: van primero. Las cargas
-            # arrastran registros, avisos, análisis y atípicas; las cuentas van antes que las
-            # empresas (PROTECT).
             ReporteGenerado.objects.all().delete()
             CargaArchivo.objects.all().delete()
             CuentaContable.objects.all().delete()

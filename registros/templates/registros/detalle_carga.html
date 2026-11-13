@@ -1,6 +1,14 @@
 {% extends "base.html" %}
 {% load textos_auditoria %}{% block title %}{{ carga.empresa }} · Gestión {{ carga.gestion.anio }}{% endblock %}
 {% block content %}
+<script>
+    // Apariencia de cada decisión sobre un aviso.
+    window.ESTADOS_AVISO = {
+        valido: { etiqueta: "Válido", titulo: "válido", badge: "text-bg-success", boton: "btn-success", fila: "table-success-subtle" },
+        seguimiento: { etiqueta: "En seguimiento", titulo: "en seguimiento", badge: "text-bg-warning", boton: "btn-warning", fila: "table-warning-subtle" },
+        observado: { etiqueta: "Observado", titulo: "observado", badge: "text-bg-danger", boton: "btn-danger", fila: "table-danger-subtle" }
+    };
+</script>
     <style>
         .revision-atipica summary { cursor: pointer; padding-block: .35rem; }
         .revision-atipica summary:focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }
@@ -146,6 +154,8 @@
         }
         .opcion-decision[data-estado="valido"]:hover, .opcion-decision[data-estado="valido"].activa { border-color: var(--bs-success); color: var(--bs-success); }
         .opcion-decision[data-estado="observado"]:hover, .opcion-decision[data-estado="observado"].activa { border-color: var(--bs-danger); color: var(--bs-danger); }
+        .opcion-decision[data-estado="seguimiento"]:hover, .opcion-decision[data-estado="seguimiento"].activa { border-color: var(--bs-warning); color: var(--bs-warning-text-emphasis); }
+        .opcion-decision[data-estado="seguimiento"].activa { background: var(--bs-warning-bg-subtle); }
         .opcion-decision[data-estado="valido"].activa { background: var(--bs-success-bg-subtle); }
         .opcion-decision[data-estado="observado"].activa { background: var(--bs-danger-bg-subtle); }
         .grupo-frases.d-none { display: none; }
@@ -429,7 +439,7 @@
                                             {% if motivos %}
                                                 <ul class="list-unstyled mb-0">
                                                     {% for motivo in motivos %}
-                                                        <li class="mb-1">{% if forloop.first %}<strong>{{ motivo.texto }}</strong>{% else %}<span class="text-secondary">También:</span> {{ motivo.texto }}{% endif %}</li>
+                                                        <li class="mb-1">{% if forloop.first %}<strong>{{ motivo.texto|capfirst }}</strong>{% else %}<span class="text-secondary">También:</span> {{ motivo.texto }}{% endif %}</li>
                                                     {% endfor %}
                                                 </ul>
                                             {% else %}
@@ -709,6 +719,7 @@
                         <span id="estado-aviso-origen" class="ms-1">
                             {% if aviso_origen.estado_revision == 'observado' %}<span class="badge text-bg-danger fw-normal">Observado</span>
                             {% elif aviso_origen.estado_revision == 'valido' %}<span class="badge text-bg-success fw-normal">Válido</span>
+                            {% elif aviso_origen.estado_revision == 'seguimiento' %}<span class="badge text-bg-warning fw-normal">En seguimiento</span>
                             {% else %}<span class="badge text-bg-light border text-secondary fw-normal">Pendiente</span>{% endif %}
                         </span>
                     </div>
@@ -718,6 +729,9 @@
                     {% if carga_admite_revision %}
                         <button type="button" class="btn btn-sm btn-outline-success boton-decidir" data-estado="valido">
                             <i class="bi bi-check2"></i> Válido
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-warning boton-decidir" data-estado="seguimiento">
+                            <i class="bi bi-hourglass-split"></i> En seguimiento
                         </button>
                         <button type="button" class="btn btn-sm btn-outline-danger boton-decidir" data-estado="observado">
                             <i class="bi bi-flag"></i> Observado
@@ -777,13 +791,13 @@
 
                     function abrir(estado) {
                         estadoElegido = estado;
-                        document.getElementById("decision-titulo").textContent = estado === "valido" ? "válido" : "observado";
+                        document.getElementById("decision-titulo").textContent = ESTADOS_AVISO[estado].titulo;
                         modalEl.querySelectorAll(".grupo-frases").forEach(function (g) {
                             g.classList.toggle("d-none", g.dataset.estado !== estado);
                         });
                         if (comentario.dataset.estadoPrevio !== estado) comentario.value = "";
                         comentario.dataset.estadoPrevio = estado;
-                        guardar.className = "btn " + (estado === "valido" ? "btn-success" : "btn-danger");
+                        guardar.className = "btn " + ESTADOS_AVISO[estado].boton;
                         error.classList.add("d-none");
                         modal.show();
                         setTimeout(function () { comentario.focus(); }, 300);
@@ -820,8 +834,8 @@
                                     return;
                                 }
                                 var badge = document.createElement("span");
-                                badge.className = "badge fw-normal " + (data.estado_revision === "observado" ? "text-bg-danger" : "text-bg-success");
-                                badge.textContent = data.estado_revision === "observado" ? "Observado" : "Válido";
+                                badge.className = "badge fw-normal " + ESTADOS_AVISO[data.estado_revision].badge;
+                                badge.textContent = ESTADOS_AVISO[data.estado_revision].etiqueta;
                                 document.getElementById("estado-aviso-origen").replaceChildren(badge);
                                 modal.hide();
                             })
@@ -1069,6 +1083,8 @@
         <nav class="estados-aviso" aria-label="Estado de revisión">
             <a href="?pestana=avisos&estado_aviso=pendientes{% if campo_aviso_filtro %}&campo_aviso={{ campo_aviso_filtro|urlencode }}{% endif %}"
                class="{% if estado_aviso == 'pendientes' %}activo{% endif %}">Pendientes <span id="conteo-pendientes">{{ avisos_pendientes }}</span></a>
+            <a href="?pestana=avisos&estado_aviso=seguimiento{% if campo_aviso_filtro %}&campo_aviso={{ campo_aviso_filtro|urlencode }}{% endif %}"
+               class="{% if estado_aviso == 'seguimiento' %}activo{% endif %}">En seguimiento <span id="conteo-seguimiento">{{ avisos_seguimiento }}</span></a>
             <a href="?pestana=avisos&estado_aviso=observados{% if campo_aviso_filtro %}&campo_aviso={{ campo_aviso_filtro|urlencode }}{% endif %}"
                class="{% if estado_aviso == 'observados' %}activo{% endif %}">Observados <span id="conteo-observados">{{ avisos_observados }}</span></a>
             <a href="?pestana=avisos&estado_aviso=validos{% if campo_aviso_filtro %}&campo_aviso={{ campo_aviso_filtro|urlencode }}{% endif %}"
@@ -1091,7 +1107,7 @@
                 </thead>
                 <tbody>
                     {% for aviso in avisos %}
-                    <tr id="aviso-fila-{{ aviso.id }}" data-campo="{{ aviso.campo }}" class="{% if aviso.estado_revision == 'observado' %}table-danger-subtle{% elif aviso.revisado %}table-success-subtle{% endif %}">
+                    <tr id="aviso-fila-{{ aviso.id }}" data-campo="{{ aviso.campo }}" class="{% if aviso.estado_revision == 'observado' %}table-danger-subtle{% elif aviso.estado_revision == 'seguimiento' %}table-warning-subtle{% elif aviso.revisado %}table-success-subtle{% endif %}">
                         <td class="text-nowrap fw-semibold">{{ aviso.fila }}</td>
                         <td class="text-nowrap text-secondary">{{ aviso.comprobante|default:"—" }}</td>
                         <td class="text-nowrap">
@@ -1111,9 +1127,9 @@
                         </td>
                         <td class="text-nowrap aviso-estado">
                             {% if aviso.revisado %}
-                                <span class="badge fw-normal {% if aviso.estado_revision == 'observado' %}text-bg-danger{% else %}text-bg-success{% endif %}"
+                                <span class="badge fw-normal {% if aviso.estado_revision == 'observado' %}text-bg-danger{% elif aviso.estado_revision == 'seguimiento' %}text-bg-warning{% else %}text-bg-success{% endif %}"
                                       title="{{ aviso.comentario_revision }} ({{ aviso.revisado_por.username }})">
-                                    {% if aviso.estado_revision == 'observado' %}Observado{% else %}Válido{% endif %}
+                                    {% if aviso.estado_revision == 'observado' %}Observado{% elif aviso.estado_revision == 'seguimiento' %}En seguimiento{% else %}Válido{% endif %}
                                 </span>
                                 {% if carga_admite_revision %}
                                     <button type="button" class="btn btn-link btn-sm p-0 ms-2 align-baseline enlace-corregir aviso-marcar-individual"
@@ -1124,7 +1140,7 @@
                             {% else %}
                                 {% if carga_admite_revision %}
                                     <button type="button" class="btn btn-sm btn-outline-guindo boton-revisar aviso-marcar-individual"
-                                            data-id="{{ aviso.id }}" title="Decidir si es válido u observado">
+                                            data-id="{{ aviso.id }}" title="Decidir si es válido, en seguimiento u observado">
                                         <i class="bi bi-pencil-square"></i> Revisar
                                     </button>
                                 {% else %}
@@ -1136,7 +1152,7 @@
                     {% empty %}
                     <tr class="fila-sin-avisos">
                         <td colspan="6" class="text-center text-secondary py-4">
-                            {% if estado_aviso == 'pendientes' %}No quedan avisos pendientes{% elif estado_aviso == 'observados' %}No hay avisos observados{% else %}No hay avisos marcados como válidos{% endif %}{% if campo_aviso_filtro %} de tipo "{{ campo_aviso_filtro }}"{% endif %}.
+                            {% if estado_aviso == 'pendientes' %}No quedan avisos pendientes{% elif estado_aviso == 'seguimiento' %}No hay avisos en seguimiento{% elif estado_aviso == 'observados' %}No hay avisos observados{% else %}No hay avisos marcados como válidos{% endif %}{% if campo_aviso_filtro %} de tipo "{{ campo_aviso_filtro }}"{% endif %}.
                         </td>
                     </tr>
                     {% endfor %}
@@ -1185,6 +1201,7 @@
                         <p id="modal-individual-descripcion" class="mb-3 text-secondary small"></p>
                         <div class="selector-decision mb-3" role="group" aria-label="Decisión">
                             <button type="button" class="opcion-decision" data-estado="valido"><i class="bi bi-check2-circle"></i> Válido</button>
+                            <button type="button" class="opcion-decision" data-estado="seguimiento"><i class="bi bi-hourglass-split"></i> En seguimiento</button>
                             <button type="button" class="opcion-decision" data-estado="observado"><i class="bi bi-flag"></i> Observado</button>
                         </div>
                         <div id="frases-individual" class="d-none">{% include "registros/_frases_rapidas.html" %}</div>
@@ -1224,6 +1241,7 @@
                         "conteo-pendientes": data.avisos_pendientes,
                         "pestana-avisos-contador": data.avisos_pendientes,
                         "conteo-observados": data.avisos_observados,
+                        "conteo-seguimiento": data.avisos_seguimiento,
                         "conteo-validos": data.avisos_validos,
                     };
                     Object.keys(valores).forEach(function (id) {
@@ -1236,7 +1254,7 @@
                     });
                 }
 
-                var ESTADO_VISTA = { pendientes: "pendiente", observados: "observado", validos: "valido" }["{{ estado_aviso|escapejs }}"];
+                var ESTADO_VISTA = { pendientes: "pendiente", seguimiento: "seguimiento", observados: "observado", validos: "valido" }["{{ estado_aviso|escapejs }}"];
 
                 function sacarSiNoCorresponde(filaTr, estado) {
                     if (!filaTr || !ESTADO_VISTA || estado === ESTADO_VISTA) return;
@@ -1271,7 +1289,7 @@
                 function pintarEstado(filaTr, estado, etiqueta, comentario) {
                     var celda = filaTr.querySelector(".aviso-estado");
                     var badge = document.createElement("span");
-                    badge.className = "badge fw-normal " + (estado === "observado" ? "text-bg-danger" : "text-bg-success");
+                    badge.className = "badge fw-normal " + ESTADOS_AVISO[estado].badge;
                     badge.title = comentario;
                     badge.textContent = etiqueta;
                     var corregir = document.createElement("button");
@@ -1386,8 +1404,8 @@
                         g.classList.toggle("d-none", g.dataset.estado !== estado);
                     });
                     btnGuardarIndividual.disabled = !estado;
-                    btnGuardarIndividual.className = "btn " + (estado === "observado" ? "btn-danger" : estado === "valido" ? "btn-success" : "btn-guindo");
-                    btnGuardarIndividual.textContent = estado === "observado" ? "Guardar como observado" : estado === "valido" ? "Guardar como válido" : "Guardar";
+                    btnGuardarIndividual.className = "btn " + (estado ? ESTADOS_AVISO[estado].boton : "btn-guindo");
+                    btnGuardarIndividual.textContent = estado ? "Guardar como " + ESTADOS_AVISO[estado].titulo : "Guardar";
                 }
                 modalMarcarIndividualEl.querySelectorAll(".opcion-decision").forEach(function (b) {
                     b.addEventListener("click", function () { elegirDecision(b.dataset.estado); });
@@ -1458,13 +1476,11 @@
                             }
                             var eraPendiente = !avisoActivo.corrigiendo;
                             if (avisoActivo.fila_tr) {
-                                avisoActivo.fila_tr.classList.remove("table-danger-subtle", "table-success-subtle");
-                                avisoActivo.fila_tr.classList.add(
-                                    data.estado_revision === "observado" ? "table-danger-subtle" : "table-success-subtle"
-                                );
+                                avisoActivo.fila_tr.classList.remove("table-danger-subtle", "table-success-subtle", "table-warning-subtle");
+                                avisoActivo.fila_tr.classList.add(ESTADOS_AVISO[data.estado_revision].fila);
                                 pintarEstado(
                                     avisoActivo.fila_tr, data.estado_revision,
-                                    data.estado_revision === "observado" ? "Observado" : "Válido",
+                                    ESTADOS_AVISO[data.estado_revision].etiqueta,
                                     comentario
                                 );
                                 sacarSiNoCorresponde(avisoActivo.fila_tr, data.estado_revision);

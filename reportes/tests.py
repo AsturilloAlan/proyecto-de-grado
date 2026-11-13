@@ -163,7 +163,6 @@ class ReporteAtipicasTests(TestCase):
         self.assertEqual(respuesta.status_code, 302)
         self.assertIn(reverse("login"), respuesta["Location"])
 
-    # Organización por empresa y gestión (uso real)
 
     def _subir(self, gestion, contenido=CSV_VALIDACION):
         with patch.object(servicio_analisis, "_paquete", return_value=paquete_de_prueba()):
@@ -241,7 +240,6 @@ class ReporteAtipicasTests(TestCase):
         self.assertEqual(respuesta.context["importe_observado"], 40000)
         self.assertTrue(ReporteGenerado.objects.filter(tipo="observaciones", carga__isnull=True).exists())
 
-    # Cuentas tributarias, hallazgos y variación entre gestiones
 
     def test_reconoce_cuentas_tributarias_por_su_nombre(self):
         for nombre in ("DEBITO FISCAL - IVA", "I.T. POR PAGAR", "Retenciones RC-IVA",
@@ -293,6 +291,23 @@ class ReporteAtipicasTests(TestCase):
         self.assertContains(respuesta, "Duplicado confirmado")
         self.assertContains(respuesta, "Sin respaldo")
         self.assertTrue(ReporteGenerado.objects.filter(tipo="hallazgos").exists())
+
+    def test_avisos_en_seguimiento_dejan_preliminar(self):
+        normal = ResultadoTransaccion.objects.filter(registro__carga=self.carga, atipica=False).first()
+        ErrorValidacion.objects.create(
+            carga=self.carga, fila=normal.registro.fila_origen, campo="duplicado", tipo="aviso",
+            revisado=True, estado_revision="seguimiento", descripcion="Posible duplicado de la fila 2",
+            comentario_revision="Cotejar con la factura", revisado_por=self.auditor)
+        hallazgos = servicio.reporte_hallazgos([self.carga])
+        self.assertEqual(len(hallazgos["hallazgos"]), 0)  # no es hallazgo todavía
+        self.assertEqual([s.comentario_revision for s in hallazgos["en_seguimiento"]], ["Cotejar con la factura"])
+        self.assertTrue(hallazgos["es_borrador"])
+        observaciones = servicio.reporte_observaciones([self.carga])
+        self.assertEqual(observaciones["avisos_seguimiento"], 1)
+        self.assertEqual(len(observaciones["filas_reporte"]), 0)  # no va al documento de la empresa
+        respuesta = self.client.get(reverse("reportes:hallazgos_gestion",
+                                            args=[self.empresa.id, self.gestion.id]))
+        self.assertContains(respuesta, "Cotejar con la factura")
 
     def test_variacion_frente_a_la_gestion_anterior(self):
         g2024 = Gestion.objects.create(

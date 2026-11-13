@@ -10,8 +10,6 @@ TIPOS_CUENTA = ["activo", "pasivo", "patrimonio", "ingreso", "gasto"]
 # Columnas fijas del modelo final: una carga sin cuentas de algún tipo recibe esa columna en 0.
 COLUMNAS_MODELO = COLUMNAS_BASE + [f"tipo_{tipo}" for tipo in TIPOS_CUENTA]
 
-# Feriados nacionales de fecha fija en Bolivia (mes, día). Los móviles (Carnaval, Viernes
-# Santo, Corpus Christi) no se incluyen.
 FERIADOS_FIJOS = {(1, 1), (1, 22), (5, 1), (6, 21), (8, 6), (11, 2), (12, 25)}
 
 

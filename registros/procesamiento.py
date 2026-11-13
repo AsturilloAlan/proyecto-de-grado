@@ -54,7 +54,6 @@ def procesar_con_manejo_de_errores(carga):
             logger.critical("No se pudo marcar como fallida la carga #%s", carga.id, exc_info=True)
 
 
-# Cola
 
 def _en_cola():
     return CargaArchivo.objects.filter(estado="pendiente", inicio_proceso__isnull=True)

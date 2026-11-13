@@ -11,6 +11,11 @@ FRASES_RAPIDAS = {
         ("Habitual del giro", "Movimiento habitual del giro de la empresa."),
         ("Explicado por el contador", "El contador de la empresa explicó la operación y presentó su respaldo."),
     ],
+    "seguimiento": [
+        ("Pedir respaldo", "Solicitar el documento de respaldo a la empresa."),
+        ("Consultar al contador", "Consultar al contador de la empresa el motivo del registro."),
+        ("Comprobante partido", "La operación se registró en varias líneas del mismo comprobante; cotejar con la factura."),
+    ],
     "observado": [
         ("Duplicado real", "La misma operación se registró dos veces."),
         ("Sin respaldo", "La operación no cuenta con documento de respaldo."),
@@ -34,8 +39,6 @@ def contradice_decision(estado, comentario):
     )
 
 
-# Justificaciones frecuentes para la revisión de atípicas, tomadas de los comentarios que
-# dejó la auditora en la validación preliminar. Claves = decisión del modelo de revisión.
 FRASES_ATIPICAS = {
     "relevante": [
         ("Sin respaldo", "La operación no cuenta con documento de respaldo."),

@@ -43,7 +43,6 @@ class FlujoCompletoDeAuditoriaTests(TestCase):
         respuesta = self.client.post(reverse("verificar_codigo"), {"codigo": codigo})
         self.assertIn("token_acceso", respuesta.cookies)
 
-        # 2. El Administrador registra la empresa con su gestión 2023 (RF-09: solo él gestiona empresas).
         socia = User.objects.create_user(username="socia", password="Clave-Segura123")
         socia.groups.add(Group.objects.get_or_create(name="Administrador")[0])
         cliente_socia = self.client_class()

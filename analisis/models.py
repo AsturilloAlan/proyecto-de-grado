@@ -7,8 +7,6 @@ from django.db import models
 from registros.models import CargaArchivo, RegistroContable
 
 
-# Revisión de una atípica: observada (hallazgo), en seguimiento o válida.
-# Para medir el modelo, observada y en seguimiento cuentan como útiles.
 REVISIONES_UTILES = ("relevante", "seguimiento")
 
 
@@ -98,8 +96,6 @@ class ResultadoTransaccion(models.Model):
     # Nivel de anomalía de 0 a 1, comparable entre cargas.
     nivel = models.FloatField()
     atipica = models.BooleanField(default=False)
-    # Por qué es atípica: JSON con hasta 3 motivos {"variable", "aporte" (%), "texto"};
-    # el primero es el motivo principal.
     motivos = models.TextField(blank=True)
     # Tipo del motivo principal (clave de analisis.explicacion.ETIQUETAS), para filtrar.
     motivo_principal = models.CharField(max_length=30, blank=True, db_index=True)

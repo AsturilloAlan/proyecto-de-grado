@@ -275,11 +275,11 @@ def comparativo_empresa(request, empresa_id):
     contenido = exportar.a_pdf(doc) if formato == "pdf" else exportar.a_excel(doc)
     tipo_mime, extension = FORMATOS[formato]
     respuesta = HttpResponse(contenido, content_type=tipo_mime)
-    respuesta["Content-Disposition"] = f'attachment; filename="{doc.nombre_archivo}.{extension}"'
+    modo = "inline" if formato == "pdf" and request.GET.get("en_linea") == "1" else "attachment"
+    respuesta["Content-Disposition"] = f'{modo}; filename="{doc.nombre_archivo}.{extension}"'
     return respuesta
 
 
-# Panorama visual
 
 MESES = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto",
          "septiembre", "octubre", "noviembre", "diciembre"]

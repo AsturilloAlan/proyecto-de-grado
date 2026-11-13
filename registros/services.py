@@ -125,8 +125,6 @@ PATRON_SUBTOTAL = re.compile(
     r"^\s*(total|sumas?|saldo\s+(anterior|inicial|final))\b", re.IGNORECASE
 )
 
-# Documentos de respaldo citados en la glosa: facturas ("F.526", "F-526", "FACTURA N° 526")
-# y recibos ("R-261", "R.261", "RECIBO N° 261").
 PATRON_DOCUMENTO = re.compile(
     r"\b(?:(F)(?:ACT(?:URA)?)?|(R)(?:EC(?:IBO)?)?)\s*[.\-]?\s*(?:N\s*[°º.]?\s*)?(\d+)",
     re.IGNORECASE,
@@ -175,8 +173,6 @@ def _avisos_calidad_dato(
             )
         )
 
-    # Un duplicado debe coincidir en comprobante y concepto (documentos citados o glosa).
-    # Un comprobante puede incluir movimientos del mismo monto con distinto concepto.
     comprobante_normalizado = str(comprobante or "").strip()
     if comprobante_normalizado:
         clave = (
@@ -199,7 +195,6 @@ def _avisos_calidad_dato(
     return avisos
 
 
-# Parseo del Libro Diario en PDF
 PATRON_PDF_TIPO_FECHA = re.compile(r"^Tipo:\s*(\S+)\s+Fecha:\s*(\d{2}/\d{2}/\d{4})")
 PATRON_PDF_NRO_DOC = re.compile(r"^Nro\.\s*Doc\.:\s*(\S+)")
 PATRON_PDF_GLOSA = re.compile(r"^Glosa:\s*(.*)$")
@@ -363,7 +358,7 @@ def _extraer_comprobantes_pdf(ruta_archivo):
                     continue
 
                 if actual is None:
-                    continue  # texto antes del primer comprobante (título de página, etc.)
+                    continue
 
                 coincidencia = PATRON_PDF_NRO_DOC.match(texto)
                 if coincidencia:
@@ -431,8 +426,8 @@ def _procesar_pdf(carga):
     errores_a_guardar = []
     nombre_por_codigo = {}
     primera_fila_por_codigo = {}
-    claves_vistas = {}  # clave -> primera fila donde apareció, para detectar duplicados
-    numero_fila = 0  # no hay una fila de hoja de cálculo real: es un conteo secuencial
+    claves_vistas = {}
+    numero_fila = 0
 
     for indice_comprobante, comprobante in enumerate(comprobantes, start=1):
         fecha = _parsear_fecha(comprobante["fecha"])
@@ -542,7 +537,7 @@ def _procesar_hoja_calculo(carga):
     cuenta_actual = None  # (codigo, nombre), solo en el formato agrupado
     nombre_por_codigo = {}  # primer nombre visto para cada código nuevo
     primera_fila_por_codigo = {}  # primera fila donde apareció cada código nuevo
-    claves_vistas = {}  # clave -> primera fila donde apareció, para detectar duplicados
+    claves_vistas = {}
 
     for indice in range(fila_encabezado + 1, len(df)):
         fila = df.iloc[indice]

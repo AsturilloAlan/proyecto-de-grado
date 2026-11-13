@@ -14,9 +14,9 @@ DIAS = ["lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "doming
 MAXIMO_MOTIVOS = 3
 
 PERCENTIL_IMPORTE = 0.90       # importe dentro del 10 % más alto del libro
-VECES_HABITUAL = 2.0           # al menos el doble del importe habitual de su cuenta
+VECES_HABITUAL = 2.0
 MAXIMO_MOVIMIENTOS = 5         # cuenta con muy pocos movimientos en la gestión
-PROPORCION_TIPO_RARO = 0.05    # tipo de cuenta con menos del 5 % de los movimientos
+PROPORCION_TIPO_RARO = 0.05
 
 ETIQUETAS = {
     "monto": "Importe alto",

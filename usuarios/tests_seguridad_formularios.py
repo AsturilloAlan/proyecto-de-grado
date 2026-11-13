@@ -91,8 +91,6 @@ class AccesoAdversarialTests(TestCase):
             respuesta = self.client.get("/media/cargas/prueba.csv")
             self.assertEqual(respuesta.status_code, 200)
             self.assertEqual(respuesta["Content-Disposition"], "attachment")
-            # respuesta.close() dispara request_finished, que cierra la conexión a la base
-            # y rompe la transacción de las pruebas siguientes; se desconecta mientras tanto.
             request_finished.disconnect(close_old_connections)
             try:
                 respuesta.close()

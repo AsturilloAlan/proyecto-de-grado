@@ -136,6 +136,7 @@ def _conteo_avisos(carga_id):
     return {
         "avisos_pendientes": pendientes,
         "avisos_observados": conteo.get("observado", 0),
+        "avisos_seguimiento": conteo.get("seguimiento", 0),
         "avisos_validos": conteo.get("valido", 0),
     }
 
@@ -309,13 +310,14 @@ def detalle_carga(request, carga_id):
     else:
         campo_error_filtro = ""
     estado_aviso = request.GET.get("estado_aviso", "pendientes")
-    if estado_aviso not in ("pendientes", "observados", "validos"):
+    if estado_aviso not in ("pendientes", "seguimiento", "observados", "validos"):
         estado_aviso = "pendientes"
     avisos_qs = carga.errores.filter(tipo="aviso").order_by("fila")
     if campo_aviso_filtro:
         avisos_qs = avisos_qs.filter(campo=campo_aviso_filtro)
     avisos_qs = avisos_qs.filter(
-        estado_revision={"pendientes": "pendiente", "observados": "observado", "validos": "valido"}[estado_aviso]
+        estado_revision={"pendientes": "pendiente", "seguimiento": "seguimiento",
+                         "observados": "observado", "validos": "valido"}[estado_aviso]
     )
     errores_paginador = Paginator(errores_qs, 25)
     avisos_paginador = Paginator(avisos_qs, AVISOS_POR_PAGINA)
@@ -556,6 +558,7 @@ def detalle_carga(request, carga_id):
             "puede_analizar": _puede_analizar(carga),
             "estado_aviso": estado_aviso,
             "avisos_observados": conteo_avisos["avisos_observados"],
+            "avisos_seguimiento": conteo_avisos["avisos_seguimiento"],
             "avisos_validos": conteo_avisos["avisos_validos"],
             "hay_avisos": hay_avisos,
             "registros_querystring": registros_querystring,
@@ -852,9 +855,7 @@ def avisos_marcar_revisados(request, carga_id):
 @rol_requerido(*ROLES_OPERATIVOS)
 @require_POST
 def aviso_marcar_estado(request, carga_id, aviso_id):
-    """Registra la decisión del auditor sobre un aviso: válido (falso positivo) u
-    observado.
-    """
+    """Registra la decisión del auditor sobre un aviso: válido, en seguimiento u observado."""
     aviso = get_object_or_404(
         ErrorValidacion.objects.select_related("carga"),
         pk=aviso_id, carga_id=carga_id, tipo="aviso",
@@ -876,7 +877,7 @@ def aviso_marcar_estado(request, carga_id, aviso_id):
     estado = estado.strip()
     comentario = comentario.strip()
 
-    if estado not in ("valido", "observado", "pendiente"):
+    if estado not in ("valido", "seguimiento", "observado", "pendiente"):
         return JsonResponse(
             {"ok": False, "error": "Estado no válido."},
             status=400,
@@ -1134,7 +1135,7 @@ def empresas_lista(request):
     )
 
 
-@rol_requerido("Administrador")  # RF-09: los datos del cliente los gestiona solo el Administrador.
+@rol_requerido("Administrador")
 def empresa_crear(request):
     if request.method == "POST":
         form = EmpresaAuditadaForm(request.POST)

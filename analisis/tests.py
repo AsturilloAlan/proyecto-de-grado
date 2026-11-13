@@ -318,7 +318,6 @@ class IntegracionModeloTests(TestCase):
         self.assertEqual(analisis.estado, "error")
 
 
-# Validación preliminar con los auditores
 
 from io import StringIO  # noqa: E402
 
@@ -451,7 +450,6 @@ class ValidacionPreliminarTests(TestCase):
         self.assertIn("Válida", contenido)
 
 
-# Por qué el modelo señala una transacción
 
 import importlib.util  # noqa: E402
 from unittest import skipUnless  # noqa: E402

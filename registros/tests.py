@@ -1156,8 +1156,6 @@ class DetalleCargaIrAFilaTests(TestCase):
 
     def test_buscar_fila_existente_calcula_la_pagina_correcta(self):
         respuesta = self._get(fila=110)
-        # Fila 110 es la posición 109 entre las guardadas (se saltó la 61),
-        # así que cae en la página 3 (ceil(109/50) = 3).
         self.assertEqual(respuesta.context["registros_pagina"].number, 3)
         self.assertEqual(respuesta.context["fila_buscada"], 110)
         self.assertTrue(respuesta.context["fila_encontrada"])
@@ -2130,6 +2128,26 @@ class RevisionSistemaOctubreTests(TestCase):
         self.assertEqual(
             (datos["avisos_pendientes"], datos["avisos_observados"], datos["avisos_validos"]), (0, 1, 2)
         )
+
+    def test_aviso_en_seguimiento(self):
+        url = reverse("registros:aviso_marcar_estado", args=[self.carga.id, self.avisos[0].id])
+        datos = _post_json(self.client, url, {"estado": "seguimiento",
+                                              "comentario": "Pedir la factura a la empresa."}).json()
+        self.assertTrue(datos["ok"])
+        self.assertEqual((datos["avisos_pendientes"], datos["avisos_seguimiento"]), (2, 1))
+        aviso = ErrorValidacion.objects.get(pk=self.avisos[0].pk)
+        self.assertTrue(aviso.revisado)  # cuenta como revisado para confirmar la carga
+        self.assertEqual(aviso.estado_revision, "seguimiento")
+        self.assertTrue(HistorialCambio.objects.filter(
+            modelo="ErrorValidacion", objeto_id=aviso.pk, valor_nuevo__startswith="seguimiento").exists())
+        # Sin justificación no se acepta.
+        url2 = reverse("registros:aviso_marcar_estado", args=[self.carga.id, self.avisos[1].id])
+        self.assertEqual(_post_json(self.client, url2, {"estado": "seguimiento", "comentario": ""}).status_code, 400)
+        # La pestaña de seguimiento lo lista.
+        respuesta = self.client.get(reverse("registros:detalle_carga", args=[self.carga.id]),
+                                    {"pestana": "avisos", "estado_aviso": "seguimiento"})
+        self.assertContains(respuesta, f'id="aviso-fila-{aviso.id}"')
+        self.assertContains(respuesta, "En seguimiento")
 
     def test_formulario_marca_gestiones_del_cierre_de_la_empresa(self):
         respuesta = self.client.get(reverse("registros:cargar"))

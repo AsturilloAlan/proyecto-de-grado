@@ -116,7 +116,7 @@
                                 <td>
                                     <span class="small" style="color: var(--rep-secundario);">{{ h.origen }}{% if h.modelo %} · nivel {{ h.modelo.nivel_texto|lower }}{% endif %}</span>
                                     {% if h.modelo %}
-                                        {% with principal=h.modelo.motivos.0 %}{% if principal %}<div class="motivo-principal">{{ principal.texto }}</div>{% endif %}{% endwith %}
+                                        {% with principal=h.modelo.motivos.0 %}{% if principal %}<div class="motivo-principal">{{ principal.texto|capfirst }}</div>{% endif %}{% endwith %}
                                     {% endif %}
                                     {% for regla in h.reglas %}<div>{% if h.modelo %}Regla: {% endif %}{{ regla.descripcion }}</div>{% endfor %}
                                 </td>
@@ -141,10 +141,9 @@
     </section>
 
     {% if en_seguimiento %}
-    {# Puntos abiertos: se ven en pantalla para trabajarlos; no se imprimen ni van al PDF (sí al Excel). #}
     <section class="reporte-seccion no-print">
         <h2 id="en-seguimiento" style="scroll-margin-top: 1rem;">En seguimiento</h2>
-        <p class="small mb-2">Atípicas que el auditor considera útiles pero que requieren revisar otros documentos o cuentas. No forman parte de los hallazgos hasta marcarlas como observadas o válidas.</p>
+        <p class="small mb-2">Atípicas y avisos que el auditor dejó por cotejar con otros documentos o cuentas. No forman parte de los hallazgos hasta marcarlas como observadas o válidas.</p>
         <div class="table-responsive">
             <table class="table table-sm table-bordered reporte-cuadro">
                 <thead><tr>{% if varias_cargas %}<th>Carga</th>{% endif %}<th>Fecha</th><th>Cuenta</th><th>Glosa</th><th class="text-end">Importe</th><th>Qué falta revisar</th><th>Anotado por</th></tr></thead>
@@ -168,7 +167,6 @@
     </section>
     {% endif %}
 
-    {# Firmas del papel de trabajo: el socio firma una sola vez si él mismo lo elaboró. #}
     <div class="firma-bloque">
         <div>
             <div class="firma-linea">

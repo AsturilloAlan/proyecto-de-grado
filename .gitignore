@@ -40,3 +40,9 @@ configuracion_modelo_*/
 # Notas internas de revisión y contexto para el asistente (no forman parte del sistema)
 docs/revision-interfaz/
 CLAUDE.md
+
+# Respaldos locales de ajustes a la base (contienen datos personales)
+_respaldo/
+
+# Volcados de la base de datos (datos de clientes)
+*.sql

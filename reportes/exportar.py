@@ -26,8 +26,9 @@ class Seccion:
     nota: str = ""
     # Nombre corto de la hoja de Excel (máximo 31 caracteres).
     hoja: str = ""
-    # El detalle estadístico se incluye solo en Excel.
+    # El detalle estadístico se incluye solo en Excel; las versiones resumidas, solo en el PDF.
     solo_excel: bool = False
+    solo_pdf: bool = False
 
 
 @dataclass
@@ -48,7 +49,6 @@ class Documento:
     contador: str = ""
 
 
-# Formato de valores
 
 def importe(valor):
     """1234567.8 → '1.234.567,80' (formato boliviano)."""
@@ -87,14 +87,40 @@ def _nombre_archivo(tipo, empresa, gestion, carga):
     return "_".join(partes)
 
 
+def _nombre(usuario):
+    return (usuario.get_full_name() or usuario.username) if usuario else ""
+
+
+def _nombre_corto(usuario):
+    """Nombre y primer apellido, para columnas angostas."""
+    if not usuario:
+        return ""
+    partes = [usuario.first_name.split()[0] if usuario.first_name else "",
+              usuario.last_name.split()[0] if usuario.last_name else ""]
+    return " ".join(p for p in partes if p) or usuario.username
+
+
+def _corto(texto, limite):
+    texto = " ".join(str(texto or "").split())
+    return texto if len(texto) <= limite else texto[:limite - 1].rstrip() + "…"
+
+
+def _libros(contexto):
+    """Libros que entran en el reporte, en una línea: 'Libro Mayor (Excel/CSV), 21.849 registros'."""
+    carga = contexto.get("carga")
+    cargas = [carga] if carga is not None else list(contexto.get("cargas", []))
+    partes = [f"{c.get_formato_detectado_display() or 'Libro contable'}, "
+              f"{c.registros_validos:,} registros".replace(",", ".") for c in cargas]
+    return "; ".join(partes) or "Sin libros válidos"
+
+
 def _datos_comunes(contexto):
-    empresa, gestion, carga = contexto["empresa"], contexto["gestion"], contexto.get("carga")
+    empresa, gestion = contexto["empresa"], contexto["gestion"]
     datos = [
         ("Empresa auditada", f"{empresa}" + (f" (NIT {empresa.nit})" if empresa.nit else "")),
         ("Gestión", str(gestion)),
-        ("Alcance", f"Carga N.º {carga.id}" if carga else
-         f"Consolidado de {len(contexto.get('cargas', []))} carga(s) válida(s) de la gestión"),
-        ("Emitido", f"{fecha(contexto['fecha_generacion'], True)} por {contexto['generado_por'].username}"),
+        ("Libros revisados", _libros(contexto)),
+        ("Emitido", f"{fecha(contexto['fecha_generacion'], True)} por {_nombre(contexto['generado_por'])}"),
         ("Emisión N.º", str(contexto["emision"].id)),
     ]
     return datos
@@ -119,20 +145,16 @@ def _seccion_alcance(contexto, sin_analisis=()):
     filas = []
     for c in grupo["incluidas"]:
         filas.append([f"N.º {c.id}", c.get_formato_detectado_display() or "Sin dato",
-                      f"{fecha(c.fecha_carga)} · {c.usuario.username}", c.registros_validos,
+                      f"{fecha(c.fecha_carga)} · {_nombre(c.usuario)}", f"{c.registros_validos:,}".replace(",", "."),
                       "No: sin análisis del modelo" if c in sin_analisis else "Sí"])
-    for c in grupo["anuladas"]:
-        filas.append([f"N.º {c.id}", c.get_formato_detectado_display() or "Sin dato",
-                      f"{fecha(c.fecha_carga)} · {c.usuario.username}", c.registros_validos,
-                      f"No: anulada el {fecha(c.fecha_anulacion)}"])
-    for c in grupo["en_proceso"]:
-        filas.append([f"N.º {c.id}", "", "", "", "No: en proceso"])
-    return Seccion(f"Alcance: cargas de la gestión {contexto['gestion'].anio}",
-                   ["Carga", "Tipo de libro", "Subida", "Filas guardadas", "En este reporte"],
-                   filas, anchos=[1, 2, 2, 1.2, 2.5], hoja="Alcance")
+    excluidas = len(grupo["anuladas"]) + len(grupo["en_proceso"])
+    return Seccion(f"Libros de la gestión {contexto['gestion'].anio} incluidos",
+                   ["Carga", "Libro", "Subido", "Registros", "En este reporte"],
+                   filas, anchos=[1, 2, 2.4, 1.2, 2.5], numericas=(3,), hoja="Alcance",
+                   nota=("" if not excluidas else "No se incluye 1 carga anulada o en proceso." if excluidas == 1
+                         else f"No se incluyen {excluidas} cargas anuladas o en proceso."))
 
 
-# Documentos
 
 def documento_atipicas(d):
     v = d["validacion"]
@@ -161,7 +183,6 @@ def documento_atipicas(d):
         ["Revisadas", "Pendientes", "Observadas", "En seguimiento", "Válidas"],
         [[f"{v['revisadas']} de {v['atipicas']}", v["pendientes"], v["observadas"], v["seguimiento"],
           v["no_relevantes"]]], hoja="Validación"))
-    # Utilidad del modelo (validación de la investigación): solo en el Excel, no en el documento.
     secciones.append(Seccion("Utilidad de las señales del modelo",
         ["Útiles sobre lo revisado", f"Útiles entre las {v['primeras']} primeras"],
         [[porcentaje(v["precision"]), porcentaje(v["precision_primeras"])]],
@@ -179,15 +200,38 @@ def documento_atipicas(d):
                 fecha(r.fecha), r.fila_origen, r.numero_comprobante,
                 f"{r.cuenta.codigo} {r.cuenta.nombre}" + (" [tributaria]" if item["tributaria"] else ""),
                 r.glosa, _importe_lado(r),
-                "\n".join(("También: " if i else "") + m["texto"] for i, m in enumerate(item["motivos"])),
+                "\n".join(("También: " + m["texto"]) if i else m["texto"][:1].upper() + m["texto"][1:]
+                          for i, m in enumerate(item["motivos"])),
                 "; ".join(a["descripcion"] for a in item["avisos"]),
                 res.get_revision_display(), res.comentario_revision,
-                f"{res.revisado_por.username if res.revisado_por else ''} {fecha(res.fecha_revision)}".strip()]
+                f"{_nombre_corto(res.revisado_por)} {fecha(res.fecha_revision)}".strip()]
         if d["varias_cargas"]:
             fila.insert(1, item["carga_id"])
         filas.append(fila)
     secciones.append(Seccion(f"3. Listado priorizado ({len(filas)} transacciones)", columnas, filas,
-                             anchos=anchos, numericas=(columnas.index("Importe"),), hoja="Listado"))
+                             anchos=anchos, numericas=(columnas.index("Importe"),), hoja="Listado",
+                             solo_excel=True))
+    # PDF: una línea por motivo principal y textos acotados, para que el listado sea legible.
+    columnas_pdf = ["N.º", "Nivel", "Fecha", "Comprobante", "Cuenta", "Glosa", "Importe",
+                    "Motivo principal", "Validación", "Comentario del auditor"]
+    anchos_pdf = [0.45, 0.85, 1.15, 1.4, 1.9, 2.1, 1.55, 2.6, 1.3, 2.15]
+    if d["varias_cargas"]:
+        columnas_pdf.insert(1, "Carga")
+        anchos_pdf.insert(1, 0.55)
+    filas_pdf = []
+    for item in d["listado"]:
+        r, res = item["registro"], item["resultado"]
+        motivo = item["motivos"][0]["texto"] if item["motivos"] else ""
+        motivo = motivo[:1].upper() + motivo[1:]
+        fila = [item["prioridad"], res.nivel_texto, fecha(r.fecha), r.numero_comprobante,
+                _corto(f"{r.cuenta.codigo} {r.cuenta.nombre}", 40), _corto(r.glosa, 45), _importe_lado(r),
+                _corto(motivo, 95), res.get_revision_display(), _corto(res.comentario_revision, 80)]
+        if d["varias_cargas"]:
+            fila.insert(1, item["carga_id"])
+        filas_pdf.append(fila)
+    secciones.append(Seccion(f"3. Listado priorizado ({len(filas_pdf)} transacciones)", columnas_pdf, filas_pdf,
+                             anchos=anchos_pdf, numericas=(columnas_pdf.index("Importe"),), solo_pdf=True,
+                             nota="El detalle completo (todos los motivos, fila del archivo y reglas) está en el Excel."))
     t = d["tributarias"]
     secciones.append(Seccion("4. Atípicas en cuentas tributarias",
         ["Cuenta", "Nombre", "Atípicas", "Observadas", "Importe"],
@@ -226,42 +270,44 @@ def documento_atipicas(d):
 
 
 def documento_observaciones(d):
+    # Documento que se entrega y firma con la empresa: solo lo que ella necesita saber.
     avisos = _avisos_comunes(d)
-    if d["avisos_pendientes"]:
-        avisos.append(f"VERSIÓN PRELIMINAR: faltan revisar {d['avisos_pendientes']} de {d['avisos_total']} avisos.")
+    seguimiento = d.get("avisos_seguimiento", 0)
+    if d["avisos_pendientes"] or seguimiento:
+        avisos.append("VERSIÓN PRELIMINAR: la revisión todavía no concluye. No firmar hasta recibir la versión definitiva.")
     datos = _datos_comunes(d) + [
         ("Observaciones", str(len(d["filas_reporte"]))),
         ("Importe observado", importe(d["importe_observado"])),
-        ("Cobertura", f"{d['avisos_total']} avisos: {d.get('avisos_observados', 0)} observados, "
-                      f"{d['avisos_validos']} válidos, {d['avisos_pendientes']} pendientes. "
-                      f"{d.get('atipicas_observadas', 0)} transacciones atípicas observadas"),
     ]
     secciones = []
     alcance = _seccion_alcance(d)
     if alcance:
+        alcance.solo_excel = True
         secciones.append(alcance)
+    secciones.append(Seccion("Cobertura de la revisión", ["Indicador", "Valor"], [
+        ["Avisos generados por las reglas", d["avisos_total"]],
+        ["Observados", d.get("avisos_observados", 0)],
+        ["En seguimiento", seguimiento],
+        ["Válidos", d["avisos_validos"]],
+        ["Pendientes", d["avisos_pendientes"]],
+        ["Transacciones atípicas observadas", d.get("atipicas_observadas", 0)],
+    ], anchos=[3, 1], numericas=(1,), hoja="Cobertura", solo_excel=True))
     secciones.append(Seccion("Avisos por tipo de regla",
-        ["Regla", "Avisos", "Observados", "Válidos", "Pendientes"],
-        [[t["etiqueta"], t["total"], t["observados"], t["validos"], t["pendientes"]] for t in d["por_tipo"]],
+        ["Regla", "Avisos", "Observados", "En seguimiento", "Válidos", "Pendientes"],
+        [[t["etiqueta"], t["total"], t["observados"], t.get("seguimiento", 0), t["validos"], t["pendientes"]]
+         for t in d["por_tipo"]],
         # Conteo interno de la revisión: el documento que firma la empresa trae solo las observaciones.
-        anchos=[3.5, 1, 1, 1, 1], numericas=(1, 2, 3, 4), hoja="Por regla", solo_excel=True))
-    # "Justificación del contador" va vacía: la escribe el contador de la empresa al recibir el reporte.
-    columnas = ["Fila", "Fecha", "Comprobante", "Cuenta", "Importe", "Hallazgo", "Glosa",
-                "Fundamento del auditor", "Revisado por", "Justificación del contador"]
-    anchos = [0.6, 0.95, 1.2, 1.9, 1.25, 2.1, 1.9, 2.2, 1.1, 2.8]
-    if d["varias_cargas"]:
-        columnas.insert(0, "Carga")
-        anchos.insert(0, 0.6)
+        anchos=[3.5, 1, 1, 1.2, 1, 1], numericas=(1, 2, 3, 4, 5), hoja="Por regla", solo_excel=True))
+    columnas = ["N.º", "Fecha", "Comprobante", "Cuenta", "Importe", "Observación", "Glosa",
+                "Fundamento del auditor", "Justificación del contador"]
+    anchos = [0.5, 1.2, 1.5, 2.0, 1.35, 2.4, 2.2, 2.3, 2.6]
     filas = []
-    for item in d["filas_reporte"]:
+    for numero, item in enumerate(d["filas_reporte"], start=1):
         o, r = item["observacion"], item["registro"]
-        fila = [o.fila, fecha(r.fecha) if r else "", r.numero_comprobante if r else "",
-                f"{r.cuenta.codigo} {r.cuenta.nombre}" if r else "",
-                _importe_lado(r), o.descripcion, r.glosa if r else "", o.comentario_revision,
-                f"{o.revisado_por.username if o.revisado_por else ''} {fecha(o.fecha_revision)}".strip(), "\n\n\n"]
-        if d["varias_cargas"]:
-            fila.insert(0, item["carga_id"])
-        filas.append(fila)
+        filas.append([numero, fecha(r.fecha) if r else "", r.numero_comprobante if r else "",
+                      f"{r.cuenta.codigo} {r.cuenta.nombre}" if r else "",
+                      _importe_lado(r), item.get("texto", o.descripcion), r.glosa if r else "",
+                      o.comentario_revision, "\n\n\n"])
     secciones.append(Seccion("Detalle de las observaciones", columnas, filas, anchos=anchos,
                              numericas=(columnas.index("Importe"),), hoja="Observaciones"))
     return Documento(
@@ -278,7 +324,7 @@ def documento_hallazgos(d):
     avisos = _avisos_comunes(d)
     if d["es_borrador"]:
         avisos.append(f"VERSIÓN PRELIMINAR: faltan revisar {d['pendientes_modelo']} atípicas y {d['pendientes_reglas']} "
-                      f"avisos; {len(d.get('en_seguimiento', []))} atípicas en seguimiento (no incluidas).")
+                      f"avisos; {len(d.get('en_seguimiento', []))} en seguimiento (no incluidos).")
     o = d["por_origen"]
     datos = _datos_comunes(d) + [
         ("Hallazgos", f"{len(d['hallazgos'])} (modelo {o['modelo']}, reglas {o['reglas']}, ambos {o['ambos']})"),
@@ -292,7 +338,7 @@ def documento_hallazgos(d):
         secciones.append(alcance)
     columnas = ["N.º", "Fecha", "Fila", "Comprobante", "Cuenta", "Glosa", "Importe", "Origen",
                 "Qué se detectó", "Fundamento del auditor"]
-    anchos = [0.5, 1.0, 0.65, 1.3, 2.1, 2.3, 1.35, 1.1, 3.1, 2.9]
+    anchos = [0.5, 1.2, 0.8, 1.5, 2.0, 2.3, 1.35, 0.95, 3.0, 2.6]
     if d["varias_cargas"]:
         columnas.insert(1, "Carga")
         anchos.insert(1, 0.6)
@@ -320,12 +366,12 @@ def documento_hallazgos(d):
                              anchos=anchos, numericas=(columnas.index("Importe"),), hoja="Hallazgos"))
     if d.get("en_seguimiento"):
         secciones.append(Seccion(
-            "En seguimiento: atípicas que requieren revisar otros documentos o cuentas",
+            "En seguimiento: atípicas y avisos por cotejar con otros documentos o cuentas",
             ["Carga", "Fecha", "Fila", "Cuenta", "Glosa", "Importe", "Qué falta revisar", "Anotado por"],
             [[s.analisis.carga_id, fecha(s.registro.fecha), s.registro.fila_origen,
               f"{s.registro.cuenta.codigo} {s.registro.cuenta.nombre}", s.registro.glosa,
               _importe_lado(s.registro), s.comentario_revision,
-              f"{s.revisado_por.username if s.revisado_por else ''} {fecha(s.fecha_revision)}".strip()]
+              f"{_nombre_corto(s.revisado_por)} {fecha(s.fecha_revision)}".strip()]
              for s in d["en_seguimiento"]],
             anchos=[0.6, 1, 0.6, 2.2, 2.6, 1.3, 3.2, 1.5], numericas=(5,), hoja="En seguimiento",
             nota="No forman parte de los hallazgos hasta que el auditor las marque como observadas o válidas.",
@@ -344,7 +390,7 @@ def documento_expediente(empresa, filas, usuario):
     def var(valor):
         return "" if valor is None else ("+" if valor > 0 else "") + porcentaje(valor, 0)
     tabla = [[f["gestion"].anio, f"{fecha(f['gestion'].fecha_inicio)} al {fecha(f['gestion'].fecha_fin)}",
-              f["cargas"], f["anuladas"], f["registros"], f["atipicas"], var(f["variacion_atipicas"]),
+              f["cargas"], f"{f['registros']:,}".replace(",", "."), f["atipicas"], var(f["variacion_atipicas"]),
               importe(f["importe_atipicas"]), var(f["variacion_importe_atipicas"]),
               porcentaje(f["porcentaje_importe"]), f["revisadas"], f["relevantes"], f["observaciones"],
               var(f["variacion_observaciones"])] for f in filas]
@@ -352,17 +398,16 @@ def documento_expediente(empresa, filas, usuario):
         tipo="expediente", titulo="Comparativo de gestiones",
         subtitulo="Cifras de cada gestión de la empresa, con su variación frente a la gestión anterior.",
         datos=[("Empresa auditada", f"{empresa}" + (f" (NIT {empresa.nit})" if empresa.nit else "")),
-               ("Emitido", f"{fecha(timezone.now(), True)} por {usuario.username}")],
+               ("Emitido", f"{fecha(timezone.now(), True)} por {_nombre(usuario)}")],
         secciones=[Seccion("Gestiones",
-            ["Gestión", "Período", "Cargas válidas", "Anuladas", "Registros", "Atípicas", "Var. atípicas",
+            ["Gestión", "Período", "Libros", "Registros", "Atípicas", "Var. atípicas",
              "Importe atípico", "Var. importe", "% del movimiento", "Revisadas", "Útiles",
              "Observaciones", "Var. observ."],
-            tabla, anchos=[0.8, 2, 0.8, 0.8, 1, 0.9, 0.9, 1.5, 0.9, 1, 0.9, 0.9, 1, 0.9],
-            numericas=(4, 5, 7, 10, 11, 12), hoja="Gestiones")],
+            tabla, anchos=[0.8, 2, 0.7, 1, 0.9, 0.9, 1.5, 0.9, 1, 0.9, 0.9, 1, 0.9],
+            numericas=(2, 3, 4, 6, 9, 10, 11), hoja="Gestiones")],
         nombre_archivo=f"comparativo_{slugify(empresa.nombre)[:40]}_{timezone.localtime().strftime('%Y%m%d_%H%M')}")
 
 
-# Excel
 
 _INICIO_FORMULA = re.compile(r"^[=+\-@\t\r]")
 
@@ -374,6 +419,35 @@ def _celda(hoja, fila, columna, valor):
     if isinstance(valor, str) and _INICIO_FORMULA.match(valor):
         celda.data_type = "s"
     return celda
+
+
+_FECHA = re.compile(r"^(\d{2})/(\d{2})/(\d{4})$")
+_IMPORTE = re.compile(r"^(-?[\d.]+,\d{2})(?: ([DH]))?$")
+_ENTERO = re.compile(r"^\d{1,3}(\.\d{3})+$")
+_PORCENTAJE = re.compile(r"^(-?\d+(?:,\d+)?) %$")
+
+
+def _valor_excel(valor, numerica=False):
+    """Convierte los textos con formato boliviano en números y fechas reales de Excel."""
+    import datetime
+    if not isinstance(valor, str):
+        return valor, None
+    texto = valor.strip()
+    if not texto:
+        return None, None
+    m = _FECHA.match(texto)
+    if m:
+        return datetime.date(int(m.group(3)), int(m.group(2)), int(m.group(1))), "dd/mm/yyyy"
+    m = _IMPORTE.match(texto) if numerica else None
+    if m:
+        numero = float(m.group(1).replace(".", "").replace(",", "."))
+        return numero, '#,##0.00' + (f' "{m.group(2)}"' if m.group(2) else "")
+    if numerica and _ENTERO.match(texto):
+        return int(texto.replace(".", "")), "#,##0"
+    m = _PORCENTAJE.match(texto)
+    if m:
+        return float(m.group(1).replace(",", ".")) / 100, "0.0 %"
+    return valor, None
 
 
 def a_excel(doc):
@@ -412,6 +486,8 @@ def a_excel(doc):
 
     usados = set()
     for seccion in doc.secciones:
+        if seccion.solo_pdf:
+            continue
         nombre = re.sub(r"[\[\]:*?/\\]", "", seccion.hoja or seccion.titulo)[:28].strip() or "Hoja"
         base, n = nombre, 2
         while nombre in usados:
@@ -429,7 +505,10 @@ def a_excel(doc):
             celda.border = borde
         for f, valores in enumerate(seccion.filas, start=4):
             for c, valor in enumerate(valores, start=1):
+                valor, formato = _valor_excel(valor, numerica=(c - 1) in seccion.numericas)
                 celda = _celda(hoja, f, c, valor)
+                if formato:
+                    celda.number_format = formato
                 celda.border = borde
                 celda.alignment = Alignment(wrap_text=True, vertical="top",
                                             horizontal="right" if (c - 1) in seccion.numericas else "left")
@@ -453,7 +532,6 @@ def a_excel(doc):
     return salida.getvalue()
 
 
-# PDF
 
 def a_pdf(doc):
     from reportlab.lib import colors
@@ -461,8 +539,8 @@ def a_pdf(doc):
     from reportlab.lib.pagesizes import landscape, letter
     from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
     from reportlab.lib.units import mm
-    from reportlab.platypus import (Image, KeepTogether, Paragraph, SimpleDocTemplate, Spacer, Table,
-                                    TableStyle)
+    from reportlab.platypus import (CondPageBreak, Image, KeepTogether, Paragraph, SimpleDocTemplate,
+                                    Spacer, Table, TableStyle)
     from xml.sax.saxutils import escape
 
     guindo = colors.HexColor("#6E1B3F")
@@ -488,19 +566,52 @@ def a_pdf(doc):
     pagina = landscape(letter)
     ancho_util = pagina[0] - 24 * mm
 
-    def pie(canvas, documento):
-        canvas.saveState()
-        canvas.setFont("Helvetica", 7)
-        canvas.setFillColor(colors.HexColor("#777777"))
-        texto = f"{RAZON_SOCIAL} · {doc.titulo}"
-        if doc.emision:
-            texto += f" · Emisión N.º {doc.emision}"
-        canvas.drawString(12 * mm, 8 * mm, texto)
-        canvas.drawRightString(pagina[0] - 12 * mm, 8 * mm, f"Página {documento.page}")
-        canvas.restoreState()
+    rubricas = []
+    if doc.tipo == "observaciones":
+        rubricas = ["Auditor", "Contador", "Rep. legal"]
+    elif doc.tipo == "hallazgos":
+        rubricas = ["Socio"] if doc.emisor_es_socio else ["Auditor", "Socio"]
+
+    from reportlab.pdfgen.canvas import Canvas
+
+    class CanvasFoliado(Canvas):
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            self._paginas = []
+
+        def showPage(self):
+            self._paginas.append(dict(self.__dict__))
+            self._startPage()
+
+        def save(self):
+            total = len(self._paginas)
+            for estado in self._paginas:
+                self.__dict__.update(estado)
+                self._pie(total)
+                super().showPage()
+            super().save()
+
+        def _pie(self, total):
+            self.saveState()
+            self.setFont("Helvetica", 7)
+            self.setFillColor(colors.HexColor("#777777"))
+            texto = f"{RAZON_SOCIAL} · {doc.titulo}"
+            if doc.emision:
+                texto += f" · Emisión N.º {doc.emision}"
+            self.drawString(12 * mm, 8 * mm, texto)
+            self.drawRightString(pagina[0] - 12 * mm, 8 * mm, f"Página {self._pageNumber} de {total}")
+            if rubricas and self._pageNumber < total:  # la última hoja lleva las firmas completas
+                ancho, alto, x = 24 * mm, 9 * mm, pagina[0] - 12 * mm
+                for nombre in reversed(rubricas):
+                    x -= ancho
+                    self.setStrokeColor(borde)
+                    self.rect(x, 12 * mm, ancho - 2 * mm, alto)
+                    self.drawCentredString(x + (ancho - 2 * mm) / 2, 12.8 * mm, nombre)
+                self.drawRightString(x - 2 * mm, 15.5 * mm, "Rúbricas:")
+            self.restoreState()
 
     plantilla = SimpleDocTemplate(salida, pagesize=pagina, leftMargin=12 * mm, rightMargin=12 * mm,
-                                  topMargin=12 * mm, bottomMargin=14 * mm, title=doc.titulo,
+                                  topMargin=12 * mm, bottomMargin=(24 if rubricas else 14) * mm, title=doc.titulo,
                                   author=RAZON_SOCIAL)
     elementos = []
 
@@ -535,36 +646,7 @@ def a_pdf(doc):
                                ("BOTTOMPADDING", (0, 0), (-1, -1), 2)]))
     elementos.append(datos)
 
-    for seccion in doc.secciones:
-        if seccion.solo_excel:
-            continue
-        bloque = [p(seccion.titulo, seccion_estilo)]
-        if seccion.filas:
-            proporciones = seccion.anchos or [1] * len(seccion.columnas)
-            total = sum(proporciones)
-            anchos = [ancho_util * x / total for x in proporciones]
-            filas = [[p(c, cabeza) for c in seccion.columnas]]
-            for valores in seccion.filas:
-                filas.append([p(v, derecha if i in seccion.numericas else normal) for i, v in enumerate(valores)])
-            tabla = Table(filas, colWidths=anchos, repeatRows=1)
-            estilo = [("BACKGROUND", (0, 0), (-1, 0), oscuro), ("GRID", (0, 0), (-1, -1), 0.4, borde),
-                      ("VALIGN", (0, 0), (-1, -1), "TOP"), ("TOPPADDING", (0, 0), (-1, -1), 2),
-                      ("BOTTOMPADDING", (0, 0), (-1, -1), 2)]
-            for i in range(2, len(filas), 2):
-                estilo.append(("BACKGROUND", (0, i), (-1, i), suave))
-            tabla.setStyle(TableStyle(estilo))
-            bloque.append(tabla)
-        else:
-            bloque.append(p("Sin datos.", subtitulo))
-        if seccion.nota:
-            bloque += [Spacer(1, 2), p(seccion.nota, subtitulo)]
-        # Las tablas cortas no se parten entre páginas; las largas sí (repiten la cabecera).
-        elementos.append(KeepTogether(bloque) if len(seccion.filas) <= 15 else bloque[0])
-        if len(seccion.filas) > 15:
-            elementos += bloque[1:]
-
-    # Solo Hallazgos y Observaciones llevan firmas. En Hallazgos, el Administrador
-    # firma una vez si es el emisor; si emite un auditor, el socio debe aprobar.
+    firmas = None
     if doc.tipo in ("hallazgos", "observaciones"):
         firma = ParagraphStyle("firma", parent=normal, fontSize=8, leading=10, alignment=1)  # centrado
         if doc.tipo == "observaciones":
@@ -582,9 +664,46 @@ def a_pdf(doc):
         firmas = Table([celdas], colWidths=[ancho_util / max(2, len(celdas))] * len(celdas), hAlign="LEFT")
         firmas.setStyle(TableStyle([("LINEABOVE", (i, 0), (i, 0), 0.6, colors.black) for i in range(len(celdas))]
                                    + [("LEFTPADDING", (0, 0), (-1, -1), 18), ("RIGHTPADDING", (0, 0), (-1, -1), 18)]))
-        elementos += [Spacer(1, 34), KeepTogether([firmas, Spacer(1, 10), p(PIE, subtitulo)])]
-    else:
+
+    visibles = [s for s in doc.secciones if not s.solo_excel]
+    ultima = visibles[-1] if firmas is not None and visibles and visibles[-1].filas else None
+    for seccion in visibles:
+        bloque = [p(seccion.titulo, seccion_estilo)]
+        if seccion.filas:
+            proporciones = seccion.anchos or [1] * len(seccion.columnas)
+            total = sum(proporciones)
+            anchos = [ancho_util * x / total for x in proporciones]
+            filas = [[p(c, cabeza) for c in seccion.columnas]]
+            for valores in seccion.filas:
+                filas.append([p(v, derecha if i in seccion.numericas else normal) for i, v in enumerate(valores)])
+            n = len(filas)
+            estilo = [("BACKGROUND", (0, 0), (-1, 0), oscuro), ("GRID", (0, 0), (-1, n - 1), 0.4, borde),
+                      ("VALIGN", (0, 0), (-1, -1), "TOP"), ("TOPPADDING", (0, 0), (-1, -1), 2),
+                      ("BOTTOMPADDING", (0, 0), (-1, -1), 2)]
+            for i in range(2, n, 2):
+                estilo.append(("BACKGROUND", (0, i), (-1, i), suave))
+            if seccion is ultima:
+                filas.append([[Spacer(1, 70), firmas, Spacer(1, 12), p(PIE, subtitulo)]]
+                             + [""] * (len(seccion.columnas) - 1))
+                estilo += [("SPAN", (0, n), (-1, n)), ("LEFTPADDING", (0, n), (-1, n), 0),
+                           ("RIGHTPADDING", (0, n), (-1, n), 0),
+                           ("NOSPLIT", (0, max(1, n - 2)), (-1, n))]
+            tabla = Table(filas, colWidths=anchos, repeatRows=1)
+            tabla.setStyle(TableStyle(estilo))
+            bloque.append(tabla)
+        else:
+            bloque.append(p("Sin datos.", subtitulo))
+        if seccion.nota:
+            bloque += [Spacer(1, 2), p(seccion.nota, subtitulo)]
+        if len(seccion.filas) <= 5 and seccion is not ultima:
+            elementos.append(KeepTogether(bloque))
+        else:
+            elementos += [CondPageBreak(45 * mm)] + bloque
+
+    if firmas is not None and ultima is None:
+        elementos += [Spacer(1, 70), KeepTogether([firmas, Spacer(1, 12), p(PIE, subtitulo)])]
+    elif firmas is None:
         elementos += [Spacer(1, 10), p(PIE, subtitulo)]
 
-    plantilla.build(elementos, onFirstPage=pie, onLaterPages=pie)
+    plantilla.build(elementos, canvasmaker=CanvasFoliado)
     return salida.getvalue()

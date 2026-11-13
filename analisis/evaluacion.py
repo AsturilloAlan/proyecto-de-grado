@@ -26,7 +26,6 @@ TIPOS_INYECCION = {
     "sin_comprobante": "Monto alto sin número de comprobante",
 }
 
-# Inyección de casos conocidos
 
 def _monto_alto(df, indice, rng, cuantil=0.95, factor=(1.5, 3.0)):
     """Monto por encima del cuantil de la cuenta del registro, para que sea atípico."""
@@ -104,7 +103,6 @@ def inyectar_anomalias(df, proporcion_por_tipo=0.002, semilla=0):
     return pd.concat([base, pd.DataFrame(nuevas)], ignore_index=True)
 
 
-# Modelos
 
 def _matriz_variables(df_variables):
     columnas = COLUMNAS_BASE + [c for c in df_variables.columns if c.startswith("tipo_")]
@@ -128,8 +126,6 @@ def puntuar(nombre, X, contaminacion, semilla):
         predicciones = modelo.fit_predict(X)
         puntajes = -modelo.score_samples(X)
     elif nombre == "lof":
-        # LOF falla con puntos repetidos (distancia 0 entre vecinos): se ajusta sobre
-        # los vectores únicos y cada registro hereda el puntaje de su vector.
         unicos, indice = np.unique(np.asarray(X, dtype=float), axis=0, return_inverse=True)
         modelo = LocalOutlierFactor(n_neighbors=min(20, len(unicos) - 1))
         modelo.fit(unicos)
@@ -146,7 +142,6 @@ def puntuar(nombre, X, contaminacion, semilla):
     return np.asarray(puntajes, dtype=float), (predicciones == -1).astype(int), segundos
 
 
-# Métricas
 
 def _metricas_binarias(etiquetas, predicciones):
     verdaderos = int(((etiquetas == 1) & (predicciones == 1)).sum())
@@ -186,7 +181,6 @@ def _normalizar(puntajes):
     return (puntajes - minimo) / (maximo - minimo)
 
 
-# Evaluación completa
 
 def evaluar(df, nombre_dataset, repeticiones=3, contaminacion=0.05, proporcion_por_tipo=0.002):
     """Devuelve (resumen por modelo y repetición, recall por tipo de anomalía,

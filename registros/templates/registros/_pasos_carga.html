@@ -39,7 +39,6 @@
         </a>
     {% endif %}
 
-    {# 3. Atípicas: se cumple al revisar las más atípicas (las primeras del orden). #}
     {% with m=primeras_atipicas %}
     {% if m and m.primeras and m.primeras_revisadas >= m.primeras %}
         <a href="?pestana=atipicas" class="paso-carga listo">

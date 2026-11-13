@@ -139,7 +139,6 @@
     {% include "_burbuja_nav.html" %}
 {% endblock %}
 {% block extra_js %}
-{# Chart.js se sirve desde el propio sistema (static/vendor/chartjs); sin él se muestran las tablas. #}
 <script src="{% static 'vendor/chartjs/chart.umd.min.js' %}"></script>
 <script>
 (function () {

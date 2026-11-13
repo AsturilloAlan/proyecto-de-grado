@@ -32,7 +32,6 @@ from .models import PRESETS_AVATAR, PerfilUsuario
 
 logger = logging.getLogger(__name__)
 
-# Bloqueo por intentos fallidos de login (RNF-03).
 MAXIMO_INTENTOS_LOGIN = 5
 MINUTOS_BLOQUEO_LOGIN = 15
 
@@ -46,8 +45,6 @@ def _clave_bloqueo_login(username):
 
 
 def _identidad_login(username):
-    # AuthenticationForm normaliza NFKC: el límite debe usar la misma identidad.
-    # El hash mantiene la clave de caché acotada incluso con entradas hostiles.
     identidad = unicodedata.normalize("NFKC", username.strip()).casefold()
     return hashlib.sha256(identidad.encode("utf-8")).hexdigest()
 
@@ -153,14 +150,13 @@ class LoginSiempreInicioView(LoginView):
         return redirect("verificar_codigo")
 
 
-# Endurecimiento del segundo paso (2FA)
 CLAVE_SESION_INICIO_2FA = "sesion_2fa_inicio"
 CLAVE_SESION_FALLOS_2FA = "sesion_2fa_fallos"
 CLAVE_SESION_REENVIOS_2FA = "sesion_2fa_reenvios"
 CLAVE_SESION_HUELLA_2FA = "sesion_2fa_huella"
 CLAVE_SESION_CODIGO_2FA = "sesion_2fa_codigo"
 MINUTOS_VALIDEZ_PASO_2FA = 15  # tiempo máximo entre la contraseña y el código
-MAXIMO_FALLOS_2FA = 10  # fallos totales, sumando todos los códigos reenviados
+MAXIMO_FALLOS_2FA = 10
 MAXIMO_REENVIOS_2FA = 3
 SEGUNDOS_ESPERA_REENVIO = 60
 
@@ -280,7 +276,7 @@ def verificar_codigo(request):
 @login_required
 def home(request):
     """Página principal tras iniciar sesión: funciona como panel/dashboard."""
-    from registros.models import CargaArchivo, EmpresaAuditada  # import local: evita acoplar usuarios - registros a nivel de módulo
+    from registros.models import CargaArchivo, EmpresaAuditada
 
     total_empresas = EmpresaAuditada.objects.count()
     cargas = CargaArchivo.objects.select_related("empresa", "gestion", "usuario")
@@ -444,7 +440,7 @@ class CambiarClaveView(PasswordChangeView):
         return respuesta
 
     def _registrar_y_notificar_cambio(self):
-        from registros.models import HistorialCambio  # import local: evita acoplar usuarios <-> registros a nivel de módulo
+        from registros.models import HistorialCambio
 
         usuario = self.request.user
         HistorialCambio.objects.create(
