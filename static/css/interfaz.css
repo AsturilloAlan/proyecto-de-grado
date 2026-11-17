@@ -216,3 +216,6 @@ body:has(.acceso-card) .logo-footer-caja { display: none !important; }
     .tabla-fichas td[data-etiqueta="Acciones"] { display: flex; flex-wrap: wrap; gap: .5rem; padding-top: .65rem; }
     .tabla-fichas td[data-etiqueta="Acciones"]::before { display: none; }
 }
+
+/* Saludo del inicio en serif, sin apretar las letras */
+h1.saludo-inicio { font-family: "Lora", Georgia, serif; font-weight: 600; letter-spacing: 0; }

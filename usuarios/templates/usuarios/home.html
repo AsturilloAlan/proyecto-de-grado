@@ -3,9 +3,12 @@
 {% block content %}
     <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3">
         <div>
-            <h1 class="text-guindo mb-1">{{ saludo }}, {{ user.username }}</h1>
-            <p class="text-secondary mb-0">
-                Panel de <strong>ST&amp;S Auditores y Consultores S.R.L.</strong>, apoyo para la auditoría externa.
+            <div class="d-flex align-items-center gap-2">
+                <i class="bi {{ icono_saludo }} text-guindo" style="font-size: 2rem; line-height: 1;" aria-hidden="true"></i>
+                <h1 class="text-guindo mb-0 saludo-inicio">{{ saludo }}</h1>
+            </div>
+            <p class="text-secondary mb-0 mt-1">
+                <span class="fw-semibold">{{ nombre_visible }}</span> · {% if total_pendientes %}Tienes {{ total_pendientes }} carga{{ total_pendientes|pluralize }} con trabajo pendiente.{% else %}No hay trabajo pendiente.{% endif %}
             </p>
         </div>
         <span class="badge {% if es_administrador %}text-bg-dark{% else %}text-bg-secondary{% endif %} align-self-center">
@@ -54,9 +57,7 @@
         {% endif %}
     </div>
 
-    <details class="mb-4">
-        <summary class="text-guindo fw-semibold">Resumen general</summary>
-        <div class="mt-3">
+    <div>
     <div class="row g-3 mb-4">
         <div class="col-sm-6 col-xl-3">
             <div class="p-3 rounded border h-100 tarjeta-stat">
@@ -144,8 +145,7 @@
         {% endif %}
     </div>
 
-        </div>
-    </details>
+    </div>
 
     <div class="d-flex justify-content-between align-items-center gap-2 mb-3">
         <h2 class="h5 text-guindo mb-0">Actividad reciente</h2>

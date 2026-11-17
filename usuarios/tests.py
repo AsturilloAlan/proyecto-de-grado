@@ -633,3 +633,10 @@ class SaludoPorHoraTests(TestCase):
         self.assertEqual(saludo_por_hora(19), "Buenas noches")
         self.assertEqual(saludo_por_hora(0), "Buenas noches")
         self.assertEqual(saludo_por_hora(4), "Buenas noches")
+
+    def test_icono_segun_la_hora(self):
+        from .views import icono_por_hora
+        self.assertEqual(icono_por_hora(8), "bi-brightness-high")
+        self.assertEqual(icono_por_hora(15), "bi-sunset")
+        self.assertEqual(icono_por_hora(21), "bi-moon-stars")
+        self.assertEqual(icono_por_hora(3), "bi-moon-stars")

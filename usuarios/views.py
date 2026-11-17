@@ -282,6 +282,15 @@ def saludo_por_hora(hora):
     return "Buenas noches"
 
 
+def icono_por_hora(hora):
+    """Ícono de Bootstrap Icons que acompaña al saludo: sol, atardecer o luna."""
+    if 5 <= hora < 12:
+        return "bi-brightness-high"
+    if 12 <= hora < 19:
+        return "bi-sunset"
+    return "bi-moon-stars"
+
+
 @login_required
 def home(request):
     """Página principal tras iniciar sesión: funciona como panel/dashboard."""
@@ -315,13 +324,19 @@ def home(request):
     cargas_atipicas = cargas.filter(
         estado="validado", analisis__estado="completado",
         analisis__resultados__atipica=True, analisis__resultados__revision="pendiente",
-    ).distinct().order_by("fecha_carga")[:4]
+    ).distinct().order_by("fecha_carga")
+    total_pendientes = pendientes_revision.count() + cargas_atipicas.count()
+    cargas_atipicas = cargas_atipicas[:4]
+    hora = timezone.localtime().hour
 
     return render(
         request,
         "usuarios/home.html",
         {
-            "saludo": saludo_por_hora(timezone.localtime().hour),
+            "saludo": saludo_por_hora(hora),
+            "icono_saludo": icono_por_hora(hora),
+            "nombre_visible": request.user.username.replace("_", " ").capitalize(),
+            "total_pendientes": total_pendientes,
             "total_empresas": total_empresas,
             "total_cargas": total_cargas,
             "cargas_por_revisar": cargas_por_revisar,
