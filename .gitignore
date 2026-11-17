@@ -37,12 +37,14 @@ configuracion_modelo_*/
 /validacion_preliminar.csv
 *.xlsx
 
-# Notas internas de revisión y contexto para el asistente (no forman parte del sistema)
+# Notas internas de revisión (no forman parte del sistema)
 docs/revision-interfaz/
-CLAUDE.md
 
 # Respaldos locales de ajustes a la base (contienen datos personales)
 _respaldo/
 
 # Volcados de la base de datos (datos de clientes)
 *.sql
+
+# Archivos temporales para actualizar el servidor
+subir_servidor/

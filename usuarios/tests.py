@@ -621,3 +621,15 @@ class JWTLoginTests(TestCase):
         self._login_con_2fa()
         respuesta = self.client.post(reverse("logout"))
         self.assertEqual(respuesta.cookies[jwt_tokens.NOMBRE_COOKIE].value, "")
+
+
+class SaludoPorHoraTests(TestCase):
+    def test_rangos_de_hora(self):
+        from .views import saludo_por_hora
+        self.assertEqual(saludo_por_hora(5), "Buenos días")
+        self.assertEqual(saludo_por_hora(11), "Buenos días")
+        self.assertEqual(saludo_por_hora(12), "Buenas tardes")
+        self.assertEqual(saludo_por_hora(18), "Buenas tardes")
+        self.assertEqual(saludo_por_hora(19), "Buenas noches")
+        self.assertEqual(saludo_por_hora(0), "Buenas noches")
+        self.assertEqual(saludo_por_hora(4), "Buenas noches")

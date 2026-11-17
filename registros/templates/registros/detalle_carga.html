@@ -11,6 +11,8 @@
 </script>
     <style>
         .revision-atipica summary { cursor: pointer; padding-block: .35rem; }
+        .boton-asiento[aria-expanded="false"] .txt-ocultar, .boton-asiento[aria-expanded="true"] .txt-ver { display: none; }
+        .pie-asiento { padding-top: .5rem; }
         .revision-atipica summary:focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }
         @media (max-width: 767.98px) {
             #tabla-atipicas, #tabla-atipicas > tbody { display: block; width: 100%; }
@@ -18,6 +20,23 @@
             #tabla-atipicas > tbody > tr:not([hidden]) { display: block; margin-bottom: 1rem; padding: .75rem; border: 1px solid var(--bs-border-color); border-radius: .75rem; }
             #tabla-atipicas > tbody > tr > td { display: block; width: 100%; min-width: 0; border: 0; padding: .4rem 0; white-space: normal !important; text-align: left !important; overflow-wrap: anywhere; }
             #tabla-atipicas td[data-etiqueta]::before { content: attr(data-etiqueta); display: block; color: var(--bs-secondary-color); font-size: .75rem; margin-bottom: .15rem; }
+            /* Asiento desplegado: en pantallas angostas cada línea se muestra como bloque, no como columnas. */
+            .caja-asiento { max-height: 65vh; overflow-y: auto; }
+            .pie-asiento { position: sticky; bottom: 0; padding: .5rem 0; background: var(--bs-tertiary-bg); }
+            .pie-asiento .btn { width: 100%; background: var(--bs-body-bg); }
+            .tabla-asiento, .tabla-asiento > tbody { display: block; width: 100%; }
+            .tabla-asiento > thead { display: none; }
+            .tabla-asiento > tbody > tr { display: grid; grid-template-columns: 1fr 1fr; gap: .15rem .75rem; padding: .55rem .5rem; border-bottom: 1px solid var(--bs-border-color); }
+            .tabla-asiento > tbody > tr.table-warning { background: var(--bs-warning-bg-subtle); border-left: 3px solid var(--bs-warning); }
+            .tabla-asiento > tbody > tr > td { display: block; padding: 0; border: 0; background: transparent; box-shadow: none; overflow-wrap: break-word; word-break: normal; text-align: left !important; }
+            .tabla-asiento td.as-fila, .tabla-asiento td.as-cuenta, .tabla-asiento td.as-glosa { grid-column: 1 / -1; }
+            .tabla-asiento td.as-fila { font-size: .75rem; color: var(--bs-secondary-color); }
+            .tabla-asiento td.as-fila::before { content: "Fila "; }
+            .tabla-asiento td.as-cuenta { font-weight: 600; }
+            .tabla-asiento td.as-glosa { font-size: .85rem; color: var(--bs-secondary-color); }
+            .tabla-asiento td.as-debe::before { content: "Debe "; color: var(--bs-secondary-color); font-size: .75rem; }
+            .tabla-asiento td.as-haber::before { content: "Haber "; color: var(--bs-secondary-color); font-size: .75rem; }
+            .tabla-asiento td.as-debe, .tabla-asiento td.as-haber { font-variant-numeric: tabular-nums; }
         }
         .tabla-avisos td, .tabla-avisos th { padding-top: .65rem; padding-bottom: .65rem; }
         .tabla-avisos .celda-descripcion { line-height: 1.5; }
@@ -425,7 +444,7 @@
                                             <button type="button" class="btn btn-link btn-sm p-0 boton-asiento"
                                                     data-url="{% url 'registros:atipica_asiento' carga.id resultado.id %}"
                                                     data-destino="asiento-{{ resultado.id }}" aria-expanded="false">
-                                                <i class="bi bi-list-ul"></i> Ver asiento
+                                                <i class="bi bi-list-ul"></i> <span class="txt-ver">Ver asiento</span><span class="txt-ocultar">Ocultar asiento</span>
                                             </button>
                                             ·
                                             <a href="?pestana=registros&fila={{ r.fila_origen }}&volver={{ request.get_full_path|urlencode }}%23atipica-{{ resultado.id }}#fila-{{ r.fila_origen }}">Ver en registros</a>
@@ -488,10 +507,7 @@
                                 <p class="small text-secondary mt-2 mb-0">Válida: revisada, sin observación. En seguimiento: falta revisarla con otros documentos o cuentas. Observada: es un hallazgo.</p>
                             </div>
                             <div class="modal-footer justify-content-between">
-                                <div class="form-check form-switch small mb-0">
-                                    <input class="form-check-input" type="checkbox" id="atipica-continuar" checked>
-                                    <label class="form-check-label" for="atipica-continuar">Abrir la siguiente pendiente</label>
-                                </div>
+                                <span></span>
                                 <div class="d-flex gap-2">
                                     <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
                                     <button type="button" id="atipica-guardar" class="btn btn-guindo" disabled>Guardar</button>
@@ -506,6 +522,20 @@
                     var tabla = document.getElementById("tabla-atipicas");
                     if (!tabla || !window.fetch) return;
                     tabla.addEventListener("click", function (e) {
+                        // Botón "Ocultar asiento" al pie del asiento desplegado.
+                        var cerrar = e.target.closest(".cerrar-asiento");
+                        if (cerrar) {
+                            var filaAbierta = cerrar.closest("tr.fila-asiento");
+                            if (!filaAbierta) return;
+                            filaAbierta.hidden = true;
+                            var origen = tabla.querySelector('.boton-asiento[data-destino="' + filaAbierta.id + '"]');
+                            if (origen) {
+                                origen.setAttribute("aria-expanded", "false");
+                                var filaAtipica = origen.closest("tr");
+                                if (filaAtipica) filaAtipica.scrollIntoView({ block: "nearest" });
+                            }
+                            return;
+                        }
                         var boton = e.target.closest(".boton-asiento");
                         if (!boton) return;
                         var fila = document.getElementById(boton.dataset.destino);
@@ -565,12 +595,8 @@
                     });
 
                     var FILTRO_ATIPICAS = "{{ validacion_filtro|escapejs }}";
-                    // Revisión en cadena: al guardar se abre la siguiente pendiente de la página.
-                    var continuar = document.getElementById("atipica-continuar");
-                    try { continuar.checked = localStorage.getItem("revision_en_cadena") !== "no"; } catch (err) {}
-                    continuar.addEventListener("change", function () {
-                        try { localStorage.setItem("revision_en_cadena", continuar.checked ? "si" : "no"); } catch (err) {}
-                    });
+                    // Cada atípica se revisa por separado: al guardar no se abre otra.
+                    var continuar = { checked: false };
                     function siguientePendiente(desde) {
                         var botones = Array.prototype.slice.call(tabla.querySelectorAll(".atipica-revisar:not(.enlace-corregir)"));
                         for (var i = 0; i < botones.length; i++) {
@@ -1210,10 +1236,7 @@
                         <div id="modal-individual-error" class="text-danger small mt-1 d-none"></div>
                     </div>
                     <div class="modal-footer justify-content-between">
-                        <div class="form-check form-switch small mb-0">
-                            <input class="form-check-input" type="checkbox" id="aviso-continuar" checked>
-                            <label class="form-check-label" for="aviso-continuar">Abrir el siguiente pendiente</label>
-                        </div>
+                        <span></span>
                         <div class="d-flex gap-2">
                             <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
                             <button type="button" id="modal-guardar-individual" class="btn btn-guindo" disabled>
@@ -1431,11 +1454,7 @@
                     modalMarcarIndividual.show();
                 });
 
-                var avisoContinuar = document.getElementById("aviso-continuar");
-                try { avisoContinuar.checked = localStorage.getItem("revision_en_cadena") !== "no"; } catch (err) {}
-                avisoContinuar.addEventListener("change", function () {
-                    try { localStorage.setItem("revision_en_cadena", avisoContinuar.checked ? "si" : "no"); } catch (err) {}
-                });
+                var avisoContinuar = { checked: false };
                 function siguienteAvisoPendiente(fila) {
                     if (!fila) return null;
                     var botones = document.querySelectorAll(".aviso-marcar-individual.boton-revisar");

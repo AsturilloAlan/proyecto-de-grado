@@ -273,6 +273,15 @@ def verificar_codigo(request):
     })
 
 
+def saludo_por_hora(hora):
+    """Saludo según la hora local."""
+    if 5 <= hora < 12:
+        return "Buenos días"
+    if 12 <= hora < 19:
+        return "Buenas tardes"
+    return "Buenas noches"
+
+
 @login_required
 def home(request):
     """Página principal tras iniciar sesión: funciona como panel/dashboard."""
@@ -312,6 +321,7 @@ def home(request):
         request,
         "usuarios/home.html",
         {
+            "saludo": saludo_por_hora(timezone.localtime().hour),
             "total_empresas": total_empresas,
             "total_cargas": total_cargas,
             "cargas_por_revisar": cargas_por_revisar,
