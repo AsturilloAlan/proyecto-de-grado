@@ -48,3 +48,6 @@ _respaldo/
 
 # Archivos temporales para actualizar el servidor
 subir_servidor/
+
+# Resumen de validación exportado (contiene nombres de empresas)
+validacion_*.csv
