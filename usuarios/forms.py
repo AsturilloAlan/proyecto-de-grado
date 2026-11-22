@@ -7,7 +7,13 @@ from django.forms import PasswordInput, TextInput
 from .models import PerfilUsuario
 from .validadores import muy_parecidas
 
+import re
+
 ROLES_DISPONIBLES = [("Auditor", "Auditor"), ("Administrador", "Administrador")]
+PATRON_USUARIO = re.compile(r"[A-Za-z][A-Za-z0-9._-]{3,29}")
+MENSAJE_USUARIO = ("El usuario debe tener de 4 a 30 caracteres, empezar con una letra y usar solo "
+                   "letras sin tilde, números, punto, guion o guion bajo.")
+PATRON_RELLENO_NOMBRE = re.compile(r"([^\W\d_])\1{3,}|([^\w\s])\2{3,}", re.IGNORECASE | re.UNICODE)
 
 
 def _validar_email_unico(email, instancia):
@@ -25,6 +31,8 @@ def _limpiar_nombre(valor, etiqueta):
     valor = " ".join(unicodedata.normalize("NFC", valor or "").split())
     if valor and (not any(c.isalpha() for c in valor) or any(not (c.isalpha() or c in " .'-’") for c in valor)):
         raise forms.ValidationError(f"El {etiqueta} solo admite letras, espacios, puntos, apóstrofos y guiones.")
+    if valor and PATRON_RELLENO_NOMBRE.search(valor):
+        raise forms.ValidationError(f"El {etiqueta} no admite una misma letra o símbolo repetido 4 o más veces seguidas.")
     return valor
 
 
@@ -243,6 +251,16 @@ class UsuarioCrearForm(UserCreationForm):
         super().__init__(*args, **kwargs)
         for nombre_campo in ("username", "password1", "password2"):
             self.fields[nombre_campo].widget.attrs["class"] = "form-control"
+
+    def clean_username(self):
+        padre = getattr(super(), "clean_username", None)
+        usuario = padre() if padre else self.cleaned_data.get("username", "")
+        usuario = (usuario or "").strip()
+        if not PATRON_USUARIO.fullmatch(usuario):
+            raise forms.ValidationError(MENSAJE_USUARIO)
+        if PATRON_RELLENO_NOMBRE.search(usuario):
+            raise forms.ValidationError("El usuario no admite una misma letra repetida 4 o más veces seguidas.")
+        return usuario
 
     def clean_email(self):
         return _validar_email_unico(self.cleaned_data["email"], self.instance)

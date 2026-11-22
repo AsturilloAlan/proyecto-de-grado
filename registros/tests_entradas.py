@@ -15,17 +15,17 @@ from .validadores import entero_positivo
 
 class EntradasAdversarialesTests(TestCase):
     def empresa_form(self, **campos):
-        return EmpresaAuditadaForm({"nombre": "3M Bolivia S.R.L.", "categoria_cierre": "general", **campos})
+        return EmpresaAuditadaForm({"nombre": "3M Bolivia S.R.L.", "nit": "1023456021", "categoria_cierre": "general", **campos})
 
     def test_telefonos_invalidos(self):
-        for valor in ("------", "((()))", "++++++", "12-34-", "123\n456", "123\t456", "123+456", "123)456(", "12345678901234567890", "１２３４５６"):
+        for valor in ("------", "((()))", "++++++", "12-34-", "123\n456", "123\t456", "123+456", "123)456(", "12345678901234567890", "１２３４５６", "123456", "2-123456", "12345678", "86543210", "(02) 1234567", "+12345"):
             with self.subTest(valor=valor):
                 form = self.empresa_form(contacto_telefono=valor)
                 self.assertFalse(form.is_valid())
                 self.assertIn("contacto_telefono", form.errors)
 
     def test_telefonos_y_nombres_reales(self):
-        for telefono in ("76543210", "+591 76543210", "(02) 1234567", "2-123456"):
+        for telefono in ("76543210", "+591 76543210", "2-2123456", "+591 (2) 2123456", "+54 9 11 2345 6789"):
             self.assertTrue(self.empresa_form(contacto_telefono=telefono).is_valid(), telefono)
         for nombre in ("María-José O’Connor", "José Pérez", "D'Angelo", "李明", ""):
             self.assertTrue(self.empresa_form(contacto_nombre=nombre).is_valid(), nombre)
@@ -38,7 +38,7 @@ class EntradasAdversarialesTests(TestCase):
                 self.assertIn("contacto_nombre", form.errors)
 
     def test_limites_campos_y_correo(self):
-        for campo, valor in (("nombre", "a" * 201), ("nombre", "  "), ("nit", "1" * 16), ("nit", "1e10"), ("contacto_email", "a@@b.com"), ("categoria_cierre", "inventada")):
+        for campo, valor in (("nombre", "a" * 201), ("nombre", "  "), ("nit", "1" * 16), ("nit", "1" * 14), ("nit", "123456"), ("nit", "1e10"), ("contacto_email", "a@@b.com"), ("categoria_cierre", "inventada")):
             with self.subTest(campo=campo, valor=valor):
                 self.assertFalse(self.empresa_form(**{campo: valor}).is_valid())
 
@@ -159,3 +159,45 @@ class ContadorEmpresaTests(TestCase):
         malo = EmpresaAuditadaForm(data={**base, "contador_nombre": "Ana123"})
         self.assertFalse(malo.is_valid())
         self.assertIn("contador_nombre", malo.errors)
+
+
+class TextoDeRellenoTests(TestCase):
+    """Entradas de un tester: letras repetidas o nombres absurdos se rechazan."""
+
+    base = {"nombre": "Comercial Andina S.R.L.", "nit": "1023456021", "categoria_cierre": "general"}
+
+    def test_relleno_se_rechaza_en_cada_campo_de_texto(self):
+        for campo, valor in (
+            ("nombre", "a" * 80), ("nombre", "Empresa aaaa S.R.L."), ("nombre", "Empresa!!!! S.A."),
+            ("nombre", "AB"), ("nombre", "Z" + "x" * 160), ("rubro", "xxxxx"),
+            ("contacto_nombre", "Juannnnn Pérez"), ("contador_nombre", "Anaaaa"),
+        ):
+            with self.subTest(campo=campo, valor=valor):
+                form = EmpresaAuditadaForm(data={**self.base, campo: valor})
+                self.assertFalse(form.is_valid())
+                self.assertIn(campo, form.errors)
+
+    def test_nombres_reales_siguen_siendo_validos(self):
+        for nombre in ("Distribuidora III S.R.L.", "Hotel 10000 S.R.L.", "3M Bolivia S.R.L.", "Peña & Hijos S.A."):
+            with self.subTest(nombre=nombre):
+                form = EmpresaAuditadaForm(data={**self.base, "nombre": nombre})
+                self.assertTrue(form.is_valid(), form.errors)
+
+    def test_detalle_de_anulacion_de_relleno(self):
+        from .forms import AnulacionForm
+        self.assertFalse(AnulacionForm({"tipo_motivo": "otro", "detalle": "aaaaaaaaaaaa"}).is_valid())
+
+
+class RubroTests(TestCase):
+    base = {"nombre": "Comercial Andina S.R.L.", "nit": "1023456021", "categoria_cierre": "general"}
+
+    def test_rubro_con_numeros_o_simbolos_raros_se_rechaza(self):
+        for rubro in ("Rubro tecnológico 5", "Servicios #1", "Comercio_mayorista"):
+            with self.subTest(rubro=rubro):
+                self.assertIn("rubro", EmpresaAuditadaForm(data={**self.base, "rubro": rubro}).errors)
+
+    def test_rubros_reales_son_validos(self):
+        for rubro in ("Importación / exportación", "Comercio al por mayor y menor", "Servicios (consultoría)", "Construcción, obras civiles"):
+            with self.subTest(rubro=rubro):
+                form = EmpresaAuditadaForm(data={**self.base, "rubro": rubro})
+                self.assertTrue(form.is_valid(), form.errors)

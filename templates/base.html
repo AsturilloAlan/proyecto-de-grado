@@ -1153,5 +1153,190 @@
         })();
     </script>
     {% block extra_js %}{% endblock %}
+    <script>
+        /* Validación en tiempo real: aplica en pantalla las mismas reglas que el servidor.
+           El servidor vuelve a validar todo al guardar (y revisa los duplicados). */
+        (function () {
+            var anioMaximo = new Date().getFullYear() + 1;
+            var RELLENO = /(\p{L})\1{3,}|([^\p{L}\p{N}\s])\2{3,}/iu;
+            var LETRA = /\p{L}/u;
+            var MSJ_RELLENO = "No se admite una misma letra o símbolo repetido 4 o más veces seguidas.";
+            function persona(etiqueta) {
+                return function (v) {
+                    if (!LETRA.test(v) || /[^\p{L} .'\-’]/u.test(v)) return "El " + etiqueta + " solo admite letras, espacios, puntos, apóstrofos y guiones.";
+                    if (RELLENO.test(v)) return MSJ_RELLENO;
+                };
+            }
+            function correo(v) {
+                if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v)) return "Escribe un correo válido, por ejemplo nombre@dominio.com.";
+            }
+            function telefono(v) {
+                var digitos = v.replace(/\D/g, "");
+                var abre = (v.match(/\(/g) || []).length, cierra = (v.match(/\)/g) || []).length;
+                var formato = /^\+?[0-9() -]{8,20}$/.test(v) && abre === cierra && abre <= 1 && !/\(\)/.test(v);
+                var ok = false;
+                if (formato) {
+                    if (v.charAt(0) === "+" && digitos.indexOf("591") !== 0) ok = digitos.length >= 8 && digitos.length <= 15;
+                    else ok = /^[2-7][0-9]{7}$/.test(v.charAt(0) === "+" ? digitos.slice(3) : digitos);
+                }
+                if (!ok) return "Teléfono no válido: en Bolivia, 8 dígitos (fijo desde 2, 3 o 4; celular desde 6 o 7). De otro país, con + y su código, hasta 15 dígitos.";
+            }
+            function anio(v) {
+                var n = Number(v);
+                if (!/^\d{4}$/.test(v) || n < 2000 || n > anioMaximo) return "El año debe estar entre 2000 y " + anioMaximo + ".";
+            }
+            var REGLAS = {
+                nombre: function (v) {
+                    if (!LETRA.test(v)) return "El nombre de la empresa debe incluir al menos una letra; no puede ser solo números o símbolos.";
+                    if (v.length < 3 || v.length > 150) return "El nombre de la empresa debe tener entre 3 y 150 caracteres.";
+                    if (RELLENO.test(v)) return MSJ_RELLENO;
+                },
+                nit: function (v) {
+                    var d = v.replace(/\D/g, "").length;
+                    if (!/^[0-9]+([. -][0-9]+)*$/.test(v) || d < 7 || d > 13) return "NIT no válido: de 7 a 13 dígitos, con puntos o guiones opcionales.";
+                },
+                rubro: function (v) {
+                    if (!LETRA.test(v)) return "El rubro debe contener letras.";
+                    if (/[^\p{L} ,.\/\-()&’']/u.test(v)) return "El rubro solo admite letras, espacios y los signos , . / - ( ) &; sin números.";
+                    if (RELLENO.test(v)) return MSJ_RELLENO;
+                },
+                contacto_nombre: persona("nombre del representante legal"),
+                contador_nombre: persona("nombre del contador"),
+                first_name: persona("nombre"),
+                last_name: persona("apellido"),
+                contacto_email: correo, contador_email: correo, email: correo,
+                contacto_telefono: telefono, contador_telefono: telefono,
+                username: function (v) {
+                    if (/\s/.test(v)) return "Sin espacios.";
+                    if (/[^A-Za-z0-9._-]/.test(v)) return "Solo letras sin tilde, números, punto, guion o guion bajo.";
+                    if (!/^[A-Za-z]/.test(v)) return "Debe empezar con una letra.";
+                    if (v.length < 4 || v.length > 30) return "Debe tener de 4 a 30 caracteres (tiene " + v.length + ").";
+                    if (RELLENO.test(v)) return "No repitas una misma letra 4 o más veces seguidas.";
+                },
+                anio: anio, anio_gestion_inicial: anio,
+                detalle: function (v, campo) {
+                    if (!LETRA.test(v)) return "El detalle debe explicar el motivo con palabras, no solo números o símbolos.";
+                    if (RELLENO.test(v)) return MSJ_RELLENO;
+                    var otro = campo.form && campo.form.querySelector("[name=tipo_motivo][value=otro]");
+                    if (otro && otro.checked && v.length < 10) return "Para \"Otro motivo\" se requiere un detalle de al menos 10 caracteres.";
+                },
+                comentario: function (v) {
+                    if (v.length < 5 || v.length > 300) return "La justificación debe tener de 5 a 300 caracteres.";
+                    if (!LETRA.test(v)) return "La justificación debe explicar la decisión con palabras.";
+                    if (RELLENO.test(v)) return MSJ_RELLENO;
+                }
+            };
+            ["atipica-comentario", "decision-comentario", "modal-comentario-individual"].forEach(function (id) {
+                var t = document.getElementById(id);
+                if (t) t.dataset.regla = "comentario";
+            });
+            function contenedor(campo) {
+                var propio = campo.id && document.getElementById(campo.id + "_errores");
+                if (propio) return propio;
+                var caja = campo.parentElement.querySelector(".js-error");
+                if (!caja) {
+                    caja = document.createElement("div");
+                    caja.className = "text-danger small mt-1 js-error";
+                    var despues = campo.nextElementSibling && campo.nextElementSibling.classList.contains("form-text") ? campo.nextElementSibling : campo;
+                    despues.insertAdjacentElement("afterend", caja);
+                }
+                return caja;
+            }
+            function mostrar(campo, mensaje) {
+                var caja = contenedor(campo);
+                campo.parentElement.querySelectorAll(".text-danger:not(.js-error)").forEach(function (e) {
+                    if (e !== caja && !caja.contains(e)) e.remove();
+                });
+                caja.innerHTML = "";
+                if (mensaje) { var linea = document.createElement("div"); linea.textContent = mensaje; caja.appendChild(linea); }
+                campo.classList.toggle("is-invalid", !!mensaje);
+                campo.classList.toggle("is-valid", !mensaje && !!campo.value.trim() && !!campo.dataset.tocado);
+                if (mensaje) campo.setAttribute("aria-invalid", "true"); else campo.removeAttribute("aria-invalid");
+            }
+            function regla(campo) { return REGLAS[campo.dataset.regla || campo.name]; }
+            function validar(campo, alGuardar) {
+                var v = campo.value.replace(/\s+/g, " ").trim();
+                if (campo.name === "username") v = campo.value.trim();
+                var mensaje = "";
+                /* Un campo vacío solo se marca al intentar guardar o si ya se había escrito en él. */
+                if (!v) mensaje = campo.required && (alGuardar || campo.dataset.escrito) ? "Este campo es obligatorio." : "";
+                else if (regla(campo)) mensaje = regla(campo)(v, campo) || "";
+                mostrar(campo, mensaje);
+                return !mensaje;
+            }
+            function fechasGestion(form) {
+                var ini = form.querySelector("[name=fecha_inicio]"), fin = form.querySelector("[name=fecha_fin]");
+                if (!ini || !fin || !ini.value || !fin.value) { if (fin) mostrar(fin, ""); return; }
+                var a = new Date(ini.value), b = new Date(fin.value), mensaje = "";
+                if (b <= a) mensaje = "La fecha de fin debe ser posterior a la fecha de inicio.";
+                else if ((b - a) / 86400000 > 365) mensaje = "Una gestión dura como máximo un año (12 meses).";
+                mostrar(fin, mensaje);
+            }
+            document.querySelectorAll("form:not(#form-login), .modal").forEach(function (form) {
+                form.querySelectorAll("input[name], textarea[name], textarea[data-regla]").forEach(function (campo) {
+                    if (campo.dataset.validando) return;
+                    if (!regla(campo) && !campo.required) return;
+                    campo.dataset.validando = "1";
+                    if (["password", "hidden", "file", "checkbox", "radio"].indexOf(campo.type) >= 0) return;
+                    campo.addEventListener("blur", function () { campo.dataset.tocado = "1"; validar(campo); });
+                    campo.addEventListener("input", function () {
+                        if (campo.value.trim()) campo.dataset.escrito = "1";
+                        if (campo.dataset.tocado || campo.classList.contains("is-invalid")) validar(campo);
+                    });
+                });
+                form.querySelectorAll("[name=tipo_motivo]").forEach(function (r) {
+                    r.addEventListener("change", function () {
+                        var d = form.querySelector("[name=detalle]");
+                        if (d && (d.dataset.tocado || d.classList.contains("is-invalid") || d.value)) validar(d);
+                    });
+                });
+                var avatar = form.querySelector("input[type=file][name=avatar]");
+                if (avatar) avatar.addEventListener("change", function () {
+                    var f = avatar.files && avatar.files[0], mensaje = "";
+                    if (f && !/^image\/(jpeg|png|gif|webp)$/.test(f.type)) mensaje = "Elige una imagen JPG, PNG, GIF o WEBP.";
+                    else if (f && f.size > 5 * 1024 * 1024) mensaje = "La imagen pesa demasiado (máximo 5 MB).";
+                    if (mensaje) avatar.value = "";
+                    mostrar(avatar, mensaje);
+                    if (mensaje) { var caja = contenedor(avatar); caja.classList.remove("d-none"); }
+                });
+                ["fecha_inicio", "fecha_fin"].forEach(function (n) {
+                    var f = form.querySelector("[name=" + n + "]");
+                    if (f) f.addEventListener("change", function () { fechasGestion(form); });
+                });
+                /* Al guardar: se revisan todos los campos y se lleva al primero con error. */
+                if (form.tagName === "FORM") form.addEventListener("submit", function (e) {
+                    var primero = null;
+                    form.querySelectorAll("[data-validando]").forEach(function (campo) {
+                        if (campo.disabled || campo.closest("[hidden], .d-none")) return;
+                        if (!validar(campo, true) && !primero) primero = campo;
+                    });
+                    if (primero) {
+                        e.preventDefault();
+                        primero.scrollIntoView({ behavior: "smooth", block: "center" });
+                        primero.focus({ preventScroll: true });
+                    }
+                });
+            });
+        })();
+    </script>
+    <script>
+        /* Evita el doble envío: tras enviar un formulario POST, sus botones quedan deshabilitados.
+           Si otro script maneja el envío (fetch con preventDefault), no se toca nada. */
+        window.addEventListener("submit", function (e) {
+            var form = e.target;
+            if (e.defaultPrevented || !form || (form.method || "").toLowerCase() !== "post") return;
+            if (form.dataset.enviando === "1") { e.preventDefault(); return; }
+            form.dataset.enviando = "1";
+            setTimeout(function () {
+                form.querySelectorAll('button[type="submit"], input[type="submit"], button:not([type])').forEach(function (b) { b.disabled = true; });
+            }, 0);
+        });
+        window.addEventListener("pageshow", function () {
+            document.querySelectorAll("form[data-enviando]").forEach(function (f) {
+                delete f.dataset.enviando;
+                f.querySelectorAll("button, input[type=submit]").forEach(function (b) { b.disabled = false; });
+            });
+        });
+    </script>
 </body>
 </html>

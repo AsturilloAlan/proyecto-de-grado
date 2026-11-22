@@ -48,6 +48,7 @@
             <div class="mb-3">
                 <label for="{{ form.anio.id_for_label }}" class="form-label">{{ form.anio.label }}</label>
                 {{ form.anio }}
+                <div class="form-text">{{ form.anio.help_text }}</div>
                 {% for error in form.anio.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
             </div>
 
@@ -73,6 +74,7 @@
                     <div class="col-sm-6">
                         <label for="{{ form.fecha_fin.id_for_label }}" class="form-label">{{ form.fecha_fin.label }}</label>
                         {{ form.fecha_fin }}
+                        <div class="form-text">{{ form.fecha_fin.help_text }}</div>
                         {% for error in form.fecha_fin.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
                     </div>
                 </div>

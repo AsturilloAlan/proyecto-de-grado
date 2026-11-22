@@ -65,6 +65,7 @@
                             {% for error in form_personales.last_name.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
                         </div>
                     </div>
+                    <div class="form-text">Solo letras, espacios, puntos, apóstrofos y guiones.</div>
                     <div class="reautenticar" {% if abierto != 'personales' %}hidden{% endif %}>
                         <label for="{{ form_personales.clave_actual.id_for_label }}" class="form-label small mb-1">Confirma con tu contraseña</label>
                         {{ form_personales.clave_actual }}

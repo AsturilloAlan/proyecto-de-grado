@@ -20,7 +20,7 @@ from usuarios.decorators import rol_requerido
 
 from .auditoria import registrar_creacion, registrar_edicion
 from .dataset import COLUMNAS_DATASET, filas_dataset
-from .forms import AnulacionForm, CargaArchivoForm, EmpresaAuditadaForm, GestionForm
+from .forms import AnulacionForm, CargaArchivoForm, EmpresaAuditadaForm, GestionForm, texto_de_relleno
 from .validadores import entero_positivo
 from .models import (
     CargaArchivo,
@@ -704,7 +704,8 @@ def atipica_revisar(request, carga_id, resultado_id):
         messages.error(request, "Decisión no válida.")
         return redirect(destino)
     comentario = request.POST.get("comentario", "").strip()
-    if decision != "pendiente" and (not 5 <= len(comentario) <= 300 or not any(c.isalpha() for c in comentario)):
+    if decision != "pendiente" and (not 5 <= len(comentario) <= 300 or not any(c.isalpha() for c in comentario)
+                                   or texto_de_relleno(comentario)):
         error = "Registrar una justificación de 5 a 300 caracteres que explique la decisión."
         if _es_fetch(request):
             return JsonResponse({"ok": False, "error": error}, status=400)

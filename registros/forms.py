@@ -8,12 +8,29 @@ from django import forms
 
 from .models import CargaArchivo, EmpresaAuditada, Gestion
 
-PATRON_TELEFONO = re.compile(r"\+?[0-9() -]{6,20}")
+PATRON_TELEFONO = re.compile(r"\+?[0-9() -]{8,20}")
+PREFIJO_BOLIVIA = "591"
+PATRON_NUMERO_BOLIVIA = re.compile(r"[2-7][0-9]{7}")  # 2-4 fijos, 5 nacional, 6-7 celulares (ATT)
+MINIMO_DIGITOS_EXTRANJERO = 8
+MAXIMO_DIGITOS_E164 = 15
 # NIT: se aceptan dígitos con guion o puntos como separadores.
 PATRON_NIT_CARACTERES = re.compile(r"[0-9]+(?:[. -][0-9]+)*")
-NIT_MINIMO_DIGITOS = 5
-NIT_MAXIMO_DIGITOS = 15
+NIT_MINIMO_DIGITOS = 7
+NIT_MAXIMO_DIGITOS = 13
 PATRON_TIENE_LETRA = re.compile(r"[^\W\d_]", re.UNICODE)
+# Una misma letra o símbolo 4 o más veces seguidas ("aaaa", "xxxxx", "....") no aparece en
+# nombres reales; los números sí pueden repetirse ("Hotel 1000") y "III" sigue siendo válido.
+PATRON_RELLENO = re.compile(r"([^\W\d_])\1{3,}|([^\w\s])\2{3,}", re.IGNORECASE | re.UNICODE)
+NOMBRE_EMPRESA_MINIMO = 3
+NOMBRE_EMPRESA_MAXIMO = 150
+MENSAJE_RELLENO = "No se admite una misma letra o símbolo repetido 4 o más veces seguidas."
+# Rubro: descripción de la actividad, como en el padrón del SIN ("Importación / exportación").
+RUBRO_SIGNOS = " ,./-()&’'"
+
+
+def texto_de_relleno(valor):
+    """True si el texto parece relleno de prueba (por ejemplo "aaaaaaa" o "!!!!")."""
+    return bool(PATRON_RELLENO.search(valor or ""))
 
 EXTENSIONES_PERMITIDAS = [".xlsx", ".xls", ".csv", ".pdf"]
 TAMANO_MAXIMO_MB = 20
@@ -86,11 +103,27 @@ class EmpresaAuditadaForm(forms.ModelForm):
             self.fields.pop("anio_gestion_inicial")
         else:
             self.fields["anio_gestion_inicial"].widget.attrs["max"] = date.today().year + 1
+            self.fields["anio_gestion_inicial"].help_text = (
+                f"Opcional. Entre 2000 y {date.today().year + 1}; crea la primera gestión."
+            )
         for nombre in ("contacto_telefono", "contador_telefono"):
             self.fields[nombre].widget.attrs.update({"type": "tel", "maxlength": 20})
-        self.fields["nit"].help_text = "De 5 a 15 dígitos; admite puntos, espacios o guiones."
-        self.fields["contador_nombre"].help_text = ""
-        self.fields["rubro"].help_text = "Actividad principal de la empresa."
+        ayudas = {
+            "nombre": "Entre 3 y 150 caracteres, con al menos una letra. No puede repetirse.",
+            "nit": "Obligatorio. De 7 a 13 dígitos; admite puntos, espacios o guiones. No puede repetirse.",
+            "contacto_nombre": "Solo letras, espacios, puntos, apóstrofos y guiones.",
+            "contador_nombre": "Solo letras, espacios, puntos, apóstrofos y guiones.",
+            "contacto_email": "Formato nombre@dominio.com.",
+            "contador_email": "Formato nombre@dominio.com.",
+            "contacto_telefono": "Bolivia: 8 dígitos (fijo 2, 3 o 4; celular 6 o 7). Otro país: + y su código.",
+            "contador_telefono": "Bolivia: 8 dígitos (fijo 2, 3 o 4; celular 6 o 7). Otro país: + y su código.",
+        }
+        for nombre, ayuda in ayudas.items():
+            self.fields[nombre].help_text = ayuda
+        # Toda empresa que se audita está inscrita en el SIN, así que siempre tiene NIT.
+        self.fields["nit"].required = True
+        self.fields["nit"].error_messages["required"] = "El NIT es obligatorio."
+        self.fields["rubro"].help_text = "Actividad principal. Letras, espacios y , . / - ( ) &; sin números."
         self.fields["categoria_cierre"].label = "Cierre de gestión (SIN)"
         self.fields["categoria_cierre"].help_text = "Sugiere fechas para nuevas gestiones; no modifica las existentes."
         for nombre, campo in self.fields.items():
@@ -115,6 +148,13 @@ class EmpresaAuditadaForm(forms.ModelForm):
                 "El nombre de la empresa debe incluir al menos una letra; no "
                 "puede ser solo números o símbolos."
             )
+        if not NOMBRE_EMPRESA_MINIMO <= len(nombre) <= NOMBRE_EMPRESA_MAXIMO:
+            raise forms.ValidationError(
+                f"El nombre de la empresa debe tener entre {NOMBRE_EMPRESA_MINIMO} y "
+                f"{NOMBRE_EMPRESA_MAXIMO} caracteres."
+            )
+        if texto_de_relleno(nombre):
+            raise forms.ValidationError(MENSAJE_RELLENO)
         if self._otras_empresas().filter(nombre__iexact=nombre).exists():
             raise forms.ValidationError("Ya hay una empresa registrada con este nombre.")
         return nombre
@@ -123,6 +163,12 @@ class EmpresaAuditadaForm(forms.ModelForm):
         rubro = " ".join(_texto_visible(self.cleaned_data.get("rubro", "")).split())
         if rubro and not PATRON_TIENE_LETRA.search(rubro):
             raise forms.ValidationError("El rubro debe contener letras.")
+        if rubro and any(not (c.isalpha() or c in RUBRO_SIGNOS) for c in rubro):
+            raise forms.ValidationError(
+                "El rubro solo admite letras, espacios y los signos , . / - ( ) &; sin números."
+            )
+        if rubro and texto_de_relleno(rubro):
+            raise forms.ValidationError(MENSAJE_RELLENO)
         return rubro
 
     def _correo(self, campo):
@@ -150,6 +196,8 @@ class EmpresaAuditadaForm(forms.ModelForm):
             raise forms.ValidationError(
                 "El nombre del representante legal debe contener letras; se permiten espacios, puntos, apóstrofos y guiones."
             )
+        if texto_de_relleno(contacto_nombre):
+            raise forms.ValidationError(MENSAJE_RELLENO)
         return contacto_nombre
 
     def clean_contador_nombre(self):
@@ -158,6 +206,8 @@ class EmpresaAuditadaForm(forms.ModelForm):
                        or any(not (c.isalpha() or c in " .'-’") for c in nombre)):
             raise forms.ValidationError(
                 "El nombre del contador debe contener letras; se permiten espacios, puntos, apóstrofos y guiones.")
+        if texto_de_relleno(nombre):
+            raise forms.ValidationError(MENSAJE_RELLENO)
         return nombre
 
     def clean_nit(self):
@@ -185,18 +235,30 @@ class EmpresaAuditadaForm(forms.ModelForm):
         return self._telefono_valido("contador_telefono")
 
     def _telefono_valido(self, campo):
+        """Bolivia: 8 dígitos (fijo desde 2, 3 o 4; celular desde 6 o 7), con +591 opcional.
+        Otro país: + y su código, hasta 15 dígitos en total (norma UIT-T E.164)."""
         telefono = self.cleaned_data.get(campo, "").strip()
-        if telefono and (
-            not PATRON_TELEFONO.fullmatch(telefono)
-            or len(telefono) > 20
-            or not 6 <= sum(c in "0123456789" for c in telefono) <= 15
-            or telefono.count("(") != telefono.count(")")
-            or telefono.count("(") > 1
-            or ("(" in telefono and not re.search(r"\([0-9]+\)", telefono))
-            or (")" in telefono and telefono.index(")") < telefono.index("("))
-        ):
+        if not telefono:
+            return telefono
+        formato_valido = (
+            PATRON_TELEFONO.fullmatch(telefono)
+            and len(telefono) <= 20
+            and telefono.count("(") == telefono.count(")") <= 1
+            and not ("(" in telefono and not re.search(r"\([0-9]+\)", telefono))
+            and not (")" in telefono and telefono.index(")") < telefono.index("("))
+        )
+        digitos = re.sub(r"\D", "", telefono)
+        if formato_valido:
+            if telefono.startswith("+") and not digitos.startswith(PREFIJO_BOLIVIA):
+                numero_valido = MINIMO_DIGITOS_EXTRANJERO <= len(digitos) <= MAXIMO_DIGITOS_E164
+            else:
+                if telefono.startswith("+"):
+                    digitos = digitos[len(PREFIJO_BOLIVIA):]
+                numero_valido = bool(PATRON_NUMERO_BOLIVIA.fullmatch(digitos))
+        if not formato_valido or not numero_valido:
             raise forms.ValidationError(
-                "Teléfono no válido: entre 6 y 15 dígitos, con prefijo + opcional y separadores equilibrados (máximo 20 caracteres)."
+                "Teléfono no válido: en Bolivia, 8 dígitos (fijo desde 2, 3 o 4; celular desde 6 o 7). "
+                "De otro país, con + y su código, hasta 15 dígitos."
             )
         return telefono
 
@@ -232,6 +294,8 @@ class GestionForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         self.fields["fecha_inicio"].required = False
         self.fields["fecha_fin"].required = False
+        self.fields["anio"].help_text = f"Entre 2000 y {date.today().year + 1}."
+        self.fields["fecha_fin"].help_text = "Posterior al inicio; la gestión dura como máximo 12 meses."
 
     def clean_anio(self):
         anio = self.cleaned_data["anio"]
@@ -314,6 +378,8 @@ class AnulacionForm(forms.Form):
         detalle = _texto_visible(self.cleaned_data.get("detalle", ""), multilinea=True)
         if detalle and not any(c.isalpha() for c in detalle):
             raise forms.ValidationError("El detalle debe explicar el motivo con palabras, no solo números o símbolos.")
+        if texto_de_relleno(detalle):
+            raise forms.ValidationError(MENSAJE_RELLENO)
         return detalle
 
     def clean(self):

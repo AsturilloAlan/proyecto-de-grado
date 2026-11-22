@@ -5,7 +5,7 @@ from .forms import EmpresaAuditadaForm, AnulacionForm, GestionForm
 
 class RevisionFormulariosTests(TestCase):
     def empresa(self, **cambios):
-        return EmpresaAuditadaForm({"nombre": "Comercial Andina S.R.L.", "categoria_cierre": "general", **cambios})
+        return EmpresaAuditadaForm({"nombre": "Comercial Andina S.R.L.", "nit": "1023456021", "categoria_cierre": "general", **cambios})
 
     def test_texto_invisible_y_control_no_se_guardan(self):
         for campo in ("nombre", "rubro"):

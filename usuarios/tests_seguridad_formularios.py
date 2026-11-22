@@ -96,3 +96,21 @@ class AccesoAdversarialTests(TestCase):
                 respuesta.close()
             finally:
                 request_finished.connect(close_old_connections)
+
+
+
+class NombreUsuarioTests(TestCase):
+    def _form(self, usuario):
+        from .forms import UsuarioCrearForm
+        return UsuarioCrearForm({"username": usuario, "email": "nuevo@firma.com", "rol": "Auditor",
+                                 "password1": "Clave-Segura-2026", "password2": "Clave-Segura-2026"})
+
+    def test_usuarios_invalidos(self):
+        for usuario in ("s22343434aaaaaaaaaaaaaaaaa", "abc", "1auditor", "auditor con espacio", "josé", "a" * 31, "audit@r"):
+            with self.subTest(usuario=usuario):
+                self.assertIn("username", self._form(usuario).errors)
+
+    def test_usuarios_validos(self):
+        for usuario in ("auditor1", "socio_principal", "ana.perez", "j-mamani"):
+            with self.subTest(usuario=usuario):
+                self.assertNotIn("username", self._form(usuario).errors)

@@ -53,7 +53,7 @@ class EmpresaAuditadaFormTests(TestCase):
     def test_nombre_con_numeros_y_letras_es_valido(self):
         # Los nombres de empresa pueden contener números, como «3M Bolivia».
         form = EmpresaAuditadaForm(
-            data={"nombre": "3M Bolivia S.R.L.", "nit": "", "categoria_cierre": "general"}
+            data={"nombre": "3M Bolivia S.R.L.", "nit": "1023456021", "categoria_cierre": "general"}
         )
         self.assertTrue(form.is_valid(), form.errors)
 
@@ -73,11 +73,12 @@ class EmpresaAuditadaFormTests(TestCase):
         self.assertFalse(form.is_valid())
         self.assertIn("nit", form.errors)
 
-    def test_nit_vacio_es_valido_por_ser_opcional(self):
+    def test_nit_vacio_no_es_valido_por_ser_obligatorio(self):
         form = EmpresaAuditadaForm(
             data={"nombre": "Empresa X", "nit": "", "categoria_cierre": "general"}
         )
-        self.assertTrue(form.is_valid(), form.errors)
+        self.assertFalse(form.is_valid())
+        self.assertIn("nit", form.errors)
 
     def test_nit_valido_con_y_sin_digito_verificador_es_aceptado(self):
         form = EmpresaAuditadaForm(
@@ -146,7 +147,7 @@ class EmpresasCrudTests(TestCase):
             reverse("registros:empresa_crear"),
             {
                 "nombre": "Cooperativa Santa Rita R.L.",
-                "nit": "123456",
+                "nit": "1234567",
                 "rubro": "Financiero",
                 "categoria_cierre": "general",
                 "contacto_nombre": "",
@@ -199,7 +200,7 @@ class EmpresasCrudTests(TestCase):
             reverse("registros:empresa_crear"),
             {
                 "nombre": "Cooperativa Santa Rita R.L.",
-                "nit": "123456",
+                "nit": "1234567",
                 "rubro": "",
                 "categoria_cierre": "general",
                 "contacto_nombre": "",
@@ -222,7 +223,7 @@ class EmpresasCrudTests(TestCase):
             reverse("registros:empresa_crear"),
             {
                 "nombre": "Fábrica Andina S.A.",
-                "nit": "654321",
+                "nit": "7654321",
                 "rubro": "Industrial",
                 "categoria_cierre": "industrial",
                 "contacto_nombre": "",
@@ -241,7 +242,7 @@ class EmpresasCrudTests(TestCase):
             reverse("registros:empresa_crear"),
             {
                 "nombre": "Cooperativa Santa Rita R.L.",
-                "nit": "123456",
+                "nit": "1234567",
                 "rubro": "",
                 "categoria_cierre": "general",
                 "contacto_nombre": "",
@@ -266,7 +267,7 @@ class HistorialCambioTests(TestCase):
             reverse("registros:empresa_crear"),
             {
                 "nombre": "Cooperativa Santa Rita R.L.",
-                "nit": "123456",
+                "nit": "1234567",
                 "rubro": "",
                 "categoria_cierre": "general",
                 "contacto_nombre": "",
@@ -306,12 +307,12 @@ class HistorialCambioTests(TestCase):
         self.assertEqual(cambio.usuario, self.admin)
 
     def test_editar_sin_cambios_no_agrega_historial(self):
-        empresa = EmpresaAuditada.objects.create(nombre="Empresa X", nit="111222")
+        empresa = EmpresaAuditada.objects.create(nombre="Empresa X", nit="1112224")
         self.client.post(
             reverse("registros:empresa_editar", args=[empresa.id]),
             {
                 "nombre": "Empresa X",
-                "nit": "111222",
+                "nit": "1112224",
                 "rubro": "",
                 "categoria_cierre": "general",
                 "contacto_nombre": "",
@@ -2557,7 +2558,7 @@ class EmpresaDuplicadaTests(TestCase):
 
     def _form(self, **datos):
         from .forms import EmpresaAuditadaForm
-        base = {"nombre": "Nueva S.R.L.", "nit": "", "rubro": "", "categoria_cierre": "general"}
+        base = {"nombre": "Nueva S.R.L.", "nit": "1023456021", "rubro": "", "categoria_cierre": "general"}
         base.update(datos)
         return EmpresaAuditadaForm(data=base)
 

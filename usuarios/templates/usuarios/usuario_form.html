@@ -35,6 +35,7 @@
                         <div class="col-sm-6">
                             <label for="{{ form.username.id_for_label }}" class="form-label">{{ form.username.label }}</label>
                             {{ form.username }}
+                            <div class="form-text">De 4 a 30 caracteres: letras sin tilde, números, punto, guion o guion bajo; empieza con letra. No puede repetirse.</div>
                             {% for error in form.username.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
                         </div>
                     {% endif %}
@@ -54,7 +55,7 @@
                         {% if es_creacion %}
                             <label for="{{ form.email.id_for_label }}" class="form-label">{{ form.email.label }}</label>
                             {{ form.email }}
-                            <div class="form-text">Recibe el código de inicio de sesión.</div>
+                            <div class="form-text">Recibe el código de inicio de sesión; no puede repetirse.</div>
                             {% for error in form.email.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
                         {% else %}
                             <span class="form-label d-block" id="etiqueta-correo-actual">Correo electrónico</span>
@@ -62,7 +63,7 @@
                         {% endif %}
                     </div>
                 </div>
-                {% if form.first_name %}<div class="form-text mt-2">El nombre y apellido aparecen en las firmas de los reportes.</div>{% endif %}
+                {% if form.first_name %}<div class="form-text mt-2">Nombre y apellido: solo letras, espacios, puntos, apóstrofos y guiones. Aparecen en las firmas de los reportes.</div>{% endif %}
 
                 <hr class="my-3">
 
