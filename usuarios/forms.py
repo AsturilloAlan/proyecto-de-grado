@@ -251,6 +251,8 @@ class UsuarioCrearForm(UserCreationForm):
         super().__init__(*args, **kwargs)
         for nombre_campo in ("username", "password1", "password2"):
             self.fields[nombre_campo].widget.attrs["class"] = "form-control"
+        self.fields["username"].widget.attrs.update({"maxlength": 30, "autocomplete": "off", "spellcheck": "false"})
+        self.fields["email"].widget.attrs.update({"maxlength": 254, "autocomplete": "off"})
 
     def clean_username(self):
         padre = getattr(super(), "clean_username", None)

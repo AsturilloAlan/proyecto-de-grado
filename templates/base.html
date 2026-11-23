@@ -198,7 +198,7 @@
         .text-guindo { color: var(--guindo-oscuro); }
         [data-bs-theme="dark"] .text-guindo { color: #e7b8cd; }
         .form-control, .form-select { transition: border-color .15s ease, box-shadow .2s ease; }
-        .form-control:focus, .form-select:focus { border-color: var(--guindo); box-shadow: 0 0 0 .25rem rgba(110,27,63,.15); }
+        .form-control:focus, .form-select:focus { border-color: #8f8a93; box-shadow: 0 0 0 .2rem rgba(100,96,110,.14); }
         [data-bs-theme="dark"] .form-control,
         [data-bs-theme="dark"] .form-select {
             background-color: rgba(255,255,255,.06);
@@ -217,8 +217,8 @@
         [data-bs-theme="dark"] .form-control:focus,
         [data-bs-theme="dark"] .form-select:focus {
             background-color: rgba(255,255,255,.09);
-            border-color: #e7b8cd;
-            box-shadow: 0 0 0 .25rem rgba(231,184,205,.15);
+            border-color: #b7b1bb;
+            box-shadow: 0 0 0 .2rem rgba(200,196,206,.14);
             color: #fff;
         }
         [data-bs-theme="dark"] .input-group-text { background-color: rgba(255,255,255,.06); border-color: rgba(231,184,205,.25); color: #e7b8cd; }
@@ -569,6 +569,36 @@
         }
         [data-bs-theme="dark"] .aviso-flotante { background: #251b2e; box-shadow: 0 14px 34px -8px rgba(0,0,0,.6); }
         .aviso-flotante.saliendo { animation: aviso-salir .25s ease forwards; }
+        .aviso-flotante { padding-left: 1.15rem; border-color: color-mix(in srgb, var(--aviso-acento) 18%, var(--bs-border-color)); }
+        .aviso-flotante::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--aviso-acento); }
+        .aviso-flotante .aviso-icono { background: color-mix(in srgb, var(--aviso-acento) 13%, transparent); }
+        .aviso-flotante .aviso-titulo { color: var(--aviso-acento); letter-spacing: .01em; }
+        .volver-arriba { margin: 0 0 .9rem; }
+        .volver-arriba a {
+            display: inline-flex; align-items: center; gap: .45rem;
+            padding: .35rem .75rem .35rem .55rem; border-radius: 999px;
+            color: var(--bs-secondary-color); font-size: .9rem; font-weight: 500; text-decoration: none;
+            transition: color .15s, background-color .15s;
+        }
+        .volver-arriba a i { transition: transform .15s; }
+        .volver-arriba a:hover, .volver-arriba a:focus-visible { color: var(--guindo, #6b1d3a); background: color-mix(in srgb, var(--guindo, #6b1d3a) 8%, transparent); }
+        .volver-arriba a:hover i { transform: translateX(-3px); }
+        /* Campo correcto: borde normal y un check fino y pequeño. Campo con error: rojo suave. */
+        main .form-control.is-valid {
+            border-color: var(--bs-border-color);
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3.5 8.5l3 3 6-6.5' fill='none' stroke='%233f9a70' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+            background-size: .95rem; background-position: right .85rem center; padding-right: 2.3rem;
+        }
+        main .form-control.is-valid:focus { border-color: #8f8a93; box-shadow: 0 0 0 .2rem rgba(100,96,110,.14); }
+        main .form-control.is-invalid {
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ccircle cx='8' cy='8' r='6.2' fill='none' stroke='%23d0485a' stroke-width='1.4'/%3E%3Cpath d='M8 4.8v3.6' stroke='%23d0485a' stroke-width='1.5' stroke-linecap='round'/%3E%3Ccircle cx='8' cy='11' r='.85' fill='%23d0485a'/%3E%3C/svg%3E");
+            background-size: .95rem; background-position: right .85rem center; padding-right: 2.3rem;
+        }
+        main .form-control.is-invalid:focus { box-shadow: 0 0 0 .2rem rgba(208,72,90,.13); }
+        .js-error, .invalid-feedback.d-block { font-size: .85rem; }
+        .js-error:not(:empty), .invalid-feedback.d-block:not(:empty) { animation: error-aparece .18s ease-out; }
+        @keyframes error-aparece { from { opacity: 0; transform: translateY(-3px); } to { opacity: 1; transform: none; } }
+        @media (prefers-reduced-motion: reduce) { .js-error:not(:empty), .invalid-feedback.d-block:not(:empty) { animation: none; } }
         .aviso-flotante .aviso-icono {
             width: 34px; height: 34px; border-radius: 50%;
             display: grid; place-items: center; font-size: 1rem;
@@ -761,9 +791,9 @@
         {% endblock %}
 
         {% if volver_url %}
-            <a href="{{ volver_url }}" class="btn btn-sm btn-outline-guindo mb-3">
-                {{ volver_texto }}
-            </a>
+            <nav class="volver-arriba" aria-label="Navegación">
+                <a href="{{ volver_url }}"><i class="bi bi-arrow-left" aria-hidden="true"></i><span>{{ volver_texto }}</span></a>
+            </nav>
         {% endif %}
 
         <div class="card card-principal shadow-sm mx-auto {% block card_extra_class %}{% endblock %}"
@@ -1249,6 +1279,8 @@
                 });
                 caja.innerHTML = "";
                 if (mensaje) { var linea = document.createElement("div"); linea.textContent = mensaje; caja.appendChild(linea); }
+                /* Sin mensaje se quita la caja: su clase text-danger pintaría el borde de rojo. */
+                else if (caja.classList.contains("js-error")) caja.remove();
                 campo.classList.toggle("is-invalid", !!mensaje);
                 campo.classList.toggle("is-valid", !mensaje && !!campo.value.trim() && !!campo.dataset.tocado);
                 if (mensaje) campo.setAttribute("aria-invalid", "true"); else campo.removeAttribute("aria-invalid");

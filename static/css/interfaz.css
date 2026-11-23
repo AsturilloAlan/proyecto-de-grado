@@ -47,8 +47,9 @@ h1 { font-size: clamp(1.6rem, 2.6vw, 2.2rem); }
     color: var(--bs-body-color); border-radius: .65rem;
 }
 .form-control:focus, .form-select:focus, [data-bs-theme="dark"] .form-control:focus, [data-bs-theme="dark"] .form-select:focus {
-    background-color: var(--superficie); border-color: var(--acento-interfaz);
-    box-shadow: 0 0 0 .2rem color-mix(in srgb, var(--acento-interfaz) 18%, transparent);
+    /* Foco neutro (gris): el rojo/rosado queda reservado para los errores. */
+    background-color: var(--superficie); border-color: #8f8a93;
+    box-shadow: 0 0 0 .2rem rgba(100, 96, 110, .14);
 }
 [data-bs-theme="dark"] .form-select option { background: var(--superficie); color: var(--bs-body-color); }
 .form-control::placeholder, [data-bs-theme="dark"] .form-control::placeholder { color: var(--texto-suave); opacity: 1; }

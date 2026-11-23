@@ -108,6 +108,8 @@ class EmpresaAuditadaForm(forms.ModelForm):
             )
         for nombre in ("contacto_telefono", "contador_telefono"):
             self.fields[nombre].widget.attrs.update({"type": "tel", "maxlength": 20})
+        self.fields["nombre"].widget.attrs["maxlength"] = NOMBRE_EMPRESA_MAXIMO
+        self.fields["nit"].widget.attrs.update({"maxlength": 20, "inputmode": "numeric"})
         ayudas = {
             "nombre": "Entre 3 y 150 caracteres, con al menos una letra. No puede repetirse.",
             "nit": "Obligatorio. De 7 a 13 dígitos; admite puntos, espacios o guiones. No puede repetirse.",
